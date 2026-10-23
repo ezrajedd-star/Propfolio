@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Propfolio design tokens.
+ * Calm neutral surfaces with a single teal accent. Light theme by default.
+ * All text/background pairs below meet WCAG 2.1 AA (4.5:1) for normal text.
+ */
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.985 0.002 197);
+  --foreground: oklch(0.2 0.012 230);
+
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  /* Brand accent: teal. Placeholder until brand colours are supplied. */
+  --primary: oklch(0.48 0.09 192);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: oklch(0.95 0.03 190);
+
+  --secondary: oklch(0.955 0.005 220);
+  --secondary-foreground: oklch(0.25 0.012 230);
+
+  --muted: oklch(0.96 0.004 220);
+  --muted-foreground: oklch(0.45 0.015 230);
+
+  --accent: oklch(0.95 0.02 190);
+  --accent-foreground: oklch(0.3 0.06 195);
+
+  --destructive: oklch(0.52 0.19 27);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  /* Status colours — always paired with a label or icon in the UI. */
+  --success: oklch(0.5 0.12 150);
+  --success-soft: oklch(0.95 0.04 150);
+  --warning: oklch(0.55 0.13 70);
+  --warning-soft: oklch(0.96 0.05 85);
+  --danger: oklch(0.52 0.19 27);
+  --danger-soft: oklch(0.96 0.03 25);
+  --neutral-status: oklch(0.48 0.01 230);
+  --neutral-soft: oklch(0.95 0.004 230);
+
+  --border: oklch(0.91 0.006 220);
+  --input: oklch(0.82 0.01 220);
+  --ring: oklch(0.55 0.1 192);
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: var(--foreground);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-neutral-status: var(--neutral-status);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/60;
+  }
+  html {
+    /* Base font size 16px+ (brief §7). */
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Clearly visible keyboard focus everywhere. */
+  :focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+}

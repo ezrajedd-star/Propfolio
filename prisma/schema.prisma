@@ -1,0 +1,115 @@
+// Propfolio database schema.
+//
+// Conventions
+// - Primary keys are UUIDv7 (time-ordered) unless stated otherwise.
+// - Instants are `timestamptz` (stored in UTC). Business dates (lease start/end, due dates)
+//   will be `date` columns interpreted in Asia/Manila.
+// - Money will be `Decimal(14, 2)` — never floats.
+// - Business records carry createdAt/updatedAt/createdById/updatedById and are archived
+//   (`archivedAt`) rather than deleted.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LEASING_STAFF
+  VIEWER
+}
+
+model User {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  name               String
+  /// Always stored lower-cased and trimmed.
+  email              String    @unique
+  passwordHash       String
+  role               Role
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  passwordChangedAt  DateTime? @db.Timestamptz(3)
+  lastLoginAt        DateTime? @db.Timestamptz(3)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime? @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role, isActive])
+}
+
+/// Server-side session. The browser only holds an opaque random token; we store its SHA-256.
+model Session {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tokenHash  String    @unique
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  /// Absolute expiry, regardless of activity.
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tokenHash   String    @unique
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+
+  @@index([userId])
+}
+
+/// Append-only. UPDATE and DELETE are rejected by a database trigger (see migration).
+model AuditLog {
+  /// Monotonic sequence so entries have a strict order.
+  seq        BigInt   @id @default(autoincrement())
+  at         DateTime @default(now()) @db.Timestamptz(3)
+  /// Null for system actions (worker jobs) and failed logins for unknown accounts.
+  actorId    String?  @db.Uuid
+  /// Snapshot of the actor's name and role at the time of the action.
+  actorName  String?
+  actorRole  Role?
+  action     String
+  entityType String
+  entityId   String?
+  /// { field: { before, after } } for updates; full snapshot for creates.
+  changes    Json?
+  /// Extra context (e.g. reason for a void, export filters, failure reason).
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([at])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([action])
+}
+
+model Setting {
+  key         String   @id
+  value       Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+}

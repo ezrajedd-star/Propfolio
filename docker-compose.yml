@@ -1,0 +1,66 @@
+# Local / single-VM deployment. For production, point DATABASE_URL at a managed Postgres,
+# put a TLS-terminating reverse proxy (Caddy, nginx, a cloud load balancer) in front of `web`,
+# and use a real SMTP service instead of Mailpit.
+name: propfolio
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://propfolio:${POSTGRES_PASSWORD:-change-me-local-only}@postgres:5432/propfolio
+  APP_URL: ${APP_URL:-http://localhost:3000}
+  MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+  MAIL_FROM: ${MAIL_FROM:-Propfolio <no-reply@propfolio.local>}
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_USER: propfolio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local-only}
+      POSTGRES_DB: propfolio
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propfolio -d propfolio"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025" # web UI to read test emails
+      - "127.0.0.1:1025:1025" # SMTP
+
+  migrate:
+    build: { context: ., target: worker }
+    command: ["pnpm", "db:migrate"]
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    build: { context: ., target: web }
+    environment: *app-env
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., target: worker }
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
