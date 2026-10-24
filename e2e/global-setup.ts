@@ -38,6 +38,43 @@ export default async function globalSetup() {
         data: { ...u, role: roles[key], passwordHash, mustChangePassword: false },
       });
     }
+
+    // A small synthetic property for the lease flows.
+    const office = await db.unitType.create({
+      data: {
+        name: "Office",
+        reminderConfig: {
+          leadDays: [90, 60, 30],
+          repeat: "NONE",
+          repeatWeekday: null,
+          afterExpiryDays: 0,
+        },
+      },
+    });
+    const building = await db.building.create({
+      data: {
+        name: "E2E Tower",
+        code: "E2E",
+        address: "1 Test Street, Makati",
+        type: "COMMERCIAL",
+      },
+    });
+    for (const unitNumber of ["501", "502", "503"]) {
+      await db.unit.create({
+        data: { buildingId: building.id, unitNumber, unitTypeId: office.id },
+      });
+    }
+    await db.tenant.create({
+      data: {
+        type: "COMPANY",
+        displayName: "ABC Corporation",
+        contactPerson: "Maria Santos",
+        email: "maria@abc.example",
+        searchText: "abc corporation maria santos maria@abc example",
+        privacyAckDate: new Date("2026-01-01"),
+        privacyAckMethod: "SIGNED_FORM",
+      },
+    });
   } finally {
     await db.$disconnect();
   }

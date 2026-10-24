@@ -114,19 +114,21 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </a>
 
       {/* Desktop sidebar */}
-      <aside className="bg-sidebar sticky top-0 hidden h-dvh flex-col border-r lg:flex">
-        <div className="px-5 pt-6 pb-8">
-          <Link href="/" aria-label="Propfolio home">
-            <Logo />
-          </Link>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3">
-          <NavLinks role={user.role} />
-        </div>
-        <div className="border-t p-3">
-          <UserMenu user={user} />
-        </div>
-      </aside>
+      <div className="bg-sidebar hidden border-r lg:block">
+        <aside className="sticky top-0 flex h-dvh flex-col">
+          <div className="px-5 pt-6 pb-8">
+            <Link href="/" aria-label="Propfolio home">
+              <Logo />
+            </Link>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3">
+            <NavLinks role={user.role} />
+          </div>
+          <div className="border-t p-3">
+            <UserMenu user={user} />
+          </div>
+        </aside>
+      </div>
 
       {/* Mobile top bar */}
       <header className="bg-card/95 sticky top-0 z-40 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:hidden">

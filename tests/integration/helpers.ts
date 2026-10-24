@@ -57,3 +57,75 @@ export async function auditActions(entityId?: string): Promise<string[]> {
   });
   return rows.map((r) => r.action);
 }
+
+import type { ReminderConfig } from "@/domain/reminders/config";
+import { createBuilding } from "@/server/property/buildings";
+import { createUnitType } from "@/server/property/unit-types";
+import { createUnit } from "@/server/property/units";
+import { createTenant } from "@/server/tenants/service";
+
+/** A building with one unit type and the given unit numbers. */
+export async function makeProperty(
+  admin: Actor,
+  opts: { units?: string[]; reminderConfig?: ReminderConfig | null; code?: string } = {},
+) {
+  const code = opts.code ?? `B${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const building = await createBuilding(
+    admin,
+    { name: `Building ${code}`, code, address: "1 Ayala Ave, Makati", type: "COMMERCIAL" },
+    meta,
+  );
+  const unitType = await createUnitType(
+    admin,
+    {
+      name: `Office ${code}`,
+      reminderConfig:
+        opts.reminderConfig === undefined
+          ? { leadDays: [90, 60, 30], repeat: "NONE", repeatWeekday: null, afterExpiryDays: 0 }
+          : opts.reminderConfig,
+    },
+    meta,
+  );
+  const units = [];
+  for (const unitNumber of opts.units ?? ["101"]) {
+    units.push(
+      await createUnit(
+        admin,
+        { buildingId: building.id, unitNumber, unitTypeId: unitType.id },
+        meta,
+      ),
+    );
+  }
+  return { building, unitType, units };
+}
+
+export async function makeTenant(actor: Actor, name = "ABC Corporation") {
+  return createTenant(
+    actor,
+    {
+      type: "COMPANY",
+      displayName: name,
+      contactPerson: "Maria Santos",
+      email: "maria@abc.example",
+      phone: "0917 123 4567",
+      privacyAcknowledged: true,
+      privacyAckMethod: "SIGNED_FORM",
+    },
+    meta,
+  );
+}
+
+export const terms = (o: Record<string, unknown> = {}) => ({
+  startDate: "2026-01-01",
+  endDate: "2027-12-31",
+  monthlyRent: "50,000.00",
+  rentDueDay: 5,
+  securityDeposit: "100000",
+  advanceRentType: "MONTHS",
+  advanceRentMonths: 2,
+  escalationType: "PERCENT",
+  escalationPercent: "5",
+  escalationEveryMonths: 12,
+  remarks: "",
+  ...o,
+});

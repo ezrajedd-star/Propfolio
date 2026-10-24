@@ -5,8 +5,9 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phase 1 (Foundation) of 7 is complete: sign-in, roles, user management, audit
-> log, layout and design system. See [Build phases](#build-phases).
+> **Status:** Phases 1–2 of 7 are complete: sign-in, roles, users, audit log, design system,
+> plus buildings, units, unit types, tenants, the lease wizard, lease pages, renewal,
+> termination and calculated statuses. See [Build phases](#build-phases).
 
 ---
 
@@ -27,7 +28,9 @@ pnpm dev                          # app on http://localhost:3000
 pnpm worker:dev                   # background jobs (separate terminal)
 ```
 
-Seed users (synthetic, `.test` domain) are `admin@propfolio.test`, `leasing@propfolio.test`
+The seed also creates 3 buildings (including an industrial complex with standalone
+warehouses), 30 units, 20 tenants and 25 leases in every status. Lease dates are relative to the day
+you run it, so there is always something expiring. Seed users (synthetic, `.test` domain) are `admin@propfolio.test`, `leasing@propfolio.test`
 and `viewer@propfolio.test`. Their passwords are **generated on every seed run** and printed to
 the terminal. Set `SEED_PASSWORD` in `.env` if you want one fixed local password.
 
@@ -101,7 +104,8 @@ database** on every run, so never point them at real data.
 - **React Hook Form + Zod**: the same schemas validate in the browser and on the server
 - **argon2id** password hashing; server-side sessions (see [decisions](docs/decisions.md))
 - **Nodemailer + React Email** for email templates
-- **pg-boss** worker for scheduled jobs (no Redis needed)
+- **pg-boss** worker for scheduled jobs (no Redis needed): lease status sync at 00:05 and
+  housekeeping at 03:15 Manila time
 - **Vitest** (unit + integration) and **Playwright** (end-to-end)
 - Docker Compose: web, worker, Postgres, Mailpit
 
@@ -171,9 +175,20 @@ What is in place now (Phase 1):
 - **No personal data in logs:** application logs record error types and counts only, never
   email addresses, request bodies or tokens.
 
-Coming in later phases: privacy notice and acknowledgement (Phase 2), Viewer data minimisation
-for tenant data (Phases 2 and 6), document access through short-lived signed URLs (Phase 6),
-tenant data export, correction and anonymisation, and the retention screen (Phase 6).
+Added in Phase 2:
+
+- **Privacy notice** (Settings → Privacy) shown and printable whenever a tenant is added. The
+  acknowledgement date and method are recorded and required. Retention defaults to 10 years after the
+  last lease ends (see [decisions](docs/decisions.md#8-data-retention-period-and-privacy-notice-phase-2)).
+- **Proportionality:** tenants have only the fields in the brief. The TIN is optional and validated.
+- **Data minimisation for Viewers:** unit screens give Property Management only the tenant's
+  display name and lease dates. Lease, tenant, money and contact data are never sent to them, which
+  tests check against the actual payloads.
+- **Audit log** records every create, update, archive, renewal and termination. Tenant personal
+  values are not copied into it (only which fields changed), so anonymisation stays complete.
+
+Coming later: document access through short-lived signed URLs, tenant data export, correction
+and anonymisation, and the retention screen (Phase 6).
 
 ### Deployment requirements
 
@@ -216,8 +231,8 @@ with the database (see below).
 | Phase                          | Scope                                                                               | Status  |
 | ------------------------------ | ----------------------------------------------------------------------------------- | ------- |
 | 1. Foundation                  | Setup, auth, roles, users, audit log, layout, design system                         | ✅ Done |
-| 2. Property and lease register | Buildings, unit types, units, tenants, lease wizard, renewal, termination, statuses | Next    |
-| 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               |         |
+| 2. Property and lease register | Buildings, unit types, units, tenants, lease wizard, renewal, termination, statuses | ✅ Done |
+| 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | Next    |
 | 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              |         |
 | 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            |         |
 | 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           |         |

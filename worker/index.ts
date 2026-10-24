@@ -2,18 +2,34 @@
  * Background worker. Runs scheduled jobs with pg-boss (state is kept in Postgres, so no
  * extra infrastructure is needed). Jobs are idempotent and log what they did.
  *
- * Phase 1: session clean-up. Later phases add the 06:00 Asia/Manila daily job
- * (status sync, reminder digest, overdue calculations).
+ * Jobs (times are Asia/Manila):
+ * - 00:05 lease-status-sync: recompute every lease's stored status for the new day.
+ * - 03:15 housekeeping: remove old sessions and abandoned lease drafts.
+ * Later phases add the 06:00 reminder digest and overdue calculations.
  */
 import PgBoss from "pg-boss";
 
 import { BUSINESS_TIME_ZONE } from "../src/domain/time/manila";
 import { purgeOldSessions } from "../src/server/auth/session";
 import { db } from "../src/server/db";
+import { purgeOldDrafts } from "../src/server/leases/drafts";
+import { syncLeaseStatuses } from "../src/server/leases/service";
 
-const JOBS = {
-  sessionCleanup: { name: "session-cleanup", cron: "15 3 * * *" }, // 03:15 Manila daily
-} as const;
+type Job = { name: string; cron: string; run: () => Promise<string> };
+
+const JOBS: Job[] = [
+  {
+    name: "lease-status-sync",
+    cron: "5 0 * * *",
+    run: async () => `updated ${await syncLeaseStatuses()} lease status(es)`,
+  },
+  {
+    name: "housekeeping",
+    cron: "15 3 * * *",
+    run: async () =>
+      `removed ${await purgeOldSessions()} old session(s), ${await purgeOldDrafts()} old draft(s)`,
+  },
+];
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
@@ -23,17 +39,17 @@ async function main() {
   boss.on("error", (err) => console.error("[worker] pg-boss error:", err.message));
   await boss.start();
 
-  await boss.createQueue(JOBS.sessionCleanup.name);
-  await boss.schedule(
-    JOBS.sessionCleanup.name,
-    JOBS.sessionCleanup.cron,
-    {},
-    { tz: BUSINESS_TIME_ZONE },
-  );
-  await boss.work(JOBS.sessionCleanup.name, async () => {
-    const removed = await purgeOldSessions();
-    console.info(`[worker] session-cleanup removed ${removed} old session(s)`);
-  });
+  for (const job of JOBS) {
+    await boss.createQueue(job.name);
+    await boss.schedule(job.name, job.cron, {}, { tz: BUSINESS_TIME_ZONE });
+    await boss.work(job.name, async () => {
+      const started = Date.now();
+      const summary = await job.run();
+      console.info(`[worker] ${job.name}: ${summary} (${Date.now() - started} ms)`);
+    });
+  }
+  // Statuses must be right even if the worker was down at midnight.
+  console.info(`[worker] startup lease-status-sync: ${await JOBS[0]!.run()}`);
 
   console.info("[worker] started");
 

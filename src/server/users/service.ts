@@ -1,4 +1,4 @@
-import { Prisma, type User } from "@prisma/client";
+import type { User } from "@prisma/client";
 
 import { isLocked } from "@/domain/auth/lockout";
 import type { Role } from "@/domain/auth/roles";
@@ -13,6 +13,7 @@ import { NotFoundError, ValidationError } from "@/server/errors";
 import { sendEmailChangedEmail } from "@/server/mail/account-mail";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
+import { isUniqueViolation, isUuid } from "@/server/db-errors";
 
 export type UserStatus = "active" | "locked" | "inactive" | "invited";
 
@@ -75,10 +76,6 @@ const emailTaken = () =>
   new ValidationError("Please check the highlighted fields.", {
     email: "Another user already has this email address.",
   });
-
-function isUniqueViolation(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
-}
 
 /**
  * Create an account with a one-time temporary password. The Admin passes it to the person,
@@ -245,9 +242,4 @@ export async function unlockUser(
     return after;
   });
   return toView(user, now);
-}
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function isUuid(value: string): boolean {
-  return UUID.test(value);
 }

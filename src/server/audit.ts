@@ -76,3 +76,20 @@ export function diffFields<T extends Record<string, unknown>>(
   }
   return changes;
 }
+
+/**
+ * Replace personal values with a marker. The audit log is append-only and can't be anonymised
+ * later, so for personal data it records *that* a field changed, not what it said.
+ */
+export function maskPersonal(
+  changes: FieldChanges,
+  personalFields: readonly string[],
+): FieldChanges {
+  const out: FieldChanges = {};
+  for (const [k, v] of Object.entries(changes)) {
+    out[k] = personalFields.includes(k)
+      ? { before: "[personal data]", after: "[personal data]" }
+      : v;
+  }
+  return out;
+}

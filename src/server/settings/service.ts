@@ -17,10 +17,14 @@ export async function getSettings(): Promise<Settings> {
   const rows = await db.setting.findMany({
     where: { key: { in: Object.keys(SETTINGS_DEFAULTS) } },
   });
-  const merged: Record<string, unknown> = { ...SETTINGS_DEFAULTS };
-  for (const row of rows) merged[row.key] = row.value;
-  const parsed = settingsSchema.safeParse(merged);
-  return parsed.success ? parsed.data : SETTINGS_DEFAULTS;
+  const out: Record<string, unknown> = { ...SETTINGS_DEFAULTS };
+  for (const row of rows) {
+    // Validate each key on its own, so one bad value can't reset everything else.
+    const field = settingsSchema.shape[row.key as keyof Settings];
+    const parsed = field?.safeParse(row.value);
+    if (parsed?.success) out[row.key] = parsed.data;
+  }
+  return out as Settings;
 }
 
 export async function updateSettings(
@@ -35,7 +39,7 @@ export async function updateSettings(
 
   await db.$transaction(async (tx) => {
     for (const [key, value] of Object.entries(data) as [keyof Settings, unknown][]) {
-      if (value === undefined || value === current[key]) continue;
+      if (value === undefined || JSON.stringify(value) === JSON.stringify(current[key])) continue;
       changes[key] = { before: current[key], after: value };
       await tx.setting.upsert({
         where: { key },

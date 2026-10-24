@@ -11,7 +11,7 @@ export default async function Page() {
     <ComingSoon
       title="Calendar"
       description="Lease start and end dates, reminders and rent due dates in month, week and list views."
-      what="The calendar arrives in Phase 3, once leases can be added."
+      what="The calendar arrives in the next update (Phase 3). Until then, see upcoming expiries on Home and in Leases."
     />
   );
 }

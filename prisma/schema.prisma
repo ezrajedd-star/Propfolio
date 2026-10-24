@@ -113,3 +113,210 @@ model Setting {
   createdById String?  @db.Uuid
   updatedById String?  @db.Uuid
 }
+
+// ─── Property structure ────────────────────────────────────────────────────────
+
+enum BuildingType {
+  COMMERCIAL
+  RESIDENTIAL
+  INDUSTRIAL_COMPLEX
+  MIXED
+}
+
+model Building {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  name       String
+  /// Short code used in lists and unit labels, e.g. "TWR1". Unique.
+  code       String       @unique
+  address    String
+  type       BuildingType
+  notes      String?
+  archivedAt DateTime?    @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  units Unit[]
+}
+
+model UnitType {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  name           String    @unique
+  /// Default reminder settings for units of this type (ReminderConfig JSON). Null = system default.
+  reminderConfig Json?
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime? @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  units Unit[]
+}
+
+enum UnitStatusOverride {
+  UNDER_RENOVATION
+  UNAVAILABLE
+}
+
+model Unit {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  buildingId     String              @db.Uuid
+  building       Building            @relation(fields: [buildingId], references: [id])
+  /// Unit number or name, unique within the building (among non-archived units).
+  unitNumber     String
+  unitTypeId     String              @db.Uuid
+  unitType       UnitType            @relation(fields: [unitTypeId], references: [id])
+  floor          String?
+  /// Square metres.
+  floorArea      Decimal?            @db.Decimal(10, 2)
+  /// A standalone structure such as a warehouse.
+  isStandalone   Boolean             @default(false)
+  statusOverride UnitStatusOverride?
+  /// Reminder override (ReminderConfig JSON). Null = inherit from the unit type.
+  reminderConfig Json?
+  notes          String?
+  archivedAt     DateTime?           @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  leases Lease[]
+
+  @@index([buildingId])
+  @@index([unitTypeId])
+}
+
+// ─── Parties ───────────────────────────────────────────────────────────────────
+
+enum TenantType {
+  COMPANY
+  INDIVIDUAL
+}
+
+enum PrivacyAckMethod {
+  SIGNED_FORM
+  EMAIL
+  IN_PERSON
+}
+
+/// Only the fields listed in the brief (DPA proportionality). No ID numbers besides an optional TIN.
+model Tenant {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  type             TenantType
+  /// The name everyone sees, including Property Management.
+  displayName      String
+  registeredName   String?
+  tin              String?
+  contactPerson    String?
+  phone            String?
+  email            String?
+  billingAddress   String?
+  notes            String?
+  /// Date the privacy notice was acknowledged, and how.
+  privacyAckDate   DateTime?         @db.Date
+  privacyAckMethod PrivacyAckMethod?
+  /// Normalised text for forgiving search (no PII beyond what is searched anyway).
+  searchText       String            @default("")
+  anonymizedAt     DateTime?         @db.Timestamptz(3)
+  archivedAt       DateTime?         @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  leases Lease[]
+}
+
+// ─── Leases ────────────────────────────────────────────────────────────────────
+
+enum LeaseStatus {
+  UPCOMING
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  RENEWED
+  TERMINATED
+}
+
+enum AdvanceRentType {
+  NONE
+  MONTHS
+  AMOUNT
+}
+
+enum EscalationType {
+  NONE
+  /// Increase rent by `escalationPercent` every `escalationEveryMonths` months.
+  PERCENT
+  /// Rent changes to set amounts on set dates (`escalationSteps`).
+  SCHEDULE
+}
+
+model Lease {
+  id                    String          @id @default(uuid(7)) @db.Uuid
+  /// e.g. LSE-2026-0001
+  refNo                 String          @unique
+  unitId                String          @db.Uuid
+  unit                  Unit            @relation(fields: [unitId], references: [id])
+  tenantId              String          @db.Uuid
+  tenant                Tenant          @relation(fields: [tenantId], references: [id])
+  /// First and last day of the lease (inclusive), Asia/Manila calendar dates.
+  startDate             DateTime        @db.Date
+  endDate               DateTime        @db.Date
+  /// Stored for filtering; always recomputed on read and by the daily job.
+  status                LeaseStatus
+  monthlyRent           Decimal         @db.Decimal(14, 2)
+  /// Day of the month rent is due (1–28).
+  rentDueDay            Int
+  securityDeposit       Decimal         @db.Decimal(14, 2)
+  advanceRentType       AdvanceRentType @default(NONE)
+  advanceRentMonths     Int?
+  advanceRentAmount     Decimal?        @db.Decimal(14, 2)
+  escalationType        EscalationType  @default(NONE)
+  escalationPercent     Decimal?        @db.Decimal(6, 3)
+  escalationEveryMonths Int?
+  /// [{ "date": "2028-01-01", "monthlyRent": "55000.00" }, …]
+  escalationSteps       Json?
+  remarks               String?
+  /// The lease this one renews (renewal chain).
+  previousLeaseId       String?         @unique @db.Uuid
+  previousLease         Lease?          @relation("Renewal", fields: [previousLeaseId], references: [id])
+  nextLease             Lease?          @relation("Renewal")
+  terminationDate       DateTime?       @db.Date
+  terminationReason     String?
+  terminatedAt          DateTime?       @db.Timestamptz(3)
+  terminatedById        String?         @db.Uuid
+  archivedAt            DateTime?       @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([endDate])
+}
+
+/// Per-year counter for lease reference numbers.
+model LeaseCounter {
+  year    Int @id
+  lastSeq Int
+}
+
+/// The new-lease wizard's work in progress, kept on the server (not in the browser) so drafts
+/// survive navigation without leaving tenant details on shared computers.
+model LeaseDraft {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @unique @db.Uuid
+  data      Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
