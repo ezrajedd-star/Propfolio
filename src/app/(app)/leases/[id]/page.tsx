@@ -1,4 +1,4 @@
-import { FileText, Wallet } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -16,10 +16,12 @@ import { formatDateTime, formatIsoDate, manilaToday } from "@/domain/time/manila
 import { cn } from "@/lib/utils";
 import { getEntityHistory } from "@/server/audit-log/entity-history";
 import { requirePageUser } from "@/server/auth/current";
+import { getLeaseLedger } from "@/server/billing/payments";
 import { getLease } from "@/server/leases/service";
 import { getLeaseReminderView } from "@/server/reminders/queries";
 import { LeaseActions } from "./lease-actions";
 import { LeaseTabs } from "./lease-tabs";
+import { PaymentsTab } from "./payments-tab";
 import { RemindersTab } from "./reminders-tab";
 
 export const metadata: Metadata = { title: "Lease" };
@@ -36,13 +38,21 @@ function describeChange(key: string, change: unknown): string {
   return `${label}: ${fmt(c.before)} → ${fmt(c.after)}`;
 }
 
-export default async function LeasePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LeasePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const actor = await requirePageUser("lease.view");
   const { id } = await params;
-  const [lease, history, reminderView] = await Promise.all([
+  const { tab } = await searchParams;
+  const [lease, history, reminderView, ledger] = await Promise.all([
     getLease(actor, id),
     getEntityHistory(actor, "Lease", id),
     getLeaseReminderView(actor, id),
+    getLeaseLedger(actor, id),
   ]);
   const today = manilaToday();
 
@@ -191,6 +201,18 @@ export default async function LeasePage({ params }: { params: Promise<{ id: stri
                       {describeChange(k, v)}
                     </p>
                   ))}
+                  {typeof meta.paymentNo === "string" ? (
+                    <p className="text-muted-foreground text-sm">
+                      {meta.paymentNo}
+                      {typeof meta.amount === "string" ? ` · ${formatPeso(meta.amount)}` : ""}
+                    </p>
+                  ) : null}
+                  {typeof meta.description === "string" ? (
+                    <p className="text-muted-foreground text-sm">
+                      {meta.description}
+                      {typeof meta.amount === "string" ? ` · ${formatPeso(meta.amount)}` : ""}
+                    </p>
+                  ) : null}
                   {typeof meta.reason === "string" ? (
                     <p className="text-muted-foreground text-sm">Reason: {meta.reason}</p>
                   ) : null}
@@ -239,16 +261,13 @@ export default async function LeasePage({ params }: { params: Promise<{ id: stri
         }
       />
       <LeaseTabs
+        initial={tab}
         tabs={[
           { value: "overview", label: "Overview", content: overview },
           {
             value: "payments",
             label: "Payments",
-            content: (
-              <EmptyState icon={Wallet} title="Payments arrive in a later update">
-                Rent charges, payments and the balance for this lease will show here.
-              </EmptyState>
-            ),
+            content: <PaymentsTab leaseId={lease.id} ledger={ledger} today={today} />,
           },
           {
             value: "documents",

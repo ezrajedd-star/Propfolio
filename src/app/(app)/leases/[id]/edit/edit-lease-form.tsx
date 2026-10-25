@@ -24,6 +24,7 @@ import { isIsoDate } from "@/domain/time/calendar-date";
 import { formatIsoDate } from "@/domain/time/manila";
 import { useActionForm } from "@/hooks/use-action-form";
 import { updateLeaseSchema, type LeaseTermsInput } from "@/schemas/lease";
+import { previewChargesAction } from "../../../payments/actions";
 import { updateLeaseAction } from "../../actions";
 
 type Values = z.input<typeof updateLeaseSchema>;
@@ -72,6 +73,79 @@ function display(key: string, v: unknown, lookup: Record<string, string>): strin
   return n;
 }
 
+type ChargePreview = {
+  added: { description: string; dueDate: string; amount: string }[];
+  removed: { description: string; dueDate: string; amount: string }[];
+  keptAsIs: {
+    description: string;
+    dueDate: string;
+    amount: string;
+    newAmount: string | null;
+    why: string;
+  }[];
+};
+
+/** What saving would do to the lease's charges. */
+function ChargePreviewList({ preview }: { preview: ChargePreview | null }) {
+  if (!preview) {
+    return (
+      <p className="text-muted-foreground flex items-center gap-2" aria-live="polite">
+        <Loader2 className="size-4 animate-spin" aria-hidden /> Checking how the charges change…
+      </p>
+    );
+  }
+  const { added, removed, keptAsIs } = preview;
+  if (!added.length && !removed.length && !keptAsIs.length) {
+    return <p aria-live="polite">The rent charges stay the same.</p>;
+  }
+  const line = (c: { description: string; dueDate: string; amount: string }) =>
+    `${c.description} · due ${formatIsoDate(c.dueDate)} · ${formatPeso(c.amount)}`;
+  return (
+    <div className="space-y-3 rounded-lg border p-4" aria-live="polite">
+      <p className="font-medium">What happens to the charges</p>
+      {removed.length ? (
+        <div>
+          <p>Replaced ({removed.length}):</p>
+          <ul className="text-muted-foreground list-disc pl-6">
+            {removed.slice(0, 6).map((c, i) => (
+              <li key={i} className="line-through">
+                {line(c)}
+              </li>
+            ))}
+            {removed.length > 6 ? <li>and {removed.length - 6} more</li> : null}
+          </ul>
+        </div>
+      ) : null}
+      {added.length ? (
+        <div>
+          <p>New ({added.length}):</p>
+          <ul className="list-disc pl-6">
+            {added.slice(0, 6).map((c, i) => (
+              <li key={i}>{line(c)}</li>
+            ))}
+            {added.length > 6 ? <li>and {added.length - 6} more</li> : null}
+          </ul>
+        </div>
+      ) : null}
+      {keptAsIs.length ? (
+        <div>
+          <p className="text-warning font-medium">Kept as they are ({keptAsIs.length}):</p>
+          <ul className="list-disc pl-6">
+            {keptAsIs.map((c, i) => (
+              <li key={i}>
+                {line(c)} — {c.why}
+                {c.newAmount
+                  ? ` (the new terms would make it ${formatPeso(c.newAmount)}; adjust with a charge if needed)`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function EditLeaseForm({
   leaseId,
   units,
@@ -85,6 +159,7 @@ export function EditLeaseForm({
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const [preview, setPreview] = useState<ChargePreview | null>(null);
   const { form, error, pending, onSubmit, errors } = useActionForm(
     updateLeaseSchema,
     original,
@@ -139,9 +214,10 @@ export function EditLeaseForm({
                 </li>
               ))}
             </ul>
+            <ChargePreviewList preview={preview} />
             <p className="text-muted-foreground">
-              Reminder dates follow the new end date automatically. (When payments are added in a
-              later update, only future unpaid rent charges will be recalculated.)
+              Reminder dates follow the new end date automatically. Only future, unpaid rent charges
+              are recalculated; payments already recorded are never changed.
             </p>
           </CardContent>
         </Card>
@@ -218,8 +294,12 @@ export function EditLeaseForm({
             onClick={async () => {
               if (
                 await form.trigger(Object.keys(original) as Path<Values>[], { shouldFocus: true })
-              )
+              ) {
+                setPreview(null);
                 setConfirming(true);
+                const r = await previewChargesAction(leaseId, form.getValues());
+                if (r.ok) setPreview(r.data);
+              }
             }}
           >
             {changes.length === 0 ? (

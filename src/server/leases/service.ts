@@ -31,6 +31,8 @@ import { getSettings } from "@/server/settings/service";
 import { parseInput } from "@/server/validation";
 import { syncReminders } from "@/server/reminders/sync";
 import { reminderSummaries } from "@/server/reminders/summary";
+import { syncLeaseCharges } from "@/server/billing/charges";
+import { balancesForLeases } from "@/server/billing/balances";
 import type { ReminderSummary } from "@/domain/reminders/digest";
 import { leaseDatesOf, leaseStatusInclude, statusOf, unitReminderConfig } from "./status-context";
 
@@ -76,6 +78,9 @@ export interface LeaseRow {
   archived: boolean;
   /** Filled in for list views (leases grid); null elsewhere. */
   reminder: ReminderSummary | null;
+  /** Amount due now and the overdue part of it (list views); null elsewhere. */
+  balanceDue: string | null;
+  overdue: string | null;
 }
 
 export interface LeaseDetail extends LeaseRow, LeaseTermsView {
@@ -168,6 +173,8 @@ function toRow(l: LeaseWithRow, system: ReminderConfig, today: IsoDate): LeaseRo
     remarks: l.remarks,
     archived: l.archivedAt !== null,
     reminder: null,
+    balanceDue: null,
+    overdue: null,
   };
 }
 
@@ -178,6 +185,8 @@ export interface LeaseFilters {
   endingWithinDays?: number;
   buildingId?: string;
   unitTypeId?: string;
+  /** Only leases with an overdue balance. */
+  overdueOnly?: boolean;
   /** Only these leases (e.g. rows selected for export). */
   ids?: string[];
   includeArchived?: boolean;
@@ -242,7 +251,17 @@ export async function listLeases(
       stopped: r.archived || r.status === "RENEWED" || r.status === "TERMINATED",
     })),
   );
-  return out.map((r) => ({ ...r, reminder: summaries.get(r.id) ?? null }));
+  const balances = await balancesForLeases(
+    out.map((r) => r.id),
+    now,
+  );
+  const withExtras = out.map((r) => ({
+    ...r,
+    reminder: summaries.get(r.id) ?? null,
+    balanceDue: balances.get(r.id)?.balanceDue ?? "0.00",
+    overdue: balances.get(r.id)?.overdue ?? "0.00",
+  }));
+  return filters.overdueOnly ? withExtras.filter((r) => Number(r.overdue) > 0) : withExtras;
 }
 
 async function loadLease(id: string): Promise<LeaseWithRow> {
@@ -492,6 +511,7 @@ export async function createLease(
       return lease;
     }),
   );
+  await syncLeaseCharges(created.id, actor, now, "New lease");
   await syncReminders({ leaseIds: [created.id] }, now);
   return created;
 }
@@ -579,6 +599,7 @@ export async function updateLease(
       return lease;
     }),
   );
+  await syncLeaseCharges(id, actor, now, "Lease terms changed");
   await syncReminders({ leaseIds: [id] }, now);
   return updated;
 }
@@ -669,6 +690,7 @@ export async function renewLease(
     }),
   );
   // Renewing stops the old lease's reminders and schedules the new one's.
+  await syncLeaseCharges(renewal.id, actor, now, "Renewal");
   await syncReminders({ leaseIds: [prev.id, renewal.id] }, now);
   return renewal;
 }
@@ -725,6 +747,7 @@ export async function terminateLease(
     return lease;
   });
   // Ending a lease early stops its expiry reminders.
+  await syncLeaseCharges(id, actor, now);
   await syncReminders({ leaseIds: [id] }, now);
   return terminated;
 }

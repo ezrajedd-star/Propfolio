@@ -108,6 +108,52 @@ export default async function globalSetup() {
         securityDeposit: "130000",
       },
     });
+
+    // A lease behind on rent, for the payment flows: two unpaid months, one upcoming.
+    const unit701 = await db.unit.create({
+      data: { buildingId: building.id, unitNumber: "701", unitTypeId: office.id },
+    });
+    const payTenant = await db.tenant.create({
+      data: {
+        type: "COMPANY",
+        displayName: "Overdue Trading Inc.",
+        contactPerson: "Paolo Cruz",
+        searchText: "overdue trading inc paolo cruz",
+        privacyAckDate: new Date("2026-01-01"),
+        privacyAckMethod: "EMAIL",
+      },
+    });
+    const payLease = await db.lease.create({
+      data: {
+        refNo: "LSE-E2E-0002",
+        unitId: unit701.id,
+        tenantId: payTenant.id,
+        startDate: iso(-70),
+        endDate: iso(300),
+        status: "ACTIVE",
+        monthlyRent: "40000",
+        rentDueDay: 1,
+        securityDeposit: "0",
+        advanceRentType: "NONE",
+        escalationType: "NONE",
+      },
+    });
+    for (const [n, days] of [
+      [1, -45],
+      [2, -15],
+      [3, 15],
+    ] as const) {
+      await db.charge.create({
+        data: {
+          leaseId: payLease.id,
+          type: "RENT",
+          key: iso(days).toISOString().slice(0, 10),
+          dueDate: iso(days),
+          amount: "40000",
+          description: `Rent, month ${n}`,
+        },
+      });
+    }
   } finally {
     await db.$disconnect();
   }

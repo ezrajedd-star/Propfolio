@@ -27,6 +27,7 @@ type Search = {
   ending?: string;
   building?: string;
   unitType?: string;
+  overdue?: string;
 };
 
 const ENDING = ["30", "60", "90"];
@@ -52,12 +53,15 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
       buildingId: sp.building,
       unitTypeId: sp.unitType,
       includeArchived: sp.archived === "1",
+      overdueOnly: sp.overdue === "1",
     }),
     getGridLayout(actor),
     listBuildings(actor),
     listUnitTypes(actor),
   ]);
-  const filtered = Boolean(sp.q || status || current || ending || sp.building || sp.unitType);
+  const filtered = Boolean(
+    sp.q || status || current || ending || sp.building || sp.unitType || sp.overdue === "1",
+  );
   const exportQuery = new URLSearchParams(
     Object.entries(sp).filter(([, v]) => v) as [string, string][],
   ).toString();
@@ -103,13 +107,14 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
             active={current ? "CURRENT" : (status ?? "")}
             hrefFor={(v) => withParams("/leases", sp, { status: v || undefined })}
           />
-          <span
-            className="text-muted-foreground inline-flex h-10 cursor-not-allowed items-center rounded-full border border-dashed px-4"
-            title="Available once payments are added"
-            aria-disabled="true"
-          >
-            Overdue (coming soon)
-          </span>
+          <FilterChips
+            label="Payments"
+            options={[{ value: "1", label: "Overdue" }]}
+            active={sp.overdue === "1" ? "1" : ""}
+            hrefFor={() =>
+              withParams("/leases", sp, { overdue: sp.overdue === "1" ? undefined : "1" })
+            }
+          />
         </div>
         <Suspense>
           <div className="flex flex-wrap gap-4">
@@ -161,6 +166,7 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
             editTenant: can(actor.role, "tenant.edit"),
             archive: can(actor.role, "record.archive"),
             export: can(actor.role, "data.export"),
+            record: can(actor.role, "payment.record"),
           }}
         />
       )}

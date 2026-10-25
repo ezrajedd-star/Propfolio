@@ -44,6 +44,12 @@ const LABELS: Record<string, string> = {
   "reminder.digest_sent": "Sent the daily reminder email",
   "reminder.digest_failed": "Daily reminder email failed",
   "reminder.digest_retry": "Retried the daily reminder email",
+  "charge.sync": "Updated rent charges",
+  "charge.add": "Added a charge",
+  "charge.void": "Voided a charge",
+  "payment.record": "Recorded a payment",
+  "payment.void": "Voided a payment",
+  "payment.apply_credit": "Used credit to pay charges",
 };
 
 export function auditActionLabel(action: string): string {

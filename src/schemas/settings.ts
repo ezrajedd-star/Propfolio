@@ -26,7 +26,7 @@ export const settingsSchema = z.object({
     .int("Use whole years.")
     .min(1, "Use at least 1 year.")
     .max(30, "Use at most 30 years."),
-  /** Add a short "overdue payments" section to the daily reminder email (needs Payments, Phase 5). */
+  /** Add a short "overdue payments" section to the daily reminder email. */
   digestIncludeOverdue: z.boolean(),
 });
 export type Settings = z.infer<typeof settingsSchema>;

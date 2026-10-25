@@ -31,6 +31,7 @@ export const GET = apiRoute(async (req) => {
         buildingId: sp.get("building") ?? undefined,
         unitTypeId: sp.get("unitType") ?? undefined,
         includeArchived: sp.get("archived") === "1",
+        overdueOnly: sp.get("overdue") === "1",
         ids: sp.get("ids") ? sp.get("ids")!.split(",").slice(0, 2000) : undefined,
       },
     },

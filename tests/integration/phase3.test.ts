@@ -211,9 +211,16 @@ describe("export", () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(xlsx.body as unknown as ArrayBuffer);
     const ws = wb.getWorksheet("Leases")!;
-    expect(ws.getRow(1).values).toEqual([undefined, "Ref No.", "Monthly rent", "End"]);
+    expect(ws.getRow(1).values).toEqual([
+      undefined,
+      "Ref No.",
+      "Monthly rent",
+      "End",
+      "Balance due",
+    ]);
     expect(ws.rowCount).toBe(3);
     expect(ws.getRow(2).getCell(2).value).toBe(50000);
+    expect(typeof ws.getRow(2).getCell(4).value).toBe("number");
 
     const exports = await db.auditLog.findMany({ where: { action: "data.export" } });
     expect(exports).toHaveLength(2);

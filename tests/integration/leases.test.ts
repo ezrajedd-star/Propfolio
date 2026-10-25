@@ -53,7 +53,9 @@ describe("creating leases", () => {
     expect(second.refNo).toBe("LSE-2026-0002");
 
     const history = await getEntityHistory(staff, "Lease", lease.id);
-    expect(history.map((h) => h.action)).toEqual(["lease.create"]);
+    expect(history.map((h) => h.action).filter((a) => a.startsWith("lease."))).toEqual([
+      "lease.create",
+    ]);
   });
 
   it("blocks overlapping leases on the same unit with a clear message", async () => {
@@ -366,7 +368,9 @@ describe("termination", () => {
       meta,
       NOW,
     );
-    const entry = (await getEntityHistory(staff, "Lease", l.id))[0];
+    const entry = (await getEntityHistory(staff, "Lease", l.id)).find((h) =>
+      h.action.startsWith("lease."),
+    );
     expect(entry).toMatchObject({
       action: "lease.terminate",
       metadata: { reason: "Tenant is relocating" },
@@ -427,7 +431,9 @@ describe("editing terms", () => {
       meta,
       NOW,
     );
-    const [entry] = await getEntityHistory(staff, "Lease", a.id);
+    const entry = (await getEntityHistory(staff, "Lease", a.id)).find(
+      (h) => h.action === "lease.update",
+    );
     expect(entry?.changes).toEqual({ monthlyRent: { before: "50000.00", after: "52500.00" } });
 
     // Moving lease B onto unit 101 would overlap lease A.

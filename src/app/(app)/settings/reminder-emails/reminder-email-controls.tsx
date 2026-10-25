@@ -66,8 +66,7 @@ export function OverdueToggle({ initial }: { initial: boolean }) {
           Include a short &ldquo;overdue payments&rdquo; section
         </span>
         <span className="text-muted-foreground block text-sm">
-          Shows the number and total of overdue payments, with a link. Starts working once payments
-          are added.
+          Lists the leases with overdue rent and the total, with a link to the Payments page.
         </span>
       </Label>
     </div>

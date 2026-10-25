@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { greeting } from "@/domain/time/greeting";
 import { formatDate, formatIsoDate } from "@/domain/time/manila";
+import { formatPeso } from "@/domain/money/money";
 import { cn } from "@/lib/utils";
 import { requirePageUser } from "@/server/auth/current";
 import { getDashboard } from "@/server/dashboard";
@@ -56,7 +57,14 @@ function SummaryCard({
       <span className={cn("flex size-11 items-center justify-center rounded-full", tones[tone])}>
         <Icon className="size-6" aria-hidden />
       </span>
-      <span className="mt-4 block text-3xl font-semibold tabular-nums">{value}</span>
+      <span
+        className={cn(
+          "mt-4 block font-semibold tabular-nums",
+          value.length > 10 ? "text-2xl" : "text-3xl",
+        )}
+      >
+        {value}
+      </span>
       <span className="text-muted-foreground mt-1 block">{label}</span>
     </>
   );
@@ -97,46 +105,61 @@ export default async function HomePage() {
             {dash.leases.attention.length === 0 ? (
               <p className="bg-card flex items-center gap-2 rounded-xl border p-4">
                 <CircleCheck className="text-success size-5" aria-hidden /> Nothing urgent. No
-                leases end in the next 30 days, and every reminder has been handled.
+                leases end in the next 30 days, every reminder has been handled, and nobody is
+                overdue.
               </p>
             ) : (
               <ul className="bg-card divide-y rounded-xl border">
-                {dash.leases.attention.map(({ lease: l, endingSoon, reminderNotHandled }) => (
-                  <li key={l.id} className="flex flex-wrap items-center gap-3 p-4">
-                    {reminderNotHandled ? (
-                      <BellRing className="text-warning size-5" aria-hidden />
-                    ) : (
-                      <AlertTriangle className="text-warning size-5" aria-hidden />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {l.tenant.displayName} · Unit {l.unit.unitNumber}, {l.building.name}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {l.timeLeft} ({formatIsoDate(l.terminationDate ?? l.endDate)})
-                        {reminderNotHandled ? " · reminder sent, not handled yet" : ""}
-                      </p>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/leases/${l.id}`}>Open lease</Link>
-                    </Button>
-                    {reminderNotHandled ? (
-                      <MarkHandledButton
-                        size="sm"
-                        variant="outline"
-                        leaseId={l.id}
-                        tenantName={l.tenant.displayName}
-                      />
-                    ) : null}
-                    {endingSoon || l.status === "EXPIRED" ? (
-                      <Button asChild size="sm">
-                        <Link href={`/leases/${l.id}/renew`}>
-                          <RefreshCw aria-hidden /> Renew
-                        </Link>
+                {dash.leases.attention.map(
+                  ({ lease: l, endingSoon, reminderNotHandled, overdue }) => (
+                    <li key={l.id} className="flex flex-wrap items-center gap-3 p-4">
+                      {reminderNotHandled ? (
+                        <BellRing className="text-warning size-5" aria-hidden />
+                      ) : (
+                        <AlertTriangle className="text-warning size-5" aria-hidden />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">
+                          {l.tenant.displayName} · Unit {l.unit.unitNumber}, {l.building.name}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {l.timeLeft} ({formatIsoDate(l.terminationDate ?? l.endDate)})
+                          {reminderNotHandled ? " · reminder sent, not handled yet" : ""}
+                        </p>
+                        {overdue ? (
+                          <p className="text-danger font-medium">
+                            {formatPeso(l.overdue ?? "0")} overdue
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/leases/${l.id}`}>Open lease</Link>
                       </Button>
-                    ) : null}
-                  </li>
-                ))}
+                      {reminderNotHandled ? (
+                        <MarkHandledButton
+                          size="sm"
+                          variant="outline"
+                          leaseId={l.id}
+                          tenantName={l.tenant.displayName}
+                        />
+                      ) : null}
+                      {overdue ? (
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/payments/new?lease=${l.id}`}>
+                            <Wallet aria-hidden /> Record payment
+                          </Link>
+                        </Button>
+                      ) : null}
+                      {endingSoon || l.status === "EXPIRED" ? (
+                        <Button asChild size="sm">
+                          <Link href={`/leases/${l.id}/renew`}>
+                            <RefreshCw aria-hidden /> Renew
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </section>
@@ -164,10 +187,15 @@ export default async function HomePage() {
               tone="danger"
             />
             <SummaryCard
+              href="/payments#overdue"
               icon={Wallet}
-              label="Total overdue — available once payments are added"
-              value="—"
-              tone="neutral"
+              label={
+                dash.leases.overdueLeases
+                  ? `Total overdue (${dash.leases.overdueLeases} lease${dash.leases.overdueLeases === 1 ? "" : "s"})`
+                  : "Total overdue"
+              }
+              value={formatPeso(dash.leases.overdueTotal)}
+              tone={Number(dash.leases.overdueTotal) > 0 ? "danger" : "success"}
             />
           </section>
         </>

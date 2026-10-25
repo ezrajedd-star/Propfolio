@@ -114,7 +114,7 @@ picker can be added in Phase 7 if users still find it confusing.
 - Reminder events show the lead-time reminders ("90 days before the end"), not the weekly or
   daily repeats after them, which would crowd the month view. The lease's Reminders tab lists
   everything.
-- Rent due events show the due date only. Amounts (with escalations) come with Payments in Phase 5.
+- Rent due events show the due date only. Amounts are on the lease's Payments tab.
 - Property Management sees only lease start and end events, with the tenant's display name. The
   server never sends them references, rent or lease ids.
 - The calendar loads its events from `/api/v1/calendar` each time it opens and when the browser
@@ -129,8 +129,8 @@ picker can be added in Phase 7 if users still find it confusing.
 - Undo after an in-line edit is simply another edit back to the old value, so it is audited too.
 - Column layout (shown/hidden, order, group by building) is saved on the server per user, so it
   follows people between computers. Saved layouts are repaired automatically if columns change.
-- "Balance due" and "Reminder status" columns show "—" until Payments (Phase 5) and Reminders
-  (Phase 4) exist. The "Overdue" filter is shown but disabled until then.
+- "Balance due" shows what is due now (overdue amounts in red with an icon); the "Overdue" chip
+  shows only leases with overdue rent.
 - Exports (Excel or CSV) use the grid's current filters and visible columns, or only the selected
   rows. Every export is written to the audit log. In CSV, values starting with `=`, `+`, `-` or `@`
   are prefixed with an apostrophe so spreadsheet programs can't run them as formulas.
@@ -151,5 +151,30 @@ picker can be added in Phase 7 if users still find it confusing.
   needed" instead of being retried.
 - "Mark as handled" can be undone; reminders then resume from today. Both actions are audited.
 - Error messages shown to Admins have email addresses removed.
-- The "overdue payments" section of the email has its on/off setting already; it starts showing
-  once Payments (Phase 5) exist.
+- The email can include a short "overdue payments" section (Settings → Reminder emails). Overdue
+  amounts alone never trigger an email; they ride along with the day's lease reminders.
+
+## 18. Billing rules (Phase 5)
+
+- **Charges are stored, not worked out on the fly.** Every rent month, the deposit and the
+  advance rent is a `Charge` row, so payments can point at exactly what they paid and the history
+  never shifts when terms change.
+- **Months run from the start date** (a lease starting 15 Mar has periods 15 Mar–14 Apr, …). The
+  due date is the first date on or after the period start whose day is the rent due day (day 31
+  falls on the month's last day in short months). A short final period is **prorated by days**.
+- **Deposit and advance rent are separate charges** due on the start date, rather than being
+  folded into the first months. The advance is shown as owed and paid like any other charge; how it
+  is used up at the end of the lease is a business decision we left to staff (add a charge or void
+  one, with a reason).
+- **Percentage increases compound**, rounded to the centavo at each step (5 % on ₱50,000 →
+  ₱52,500.00 → ₱55,125.00). Fixed-amount steps apply from the first month starting on or after the
+  date given.
+- **Oldest first by default**, with a manual split allowed. Over-payments become credit instead of
+  being forced onto future months, so staff decide when credit is used.
+- **Terms changes never touch the past.** Only charges that are not yet due and have nothing paid
+  against them are recalculated; the rest are kept and shown on the confirmation screen with the
+  amount the new terms would give, so staff can adjust with a charge if needed.
+- **Payment acknowledgements are not official receipts.** BIR-registered official receipts and
+  invoices are outside Propfolio's scope; the printout says so clearly.
+- **Aging buckets** use the oldest unpaid due date of each charge: 1–30, 31–60, 61–90 and 90+
+  days late.

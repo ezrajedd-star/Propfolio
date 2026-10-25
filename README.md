@@ -5,10 +5,11 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phases 1–4 of 7 are complete: sign-in, roles, users, audit log, design system;
-> buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; and
-> the calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export; and
-> the daily reminder email with "Mark as handled".
+> **Status:** Phases 1–5 of 7 are complete: sign-in, roles, users, audit log, design system;
+> buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; the
+> calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export; the
+> daily reminder email with "Mark as handled"; and payments: rent charges, recording payments,
+> balances, the overdue list and aging.
 > See [Build phases](#build-phases).
 
 ---
@@ -31,7 +32,8 @@ pnpm worker:dev                   # background jobs (separate terminal)
 ```
 
 The seed also creates 3 buildings (including an industrial complex with standalone
-warehouses), 30 units, 20 tenants and 25 leases in every status. Lease dates are relative to the day
+warehouses), 30 units, 20 tenants and 25 leases in every status, with payments for most past
+rent (a few leases are left overdue, one in each age group). Lease dates are relative to the day
 you run it, so there is always something expiring. Seed users (synthetic, `.test` domain) are `admin@propfolio.test`, `leasing@propfolio.test`
 and `viewer@propfolio.test`. Their passwords are **generated on every seed run** and printed to
 the terminal. Set `SEED_PASSWORD` in `.env` if you want one fixed local password.
@@ -39,12 +41,18 @@ the terminal. Set `SEED_PASSWORD` in `.env` if you want one fixed local password
 ### Everything in Docker
 
 ```bash
-cp .env.example .env              # set POSTGRES_PASSWORD at least
-docker compose up --build         # postgres, mailpit, migrate (one-off), web, worker
-docker compose run --rm migrate pnpm db:seed
+docker compose up --build -d      # postgres, mailpit, migrate (one-off), web, worker
+docker compose run --rm seed      # optional demo data; prints the sign-in passwords
 ```
 
 The app is on http://localhost:3000 and test emails are at http://localhost:8025 (Mailpit).
+No `.env` file is needed for a local trial. To choose your own values, create a `.env` next to
+`docker-compose.yml` with only the lines you want to change, e.g. `POSTGRES_PASSWORD=...` or
+`SEED_PASSWORD=...` (one known password for all demo users). Don't copy `.env.example` for
+Docker: its `localhost` addresses are for running without Docker.
+
+`docker compose down` stops everything and keeps the data; `docker compose down -v` also deletes
+the database.
 
 ### Testing email locally
 
@@ -159,6 +167,30 @@ e2e/             Playwright tests.
 
 To see the emails locally, run the worker with Mailpit (see [Testing email locally](#testing-email-locally)).
 
+## How payments work
+
+1. **Charges come from the lease terms.** Saving a lease creates every rent charge for its whole
+   term: one per month from the start date (a short last month is prorated by days), due on the
+   rent due day (on or after the start of each month; short months use their last day). Rent
+   increases are applied: a percentage every N months (compounded, rounded to the centavo each
+   time) or fixed new amounts from given dates. The **security deposit** and **advance rent** are
+   separate one-off charges due on the start date. Staff can add one-off charges (parking,
+   utilities, repairs).
+2. **Recording a payment:** choose the lease, enter the amount, date and method. It goes to the
+   **oldest unpaid charges first**; staff can change the split. Anything left over becomes
+   **credit** on the lease, which "Use credit" applies to later charges. Each payment gets a
+   number (`PAY-2026-0001`) and a printable **acknowledgement — not an official receipt**.
+3. **Posted records are never edited or deleted.** A wrong payment or charge is **voided with a
+   reason**; it stays visible, marked "Voided". A charge with payments against it can only be
+   voided after those payments are.
+4. **Changing lease terms** recalculates only **future, unpaid** rent charges. Charges already
+   due or paid are kept and listed on the confirmation screen, so nothing paid ever changes.
+   **Ending early** cancels unpaid rent due after the last day.
+5. **Overdue** means unpaid after the due date. One calculation feeds every total (Home, the lease
+   page, the leases grid, the Payments page, the daily email), so they always agree. The Payments
+   page groups overdue amounts by age (1–30, 31–60, 61–90, 90+ days) and exports to Excel/CSV.
+   No penalties or interest are added automatically.
+
 ## Roles
 
 | Role                             | Can do                                                                                                                                |
@@ -262,8 +294,8 @@ with the database (see below).
 | 2. Property and lease register | Buildings, unit types, units, tenants, lease wizard, renewal, termination, statuses | ✅ Done |
 | 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | ✅ Done |
 | 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              | ✅ Done |
-| 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            | Next    |
-| 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           |         |
+| 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            | ✅ Done |
+| 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           | Next    |
 | 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           |         |
 
 Confirmed assumptions (brief §14): reminder lead times Residential [60, 30, 7], Office/Retail

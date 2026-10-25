@@ -351,3 +351,15 @@ describe("daily digest", () => {
     expect(await pendingDates(lease.id)).toEqual(["2026-10-02", "2026-11-01", "2026-12-01"]);
   });
 });
+
+describe("daily digest overdue section", () => {
+  it("adds overdue payments to the email when switched on, and leaves them out when off", async () => {
+    const { admin } = await setup();
+    // The lease from setup has unpaid rent from Jan–Sep by 2 Oct.
+    await sendDailyDigest(at6am("2026-10-02"));
+    expect(logOutbox[0]?.text).toMatch(/Overdue payments[\s\S]*overdue charges, ₱/);
+    await updateSettings(admin, { digestIncludeOverdue: false }, meta);
+    await sendDailyDigest(at6am("2026-11-01"));
+    expect(logOutbox[1]?.text).not.toContain("Overdue payments");
+  });
+});

@@ -296,6 +296,8 @@ model Lease {
   reminderHandledById   String?         @db.Uuid
   reminderHandledNote   String?
   reminderEvents        ReminderEvent[]
+  charges               Charge[]
+  payments              Payment[]
   terminatedAt          DateTime?       @db.Timestamptz(3)
   terminatedById        String?         @db.Uuid
   archivedAt            DateTime?       @db.Timestamptz(3)
@@ -396,4 +398,107 @@ model ReminderDigest {
   createdAt    DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
   events       ReminderEvent[]
+}
+
+// ─── Money ─────────────────────────────────────────────────────────────────────
+// Posted money records are never edited or deleted: they are voided (or cancelled) with a reason.
+
+enum ChargeType {
+  RENT
+  DEPOSIT
+  ADVANCE
+  OTHER
+}
+
+enum ChargeStatus {
+  ACTIVE
+  /// Removed automatically (terms changed, lease ended early) before anything was paid.
+  CANCELLED
+  /// Removed by a person, with a reason.
+  VOID
+}
+
+model Charge {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  leaseId      String       @db.Uuid
+  lease        Lease        @relation(fields: [leaseId], references: [id])
+  type         ChargeType
+  /// Rent: billing period start (YYYY-MM-DD); deposit/advance: the type name; other: null.
+  key          String?
+  periodStart  DateTime?    @db.Date
+  periodEnd    DateTime?    @db.Date
+  dueDate      DateTime     @db.Date
+  amount       Decimal      @db.Decimal(14, 2)
+  description  String
+  status       ChargeStatus @default(ACTIVE)
+  statusReason String?
+  statusAt     DateTime?    @db.Timestamptz(3)
+  statusById   String?      @db.Uuid
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+
+  allocations PaymentAllocation[]
+
+  @@index([leaseId, status])
+  @@index([dueDate])
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  ONLINE
+}
+
+enum PaymentStatus {
+  POSTED
+  VOID
+}
+
+model Payment {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  /// e.g. PAY-2026-0001 (shown on the acknowledgement; not an official receipt number)
+  paymentNo    String        @unique
+  leaseId      String        @db.Uuid
+  lease        Lease         @relation(fields: [leaseId], references: [id])
+  receivedDate DateTime      @db.Date
+  amount       Decimal       @db.Decimal(14, 2)
+  method       PaymentMethod
+  /// OR no., cheque no., bank reference…
+  reference    String?
+  notes        String?
+  status       PaymentStatus @default(POSTED)
+  voidReason   String?
+  voidedAt     DateTime?     @db.Timestamptz(3)
+  voidedById   String?       @db.Uuid
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+
+  allocations PaymentAllocation[]
+
+  @@index([leaseId, status])
+  @@index([receivedDate])
+}
+
+/// How much of a payment went to which charge. Replaced (not edited) when re-allocated.
+model PaymentAllocation {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  paymentId String   @db.Uuid
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+  chargeId  String   @db.Uuid
+  charge    Charge   @relation(fields: [chargeId], references: [id])
+  amount    Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([chargeId])
+  @@index([paymentId])
+}
+
+model PaymentCounter {
+  year    Int @id
+  lastSeq Int
 }

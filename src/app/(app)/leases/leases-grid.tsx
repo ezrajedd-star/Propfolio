@@ -16,6 +16,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   CalendarDays,
+  CircleAlert,
   CircleCheck,
   Clock,
   MailCheck,
@@ -95,7 +96,7 @@ export function LeasesGrid({
   layout: GridLayout;
   /** The page's current filters as a query string, reused for export. */
   exportQuery: string;
-  can: { edit: boolean; editTenant: boolean; archive: boolean; export: boolean };
+  can: { edit: boolean; editTenant: boolean; archive: boolean; export: boolean; record: boolean };
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
@@ -224,12 +225,22 @@ export function LeasesGrid({
       },
       balanceDue: {
         id: "balanceDue",
-        accessorFn: () => null,
-        cell: () => (
-          <span className="text-muted-foreground" title="Available once payments are added">
-            —
-          </span>
-        ),
+        accessorFn: (r) => Number(r.balanceDue ?? 0),
+        cell: ({ row }) => {
+          const overdue = Number(row.original.overdue ?? 0) > 0;
+          return (
+            <span
+              className={cn(
+                "flex items-center justify-end gap-1.5 whitespace-nowrap tabular-nums",
+                overdue && "text-danger font-medium",
+              )}
+            >
+              {overdue ? <CircleAlert className="size-4" aria-hidden /> : null}
+              {formatPeso(row.original.balanceDue ?? "0")}
+              {overdue ? <span className="sr-only"> (overdue)</span> : null}
+            </span>
+          );
+        },
       },
       status: {
         id: "status",
@@ -585,7 +596,7 @@ function RowMenu({
   onArchive,
 }: {
   row: LeaseRow;
-  can: { edit: boolean; archive: boolean };
+  can: { edit: boolean; archive: boolean; record: boolean };
   onArchive: (archived: boolean) => void;
 }) {
   const live = !row.archived && row.status !== "TERMINATED";
@@ -616,9 +627,13 @@ function RowMenu({
             </Link>
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem disabled>
-          <Wallet /> Record payment (coming soon)
-        </DropdownMenuItem>
+        {can.record && !row.archived ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/payments/new?lease=${row.id}`}>
+              <Wallet /> Record payment
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem asChild>
           <Link href={`/calendar?date=${row.terminationDate ?? row.endDate}`}>
             <CalendarDays /> Show on calendar

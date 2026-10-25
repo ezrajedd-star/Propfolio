@@ -4,6 +4,7 @@ import { addDays } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import type { AuditActor } from "@/server/audit";
 import { assertCan } from "@/server/auth/authorize";
+import { overdueReport } from "@/server/billing/balances";
 import { listLeases, type LeaseRow } from "@/server/leases/service";
 import { listBuildings, type BuildingSummary } from "@/server/property/buildings";
 
@@ -14,10 +15,18 @@ export interface Dashboard {
     active: number;
     expiringIn90: number;
     expiredNotRenewed: number;
+    /** Total overdue (₱), from the same calculation as the overdue list. */
+    overdueTotal: string;
+    overdueLeases: number;
     upcomingExpiries: LeaseRow[];
     expiringSoon: LeaseRow[];
-    /** "What needs your attention": ending within 30 days, or a reminder sent but not handled. */
-    attention: { lease: LeaseRow; endingSoon: boolean; reminderNotHandled: boolean }[];
+    /** "What needs your attention": ending within 30 days, a reminder sent but not handled, or rent overdue. */
+    attention: {
+      lease: LeaseRow;
+      endingSoon: boolean;
+      reminderNotHandled: boolean;
+      overdue: boolean;
+    }[];
   };
 }
 
@@ -30,7 +39,10 @@ export async function getDashboard(actor: AuditActor, now = new Date()): Promise
 
   const today = manilaToday(now);
   const in90 = addDays(today, 90);
-  const leases = await listLeases(actor, {}, now);
+  const [leases, overdue] = await Promise.all([
+    listLeases(actor, {}, now),
+    overdueReport(actor, now),
+  ]);
   const live = leases.filter((l) => LIVE.includes(l.status));
   const upcoming = live
     .filter((l) => (l.terminationDate ?? l.endDate) <= in90)
@@ -41,6 +53,8 @@ export async function getDashboard(actor: AuditActor, now = new Date()): Promise
       active: live.length,
       expiringIn90: upcoming.length,
       expiredNotRenewed: leases.filter((l) => l.status === "EXPIRED").length,
+      overdueTotal: overdue.total,
+      overdueLeases: overdue.rows.length,
       upcomingExpiries: upcoming.slice(0, 8),
       expiringSoon: upcoming.filter((l) => l.daysLeft <= 30),
       attention: leases
@@ -48,8 +62,9 @@ export async function getDashboard(actor: AuditActor, now = new Date()): Promise
           lease: l,
           endingSoon: LIVE.includes(l.status) && l.daysLeft <= 30,
           reminderNotHandled: l.reminder?.state === "SENT" || l.reminder?.state === "FAILED",
+          overdue: Number(l.overdue ?? 0) > 0,
         }))
-        .filter((a) => a.endingSoon || a.reminderNotHandled)
+        .filter((a) => a.endingSoon || a.reminderNotHandled || a.overdue)
         .sort((a, b) => a.lease.daysLeft - b.lease.daysLeft),
     },
   };

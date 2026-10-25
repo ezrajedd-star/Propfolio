@@ -24,8 +24,7 @@ services:
       TZ: UTC
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
+    # Not published to your computer, so it can't clash with a Postgres you already run.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U propfolio -d propfolio"]
       interval: 5s
@@ -36,11 +35,11 @@ services:
     image: axllent/mailpit:v1.27
     ports:
       - "127.0.0.1:8025:8025" # web UI to read test emails
-      - "127.0.0.1:1025:1025" # SMTP
 
   migrate:
     build: { context: ., target: worker }
-    command: ["pnpm", "db:migrate"]
+    image: propfolio-worker
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
     environment: *app-env
     depends_on:
       postgres: { condition: service_healthy }
@@ -48,6 +47,7 @@ services:
 
   web:
     build: { context: ., target: web }
+    image: propfolio-web
     environment: *app-env
     ports:
       - "127.0.0.1:3000:3000"
@@ -57,10 +57,26 @@ services:
 
   worker:
     build: { context: ., target: worker }
+    image: propfolio-worker
     environment: *app-env
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: unless-stopped
+
+  # Demo data for trying Propfolio out: `docker compose run --rm seed`.
+  # Synthetic only, and refuses to run twice. Never point it at a real database.
+  seed:
+    build: { context: ., target: worker }
+    image: propfolio-worker
+    profiles: ["seed"]
+    command: ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "prisma/seed.ts"]
+    environment:
+      <<: *app-env
+      NODE_ENV: development
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
 
 volumes:
   pgdata:

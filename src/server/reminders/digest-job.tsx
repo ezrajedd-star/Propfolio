@@ -12,6 +12,8 @@ import { deliver, type OutgoingMail } from "@/server/mail/transport";
 import { getSettings } from "@/server/settings/service";
 import { syncLeaseStatuses } from "@/server/leases/service";
 import { syncReminders } from "./sync";
+import { computeOverdue } from "@/server/billing/balances";
+import { formatPeso } from "@/domain/money/money";
 
 export interface DigestDeps {
   /** Sends the email; replaced in tests to simulate failures. */
@@ -127,6 +129,17 @@ export async function sendDailyDigest(
   const appUrl = env().APP_URL;
   const content = buildDigest([...byLease.values()], today, appUrl);
 
+  const overdue = settings.digestIncludeOverdue ? await computeOverdue(now) : null;
+  const overdueSummary =
+    overdue && overdue.count > 0
+      ? {
+          count: overdue.count,
+          totalLabel: formatPeso(overdue.total),
+          url: `${appUrl}/payments#overdue`,
+        }
+      : undefined;
+
+  // Overdue payments alone don't trigger an email; they ride along with the lease reminders.
   if (content.items.length === 0) {
     await db.reminderDigest.update({
       where: { id: digest.id },
@@ -151,6 +164,7 @@ export async function sendDailyDigest(
         companyName={settings.companyName}
         dateLabel={content.dateLabel}
         items={content.items}
+        overdue={overdueSummary}
         leasesUrl={`${appUrl}/leases`}
       />
     );

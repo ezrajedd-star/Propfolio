@@ -6,6 +6,8 @@
  * - 3 buildings (one industrial complex with standalone warehouses), 30 units, 20 tenants and
  *   about 25 leases in mixed states. Lease dates are relative to today, so the statuses stay
  *   realistic whenever you seed.
+ * - Payments for most past charges. A few leases are left behind on rent (one in each overdue
+ *   age group) and one has paid part of a month, so the overdue list has something to show.
  * - Everything goes through the real services, so it obeys the same rules as the app.
  * - All names, companies and contact details are fictional.
  */
@@ -18,6 +20,7 @@ import { addDays, addMonths } from "../src/domain/time/calendar-date";
 import { manilaToday } from "../src/domain/time/manila";
 import type { Actor } from "../src/server/auth/authorize";
 import { hashPassword } from "../src/server/auth/password";
+import { recordPayment } from "../src/server/billing/payments";
 import { createLease, renewLease, terminateLease } from "../src/server/leases/service";
 import { createBuilding } from "../src/server/property/buildings";
 import { createUnitType } from "../src/server/property/unit-types";
@@ -313,12 +316,67 @@ async function seedProperty(admin: Actor) {
   await lease("L-2", 11, terms(m(-2), addDays(m(10), -1), "55000"));
 }
 
+/** Unpaid months to leave per unit (most recent first); everything else past due is paid. */
+const LEAVE_UNPAID: Record<string, number> = { "1002": 1, "WH-3": 2, "2C": 3, "1004": 5 };
+const PART_PAID = "G02";
+
+async function seedPayments(admin: Actor) {
+  if ((await db.payment.count()) > 0) return;
+  const today = manilaToday();
+  const leases = await db.lease.findMany({
+    where: { archivedAt: null },
+    select: { id: true, unit: { select: { unitNumber: true } } },
+  });
+  let count = 0;
+  const pay = async (leaseId: string, receivedDate: string, amount: string, reference: string) => {
+    await recordPayment(
+      admin,
+      {
+        leaseId,
+        receivedDate: receivedDate > today ? today : receivedDate,
+        amount,
+        method: "BANK_TRANSFER",
+        reference,
+      },
+      meta,
+    );
+    count++;
+  };
+  for (const l of leases) {
+    const due = await db.charge.findMany({
+      where: { leaseId: l.id, status: "ACTIVE", dueDate: { lte: new Date(`${today}T00:00:00Z`) } },
+      orderBy: { dueDate: "asc" },
+    });
+    const leave = LEAVE_UNPAID[l.unit.unitNumber] ?? 0;
+    const toPay = due.slice(0, Math.max(0, due.length - leave));
+    if (!toPay.length) continue;
+    const iso = (c: (typeof toPay)[number]) => c.dueDate.toISOString().slice(0, 10);
+    // Older history as one opening payment, the last three charges paid one by one.
+    const older = toPay.slice(0, -3);
+    const recent = toPay.slice(-3);
+    if (older.length) {
+      const total = older.reduce((s, c) => s + Math.round(Number(c.amount) * 100), 0);
+      await pay(l.id, iso(older[older.length - 1]!), (total / 100).toFixed(2), "OPENING-BAL");
+    }
+    for (const [i, c] of recent.entries()) {
+      const last = i === recent.length - 1;
+      const amount =
+        last && l.unit.unitNumber === PART_PAID
+          ? (Number(c.amount) / 2).toFixed(2)
+          : c.amount.toFixed(2);
+      await pay(l.id, addDays(iso(c), 2), amount, `BT-${iso(c).replaceAll("-", "")}`);
+    }
+  }
+  console.log(`Recorded ${count} synthetic payments.`);
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production" && !process.argv.includes("--allow-production")) {
     throw new Error("Refusing to seed a production database.");
   }
   const { admin, credentials } = await seedUsers();
   await seedProperty(admin);
+  await seedPayments(admin);
 
   console.log("\nSeed users (synthetic test accounts):");
   console.table(credentials);
