@@ -13,6 +13,10 @@ x-app-env: &app-env
   SMTP_SECURE: ${SMTP_SECURE:-false}
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  # Local trial only. A real server gets its own random secret (see deploy/).
+  APP_SECRET: ${APP_SECRET:-local-trial-only-secret-change-me-0123456789}
+  STORAGE_DIR: /app/storage
+  UAT_MODE: ${UAT_MODE:-false}
 
 services:
   postgres:
@@ -49,6 +53,8 @@ services:
     build: { context: ., target: web }
     image: propfolio-web
     environment: *app-env
+    volumes:
+      - documents:/app/storage
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -80,3 +86,4 @@ services:
 
 volumes:
   pgdata:
+  documents:

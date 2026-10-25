@@ -20,7 +20,8 @@ RUN pnpm build
 # Web app: the minimal Next.js standalone server.
 FROM base AS web
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
-RUN groupadd -r app && useradd -r -m -g app app
+RUN groupadd -r app && useradd -r -m -g app app \
+  && mkdir -p /app/storage && chown app:app /app/storage
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 USER app

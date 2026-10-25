@@ -98,7 +98,7 @@ export default async function HomePage() {
 
       {dash.leases ? (
         <>
-          <section aria-labelledby="attention" className="mb-8">
+          <section aria-labelledby="attention" className="mb-8" data-guide="home-attention">
             <h2 id="attention" className="mb-3 text-xl font-semibold">
               What needs your attention
             </h2>
@@ -164,7 +164,11 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section aria-label="Summary" className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section
+            aria-label="Summary"
+            data-guide="home-summary"
+            className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
             <SummaryCard
               href="/leases?status=CURRENT"
               icon={CircleCheck}
@@ -202,7 +206,7 @@ export default async function HomePage() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card data-guide="home-occupancy">
           <CardHeader>
             <CardTitle>Occupancy by building</CardTitle>
             <CardDescription>Based on leases covering today.</CardDescription>

@@ -502,3 +502,58 @@ model PaymentCounter {
   year    Int @id
   lastSeq Int
 }
+
+// ─── Documents ─────────────────────────────────────────────────────────────────
+
+enum DocumentCategory {
+  SIGNED_CONTRACT
+  AMENDMENT
+  ID
+  OTHER
+}
+
+/// A file attached to a lease (and its tenant) or to a tenant only. The file itself lives in
+/// private storage (local disk or S3) under `storageKey`; it is never served directly.
+model Document {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  tenantId      String           @db.Uuid
+  leaseId       String?          @db.Uuid
+  category      DocumentCategory
+  /// Original file name, cleaned of path parts and control characters.
+  fileName      String
+  contentType   String
+  sizeBytes     Int
+  sha256        String
+  storageKey    String           @unique
+  uploadedById  String?          @db.Uuid
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+  archivedAt    DateTime?        @db.Timestamptz(3)
+  archivedById  String?          @db.Uuid
+  archiveReason String?
+
+  @@index([tenantId])
+  @@index([leaseId])
+}
+
+// ─── UAT feedback ──────────────────────────────────────────────────────────────
+
+enum FeedbackStatus {
+  NEW
+  DONE
+}
+
+/// Notes from testers ("Send feedback"). The page path is stored without its query string.
+model Feedback {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  userId    String?        @db.Uuid
+  userName  String
+  role      Role
+  pagePath  String
+  message   String
+  status    FeedbackStatus @default(NEW)
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+  doneAt    DateTime?      @db.Timestamptz(3)
+  doneById  String?        @db.Uuid
+
+  @@index([status, createdAt])
+}

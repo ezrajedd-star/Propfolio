@@ -4,14 +4,16 @@ import { BackLink } from "@/components/app/back-link";
 import { PageHeader } from "@/components/app/page-header";
 import { FormAlert } from "@/components/form/form-alert";
 import { requirePageUser } from "@/server/auth/current";
+import { recordsPastRetention } from "@/server/privacy/service";
 import { getSettings } from "@/server/settings/service";
 import { PrivacyForm } from "./privacy-form";
+import { RetentionSection } from "./retention-section";
 
 export const metadata: Metadata = { title: "Privacy" };
 
 export default async function PrivacyPage() {
-  await requirePageUser("privacy.manage");
-  const s = await getSettings();
+  const actor = await requirePageUser("privacy.manage");
+  const [s, retention] = await Promise.all([getSettings(), recordsPastRetention(actor)]);
   return (
     <>
       <BackLink href="/settings">Settings</BackLink>
@@ -34,9 +36,10 @@ export default async function PrivacyPage() {
           retentionYears: s.retentionYears,
         }}
       />
+      <RetentionSection years={retention.years} rows={retention.rows} />
       <p className="text-muted-foreground mt-6">
-        Exporting, correcting or anonymising one tenant&apos;s data, and the list of records past
-        the retention period, arrive in a later update.
+        To export, correct or anonymise one tenant&apos;s data, open the tenant and use the Privacy
+        section.
       </p>
     </>
   );

@@ -5,11 +5,12 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phases 1–5 of 7 are complete: sign-in, roles, users, audit log, design system;
+> **Status:** Phases 1–6 of 7 are complete: sign-in, roles, users, audit log, design system;
 > buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; the
 > calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export; the
 > daily reminder email with "Mark as handled"; and payments: rent charges, recording payments,
-> balances, the overdue list and aging.
+> balances, the overdue list and aging; and documents, six reports, privacy tools (tenant data
+> export, anonymise, retention), an on-screen Guide with a welcome tour, and a test (UAT) server kit.
 > See [Build phases](#build-phases).
 
 ---
@@ -67,15 +68,21 @@ recipients are logged, never addresses or contents.
 
 ## Environment variables
 
-| Variable                                                              | Required     | Description                                                                                                                                 |
-| --------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                        | yes          | PostgreSQL connection string. Use `?sslmode=require` for managed databases.                                                                 |
-| `APP_URL`                                                             | yes          | Public base URL, used in email links. **Must be `https://` in production**: this switches on `Secure` + `__Host-` session cookies and HSTS. |
-| `MAIL_TRANSPORT`                                                      | no           | `smtp` (default) or `log` (send nothing, for dev/tests).                                                                                    |
-| `MAIL_FROM`                                                           | yes for smtp | Sender, e.g. `Propfolio <no-reply@yourcompany.com>`. The display name can be changed in Settings → General.                                 |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | for smtp     | SMTP server details.                                                                                                                        |
-| `SEED_PASSWORD`                                                       | no           | Dev only: one known password for all seed users.                                                                                            |
-| `POSTGRES_PASSWORD`                                                   | compose only | Password for the bundled Postgres container.                                                                                                |
+| Variable                                                                            | Required     | Description                                                                                                                                 |
+| ----------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                      | yes          | PostgreSQL connection string. Use `?sslmode=require` for managed databases.                                                                 |
+| `APP_URL`                                                                           | yes          | Public base URL, used in email links. **Must be `https://` in production**: this switches on `Secure` + `__Host-` session cookies and HSTS. |
+| `MAIL_TRANSPORT`                                                                    | no           | `smtp` (default) or `log` (send nothing, for dev/tests).                                                                                    |
+| `MAIL_FROM`                                                                         | yes for smtp | Sender, e.g. `Propfolio <no-reply@yourcompany.com>`. The display name can be changed in Settings → General.                                 |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`               | for smtp     | SMTP server details.                                                                                                                        |
+| `APP_SECRET`                                                                        | production   | Random secret (≥ 32 characters) that signs 5-minute document links. `openssl rand -hex 32`.                                                 |
+| `STORAGE_DRIVER`                                                                    | no           | Where uploaded documents go: `local` (default; a private folder) or `s3`.                                                                   |
+| `STORAGE_DIR`                                                                       | for local    | Folder for documents (default `./storage`). Keep it out of the web root and back it up.                                                     |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | for s3       | Private bucket details. `S3_ENDPOINT` only for non-AWS services (DigitalOcean Spaces, MinIO). Files are encrypted at rest (SSE).            |
+| `UAT_MODE`                                                                          | no           | `true` shows the "Test version" banner and the "Send feedback" button.                                                                      |
+| `MAIL_SKIP_TEST_DOMAINS`                                                            | no           | `true` stops emails to demo addresses (`@propfolio.test`, `example.com` …). Set on hosted servers.                                          |
+| `SEED_PASSWORD`                                                                     | no           | Dev only: one known password for all seed users.                                                                                            |
+| `POSTGRES_PASSWORD`                                                                 | compose only | Password for the bundled Postgres container.                                                                                                |
 
 All secrets come from the environment. Nothing secret is committed. `.env` is git-ignored.
 
@@ -191,6 +198,40 @@ To see the emails locally, run the worker with Mailpit (see [Testing email local
    page groups overdue amounts by age (1–30, 31–60, 61–90, 90+ days) and exports to Excel/CSV.
    No penalties or interest are added automatically.
 
+## Documents
+
+- Allowed: **PDF, JPG, PNG and Word (DOCX)**, up to **20 MB**. The type is checked from the file's
+  contents, not its name, so a renamed program is refused.
+- Files are stored privately (`STORAGE_DIR`, or a private S3 bucket) under random names and are
+  never served directly. "Open" checks permission, writes to the audit log, then gives a link
+  that works for **5 minutes**.
+- Removing a document hides it (with a reason); it stays on record. Viewers can't see documents.
+
+## Reports
+
+Expiry pipeline, Occupancy, Rent roll, Collections, Overdue aging and Renewal history. Each can
+be filtered by building and unit type (and dates or days ahead where it makes sense) and
+downloaded for Excel or as CSV. Downloads are audited. Overdue aging uses the same calculation as
+every other overdue total.
+
+## The on-screen Guide
+
+- **Welcome tour:** the first time someone signs in, a short tour (5–8 steps, by role) points at
+  the main menu items and ends at the **Guide** button. "Take the tour again" is in the account
+  menu.
+- **Guide button** (bottom of the menu; top bar on phones): numbered notes appear next to the main
+  buttons on the current page, with a panel explaining each in a sentence. Click a note to
+  highlight the button. It stays on while you move around until you turn it off.
+- The words live in `src/domain/guide/content.ts`. To explain a new button, add
+  `data-guide="some-id"` to it and a hint with the same id.
+
+## Testing with others (UAT)
+
+See **[docs/deploy-uat.md](docs/deploy-uat.md)**: a step-by-step guide to put a test version on a
+cloud server in Singapore with HTTPS, real emails (Brevo) and daily backups, plus a message you
+can send to testers. The test version shows a "Test version" banner and a **Send feedback**
+button; notes appear in Settings → Tester feedback.
+
 ## Roles
 
 | Role                             | Can do                                                                                                                                |
@@ -247,8 +288,16 @@ Added in Phase 2:
 - **Audit log** records every create, update, archive, renewal and termination. Tenant personal
   values are not copied into it (only which fields changed), so anonymisation stays complete.
 
-Coming later: document access through short-lived signed URLs, tenant data export, correction
-and anonymisation, and the retention screen (Phase 6).
+- **Documents** are served only through 5-minute signed links, after a permission check, and every
+  open is audited. File names aren't copied into the audit log.
+- **Data subject rights (Admins, on the tenant's page):** _Download their data_ (JSON of everything
+  held: details, leases, charges, payments, document list); _Edit_ to correct; _Anonymise_, which
+  replaces name, TIN, contact details, address and notes with placeholders, clears free-text notes
+  on their leases and payments, and deletes their files. Rent, charges, payments and totals are
+  kept so the accounts still add up. It is blocked while they have a current or future lease, needs
+  a reason and the tenant's name typed to confirm, and can't be undone.
+- **Retention screen** (Settings → Privacy) lists tenants whose last lease ended more than the
+  retention period ago, with one button to anonymise them all.
 
 ### Deployment requirements
 
@@ -295,8 +344,8 @@ with the database (see below).
 | 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | ✅ Done |
 | 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              | ✅ Done |
 | 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            | ✅ Done |
-| 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           | Next    |
-| 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           |         |
+| 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention, on-screen Guide, UAT kit | ✅ Done |
+| 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           | Next    |
 
 Confirmed assumptions (brief §14): reminder lead times Residential [60, 30, 7], Office/Retail
 [90, 60, 30], Warehouse/Industrial [180, 120, 90, 60, 30]; digest at 06:00 Asia/Manila; repeats

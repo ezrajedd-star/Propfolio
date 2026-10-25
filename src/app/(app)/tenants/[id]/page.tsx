@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { BackLink } from "@/components/app/back-link";
 import { DetailList } from "@/components/app/detail-list";
+import { DocumentsPanel } from "@/components/app/documents-panel";
 import { LeaseStatusBadge } from "@/components/app/lease-badges";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +19,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { can } from "@/domain/auth/roles";
-import { formatPeso } from "@/domain/money/money";
-import { formatIsoDate } from "@/domain/time/manila";
+import { formatPeso, money } from "@/domain/money/money";
+import { formatDateTime, formatIsoDate } from "@/domain/time/manila";
 import { PRIVACY_ACK_METHOD_LABELS, TENANT_TYPE_LABELS } from "@/schemas/tenant";
 import { requirePageUser } from "@/server/auth/current";
+import { balancesForLeases } from "@/server/billing/balances";
+import { listDocuments } from "@/server/documents/service";
 import { getTenant } from "@/server/tenants/service";
+import { PrivacyActions } from "./privacy-actions";
 import { TenantActionsBar } from "./tenant-actions-bar";
 
 export const metadata: Metadata = { title: "Tenant" };
@@ -30,7 +34,13 @@ export const metadata: Metadata = { title: "Tenant" };
 export default async function TenantPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("tenant.view");
   const { id } = await params;
-  const t = await getTenant(actor, id);
+  const [t, documents] = await Promise.all([
+    getTenant(actor, id),
+    listDocuments(actor, { tenantId: id }),
+  ]);
+  const balances = await balancesForLeases(t.leases.map((l) => l.id));
+  const totalDue = [...balances.values()].reduce((s, b) => s.plus(b.balanceDue), money(0));
+  const totalOverdue = [...balances.values()].reduce((s, b) => s.plus(b.overdue), money(0));
   const archived = t.archivedAt !== null;
 
   return (
@@ -105,7 +115,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
             />
           </CardContent>
         </Card>
-        <Card>
+        <Card data-guide="tenant-privacy">
           <CardHeader>
             <CardTitle>Privacy</CardTitle>
           </CardHeader>
@@ -120,15 +130,43 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
                 },
               ]}
             />
-            <p className="text-muted-foreground mt-3 text-sm">
-              Exporting or anonymising this tenant&apos;s data arrives in a later update (Admins
-              only).
-            </p>
+            {t.anonymizedAt ? (
+              <p className="mt-3">
+                This tenant was anonymised on {formatDateTime(t.anonymizedAt)}. Their personal data
+                has been removed; money records are kept.
+              </p>
+            ) : can(actor.role, "privacy.manage") ? (
+              <PrivacyActions
+                tenantId={t.id}
+                tenantName={t.displayName}
+                canAnonymise
+                blockedReason={
+                  t.leases.some((l) => ["ACTIVE", "EXPIRING", "UPCOMING"].includes(l.status))
+                    ? "Anonymising is possible once none of their leases is current or upcoming."
+                    : null
+                }
+              />
+            ) : (
+              <p className="text-muted-foreground mt-3 text-sm">
+                Admins can export or anonymise this tenant&apos;s data. To correct it, use Edit.
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Leases</CardTitle>
+            <div>
+              <CardTitle>Leases</CardTitle>
+              <p className="text-muted-foreground mt-1">
+                Balance due now: <strong className="text-foreground">{formatPeso(totalDue)}</strong>
+                {totalOverdue.greaterThan(0) ? (
+                  <span className="text-danger font-medium">
+                    {" "}
+                    · {formatPeso(totalOverdue)} overdue
+                  </span>
+                ) : null}
+              </p>
+            </div>
             {can(actor.role, "lease.edit") && !archived ? (
               <Button asChild variant="outline">
                 <Link href={`/leases/new?tenant=${t.id}`}>
@@ -178,6 +216,20 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
             )}
           </CardContent>
         </Card>
+        <section className="lg:col-span-2" aria-labelledby="tenant-documents">
+          <h2 id="tenant-documents" className="mb-3 text-xl font-semibold">
+            Documents
+          </h2>
+          <DocumentsPanel
+            target={{ tenantId: t.id }}
+            canUpload={documents.canUpload && !archived && !t.anonymizedAt}
+            documents={documents.rows.map((d) => ({
+              ...d,
+              uploadedAt: d.uploadedAt.toISOString(),
+            }))}
+            showLease
+          />
+        </section>
       </div>
     </>
   );

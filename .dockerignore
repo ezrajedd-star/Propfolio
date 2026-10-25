@@ -12,3 +12,5 @@ e2e
 tests
 *.md
 !README.md
+**/.env
+deploy

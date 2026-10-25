@@ -34,8 +34,12 @@ export default async function globalSetup() {
       keyof typeof USERS,
       (typeof USERS)[keyof typeof USERS],
     ][]) {
-      await db.user.create({
+      const user = await db.user.create({
         data: { ...u, role: roles[key], passwordHash, mustChangePassword: false },
+      });
+      // These test users have seen the welcome tour (e2e/phase6.spec.ts tests it on purpose).
+      await db.userPreference.create({
+        data: { userId: user.id, key: "guide", value: { tourDone: true, on: false } },
       });
     }
 

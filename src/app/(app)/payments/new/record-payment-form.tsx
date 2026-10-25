@@ -166,7 +166,7 @@ export function RecordPaymentForm({
   return (
     <div className="max-w-4xl space-y-6">
       {formError ? <FormAlert>{formError}</FormAlert> : null}
-      <Card>
+      <Card data-guide="payment-lease">
         <CardHeader>
           <CardTitle>1. Which lease?</CardTitle>
         </CardHeader>
@@ -237,7 +237,7 @@ export function RecordPaymentForm({
 
       {lease ? (
         <>
-          <Card>
+          <Card data-guide="payment-amount">
             <CardHeader>
               <CardTitle>2. Payment details</CardTitle>
             </CardHeader>
@@ -299,7 +299,7 @@ export function RecordPaymentForm({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-guide="payment-split">
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
               <CardTitle>3. What it pays for</CardTitle>
               <div className="flex items-center gap-2">

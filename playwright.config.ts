@@ -32,6 +32,9 @@ export default defineConfig({
       DATABASE_URL: E2E_DATABASE_URL,
       APP_URL: `http://localhost:${PORT}`,
       MAIL_TRANSPORT: "log",
+      APP_SECRET: "e2e-only-signing-secret-0123456789abcdef",
+      STORAGE_DIR: `${process.env.TMPDIR ?? "/tmp"}/propfolio-e2e-storage`,
+      UAT_MODE: "true",
     },
   },
 });

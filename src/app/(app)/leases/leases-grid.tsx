@@ -378,7 +378,7 @@ export function LeasesGrid({
     <div className="space-y-3">
       {/* Grid controls */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" onClick={() => setColumnsOpen(true)}>
+        <Button variant="outline" onClick={() => setColumnsOpen(true)} data-guide="leases-columns">
           <Columns3 aria-hidden /> Columns
         </Button>
         <div className="flex h-11 items-center gap-2">
@@ -395,7 +395,7 @@ export function LeasesGrid({
         {can.export ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" data-guide="leases-export">
                 <Download aria-hidden /> Export
               </Button>
             </DropdownMenuTrigger>
@@ -443,7 +443,7 @@ export function LeasesGrid({
         </div>
       ) : null}
 
-      <div className="bg-card overflow-x-auto rounded-xl border shadow-sm">
+      <div className="bg-card overflow-x-auto rounded-xl border shadow-sm" data-guide="leases-grid">
         <table className="w-full text-base">
           <thead className="bg-card sticky top-0 z-10">
             {table.getHeaderGroups().map((hg) => (

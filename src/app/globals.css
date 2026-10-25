@@ -190,3 +190,26 @@
 .pf-calendar .fc-event .fc-event-main {
   color: inherit;
 }
+
+/* Guide: briefly highlight the element a note refers to. */
+@keyframes guide-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30%,
+  70% {
+    box-shadow: 0 0 0 4px var(--color-warning);
+  }
+}
+.guide-flash {
+  animation: guide-flash 1s ease-in-out 2;
+  border-radius: 0.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-flash {
+    animation: none;
+    outline: 4px solid var(--color-warning);
+    outline-offset: 2px;
+  }
+}

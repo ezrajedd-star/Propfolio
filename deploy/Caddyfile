@@ -1,0 +1,10 @@
+# HTTPS for Propfolio. Caddy gets and renews the certificate from Let's Encrypt by itself.
+# No access log is kept (it would record addresses and searches).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	# Uploads are up to 20 MB.
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy web:3000
+}

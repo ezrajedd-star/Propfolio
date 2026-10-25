@@ -189,7 +189,7 @@ export function LeaseActions(p: Props) {
       ) : null}
       {a.canRenew ? (
         <Button asChild size="lg">
-          <Link href={`/leases/${p.leaseId}/renew`}>
+          <Link href={`/leases/${p.leaseId}/renew`} data-guide="lease-primary">
             <RefreshCw aria-hidden /> Renew lease
           </Link>
         </Button>

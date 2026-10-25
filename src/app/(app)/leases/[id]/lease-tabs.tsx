@@ -15,7 +15,7 @@ export function LeaseTabs({
     <Tabs defaultValue={tabs.some((t) => t.value === initial) ? initial : tabs[0]!.value}>
       <TabsList>
         {tabs.map((t) => (
-          <TabsTrigger key={t.value} value={t.value}>
+          <TabsTrigger key={t.value} value={t.value} data-guide={`tab-${t.value}`}>
             {t.label}
           </TabsTrigger>
         ))}

@@ -74,7 +74,7 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
         actions={
           can(actor.role, "lease.edit") ? (
             <Button asChild>
-              <Link href="/leases/new">
+              <Link href="/leases/new" data-guide="new-lease">
                 <FilePlus2 aria-hidden /> New lease
               </Link>
             </Button>
@@ -82,39 +82,43 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
         }
       />
       <div className="mb-5 space-y-4">
-        <SearchBox
-          defaultValue={sp.q}
-          placeholder="e.g. abc corp, 12A, LSE-2026-0004"
-          keep={{ ...sp, q: undefined }}
-        />
-        <FilterChips
-          label="Ending soon"
-          options={[
-            { value: "", label: "Any end date" },
-            ...ENDING.map((d) => ({ value: d, label: `Expiring in ${d} days` })),
-          ]}
-          active={sp.ending && ENDING.includes(sp.ending) ? sp.ending : ""}
-          hrefFor={(v) => withParams("/leases", sp, { ending: v || undefined })}
-        />
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-guide="leases-search">
+          <SearchBox
+            defaultValue={sp.q}
+            placeholder="e.g. abc corp, 12A, LSE-2026-0004"
+            keep={{ ...sp, q: undefined }}
+          />
+        </div>
+        <div data-guide="leases-filters" className="space-y-4">
           <FilterChips
-            label="Status"
+            label="Ending soon"
             options={[
-              { value: "", label: "All" },
-              { value: "CURRENT", label: "Current" },
-              ...LEASE_STATUSES.map((s) => ({ value: s, label: LEASE_STATUS_LABELS[s] })),
+              { value: "", label: "Any end date" },
+              ...ENDING.map((d) => ({ value: d, label: `Expiring in ${d} days` })),
             ]}
-            active={current ? "CURRENT" : (status ?? "")}
-            hrefFor={(v) => withParams("/leases", sp, { status: v || undefined })}
+            active={sp.ending && ENDING.includes(sp.ending) ? sp.ending : ""}
+            hrefFor={(v) => withParams("/leases", sp, { ending: v || undefined })}
           />
-          <FilterChips
-            label="Payments"
-            options={[{ value: "1", label: "Overdue" }]}
-            active={sp.overdue === "1" ? "1" : ""}
-            hrefFor={() =>
-              withParams("/leases", sp, { overdue: sp.overdue === "1" ? undefined : "1" })
-            }
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChips
+              label="Status"
+              options={[
+                { value: "", label: "All" },
+                { value: "CURRENT", label: "Current" },
+                ...LEASE_STATUSES.map((s) => ({ value: s, label: LEASE_STATUS_LABELS[s] })),
+              ]}
+              active={current ? "CURRENT" : (status ?? "")}
+              hrefFor={(v) => withParams("/leases", sp, { status: v || undefined })}
+            />
+            <FilterChips
+              label="Payments"
+              options={[{ value: "1", label: "Overdue" }]}
+              active={sp.overdue === "1" ? "1" : ""}
+              hrefFor={() =>
+                withParams("/leases", sp, { overdue: sp.overdue === "1" ? undefined : "1" })
+              }
+            />
+          </div>
         </div>
         <Suspense>
           <div className="flex flex-wrap gap-4">

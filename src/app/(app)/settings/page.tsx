@@ -3,6 +3,7 @@ import {
   BellRing,
   ChevronRight,
   MailCheck,
+  MessageSquareText,
   ScrollText,
   Settings2,
   ShieldCheck,
@@ -58,6 +59,12 @@ const SECTIONS = [
     icon: ShieldCheck,
     title: "Privacy",
     text: "Privacy notice, privacy officer, data retention.",
+  },
+  {
+    href: "/settings/feedback",
+    icon: MessageSquareText,
+    title: "Tester feedback",
+    text: "Notes sent with 'Send feedback' during the test.",
   },
 ];
 

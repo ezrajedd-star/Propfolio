@@ -1,0 +1,103 @@
+# Propfolio on one cloud server (the UAT / test version, and later production).
+#   Caddy (HTTPS, automatic certificates) → web (Next.js) → Postgres
+#   worker (daily jobs), documents in a private Docker volume.
+# Settings come from deploy/.env, written by deploy/setup.sh. Nothing but Caddy is reachable
+# from the internet; Postgres and the app are on a private Docker network.
+name: propfolio
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://propfolio:${POSTGRES_PASSWORD:?run deploy/setup.sh first}@postgres:5432/propfolio
+  APP_URL: ${APP_URL:?}
+  APP_SECRET: ${APP_SECRET:?}
+  MAIL_TRANSPORT: smtp
+  MAIL_FROM: ${MAIL_FROM:?}
+  MAIL_SKIP_TEST_DOMAINS: "true"
+  SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  STORAGE_DRIVER: local
+  STORAGE_DIR: /app/storage
+  UAT_MODE: ${UAT_MODE:-true}
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_USER: propfolio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: propfolio
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propfolio -d propfolio"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    build: { context: .., target: web }
+    image: propfolio-web
+    environment: *app-env
+    volumes:
+      - documents:/app/storage
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  # Demo data for testers: `docker compose run --rm seed` (refuses to run twice).
+  seed:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    profiles: ["seed"]
+    command: ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "prisma/seed.ts"]
+    environment:
+      <<: *app-env
+      NODE_ENV: development
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+
+volumes:
+  pgdata:
+  documents:
+  caddy_data:
+  caddy_config:

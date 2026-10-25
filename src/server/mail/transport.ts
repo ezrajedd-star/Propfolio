@@ -34,8 +34,25 @@ export async function deliver(mail: OutgoingMail, fromName?: string): Promise<vo
     console.info(`[mail:log] "${mail.subject}" → ${mail.to.length} recipient(s)`);
     return;
   }
+  const to = e.MAIL_SKIP_TEST_DOMAINS ? mail.to.filter((a) => !isReservedAddress(a)) : mail.to;
+  if (to.length === 0) {
+    console.info(`[mail] "${mail.subject}" skipped: only demo (.test) recipients`);
+    return;
+  }
   const from = fromName ? withName(e.MAIL_FROM, fromName) : e.MAIL_FROM;
-  await smtp().sendMail({ from, ...mail });
+  await smtp().sendMail({ from, ...mail, to });
+}
+
+/**
+ * Addresses on domains reserved for testing (RFC 2606/6761), like the demo accounts'
+ * `@propfolio.test`. They can never receive mail; sending to them hurts the sender's reputation.
+ */
+export function isReservedAddress(address: string): boolean {
+  const domain = address.trim().toLowerCase().split("@").pop() ?? "";
+  return (
+    /(^|\.)(test|example|invalid|localhost)$/.test(domain) ||
+    /(^|\.)example\.(com|net|org)$/.test(domain)
+  );
 }
 
 /** Replace the display name of an address like `Name <a@b.c>`. */

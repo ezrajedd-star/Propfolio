@@ -178,3 +178,45 @@ picker can be added in Phase 7 if users still find it confusing.
   invoices are outside Propfolio's scope; the printout says so clearly.
 - **Aging buckets** use the oldest unpaid due date of each charge: 1–30, 31–60, 61–90 and 90+
   days late.
+
+## 19. Documents (Phase 6)
+
+- The file type is checked from the file's first bytes (PDF, JPG, PNG, DOCX), not its name or the
+  browser's claim. Names are cleaned and stored, but files are saved under random names.
+- **Storage:** a private folder on the server for now (`STORAGE_DRIVER=local`), or a private S3
+  bucket with server-side encryption (`s3`), as the brief plans for production. Local files are
+  served by our own route with a 5-minute HMAC-signed link and a signed-in check; S3 files with a
+  5-minute pre-signed URL. Either way, every open is permission-checked and audited first.
+- File names can contain personal data, so the audit log records only the document id, type and size.
+- Malware scanning isn't in the brief and isn't included. Uploads are limited to four document
+  types checked by content. A scanner (e.g. ClamAV) can be added before production if IT wants one.
+
+## 20. Anonymising a tenant (Phase 6)
+
+- Allowed only when the tenant has no current or future lease, with a reason and the name typed to
+  confirm. Personal fields become placeholders ("Anonymised tenant 3F9A21"); lease remarks, early-end
+  reasons, "handled" notes and payment notes are cleared because they may name people; uploaded
+  files are deleted. Amounts, dates, lease and payment numbers stay, so totals and reports are
+  unchanged.
+- The retention period runs from the end of the tenant's last lease, or from archiving if that is
+  later. The retention screen anonymises; nothing is hard-deleted, so the money records stay whole.
+
+## 21. On-screen Guide (Phase 6)
+
+- Two parts, no separate manual: a **welcome tour** at first sign-in (5–8 steps by role,
+  skippable, replayable from the account menu) and a **Guide** button that shows numbered notes on
+  the current page's main buttons, with a panel explaining each in a sentence.
+- Built in-house rather than with a tour library, to keep it accessible (keyboard, screen readers,
+  reduced motion) and to show Viewers only what they can use. Whether the tour was seen and whether
+  the Guide is on are saved per person on the server, so it follows them between computers.
+
+## 22. Test (UAT) server (Phase 6)
+
+- A single DigitalOcean droplet in Singapore running the same Docker images, with Caddy for HTTPS.
+  Without a company domain it uses a free `<ip>.sslip.io` address, which still gets a real
+  certificate. Emails go through Brevo's free plan.
+- `UAT_MODE=true` shows a "Test version — made-up data" banner and a **Send feedback** button.
+  Feedback stores the page path without its query string (searches can contain names).
+- Emails to demo addresses (`.test`, `example.com`) are skipped on hosted servers
+  (`MAIL_SKIP_TEST_DOMAINS`).
+- Production will move the database and files to managed, encrypted services (Phase 7).

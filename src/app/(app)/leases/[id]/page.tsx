@@ -1,10 +1,9 @@
-import { FileText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/app/back-link";
 import { DetailList } from "@/components/app/detail-list";
-import { EmptyState } from "@/components/app/empty-state";
+import { DocumentsPanel } from "@/components/app/documents-panel";
 import { LeaseStatusBadge } from "@/components/app/lease-badges";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { getEntityHistory } from "@/server/audit-log/entity-history";
 import { requirePageUser } from "@/server/auth/current";
 import { getLeaseLedger } from "@/server/billing/payments";
+import { listDocuments } from "@/server/documents/service";
 import { getLease } from "@/server/leases/service";
 import { getLeaseReminderView } from "@/server/reminders/queries";
 import { LeaseActions } from "./lease-actions";
@@ -48,11 +48,12 @@ export default async function LeasePage({
   const actor = await requirePageUser("lease.view");
   const { id } = await params;
   const { tab } = await searchParams;
-  const [lease, history, reminderView, ledger] = await Promise.all([
+  const [lease, history, reminderView, ledger, documents] = await Promise.all([
     getLease(actor, id),
     getEntityHistory(actor, "Lease", id),
     getLeaseReminderView(actor, id),
     getLeaseLedger(actor, id),
+    listDocuments(actor, { leaseId: id }),
   ]);
   const today = manilaToday();
 
@@ -273,9 +274,14 @@ export default async function LeasePage({
             value: "documents",
             label: "Documents",
             content: (
-              <EmptyState icon={FileText} title="Documents arrive in a later update">
-                Signed contracts and amendments will be stored here.
-              </EmptyState>
+              <DocumentsPanel
+                target={{ leaseId: lease.id }}
+                canUpload={documents.canUpload && !lease.archived}
+                documents={documents.rows.map((d) => ({
+                  ...d,
+                  uploadedAt: d.uploadedAt.toISOString(),
+                }))}
+              />
             ),
           },
           { value: "reminders", label: "Reminders", content: reminders },

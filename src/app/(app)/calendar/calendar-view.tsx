@@ -176,7 +176,10 @@ export function CalendarView({
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="bg-card grid gap-4 rounded-xl border p-4 shadow-sm sm:grid-cols-3">
+      <div
+        className="bg-card grid gap-4 rounded-xl border p-4 shadow-sm sm:grid-cols-3"
+        data-guide="calendar-filters"
+      >
         <div className="space-y-1.5">
           <Label htmlFor="cal-building">Building</Label>
           <NativeSelect
@@ -286,7 +289,10 @@ export function CalendarView({
         </p>
       ) : null}
 
-      <div className="pf-calendar bg-card rounded-xl border p-2 shadow-sm sm:p-4">
+      <div
+        className="pf-calendar bg-card rounded-xl border p-2 shadow-sm sm:p-4"
+        data-guide="calendar-view"
+      >
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, listPlugin]}

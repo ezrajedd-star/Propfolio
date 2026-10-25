@@ -51,7 +51,7 @@ export default async function PaymentsPage() {
         actions={
           canRecord ? (
             <Button asChild>
-              <Link href="/payments/new">
+              <Link href="/payments/new" data-guide="record-payment">
                 <Plus aria-hidden /> Record payment
               </Link>
             </Button>
@@ -59,7 +59,7 @@ export default async function PaymentsPage() {
         }
       />
 
-      <section id="overdue" className="scroll-mt-24 space-y-4">
+      <section id="overdue" className="scroll-mt-24 space-y-4" data-guide="overdue-list">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Overdue</h2>
@@ -70,7 +70,7 @@ export default async function PaymentsPage() {
             </p>
           </div>
           {canExport && report.rows.length ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-guide="overdue-export">
               <Button variant="outline" asChild>
                 <a href="/api/v1/payments/overdue/export?format=xlsx">
                   <Download aria-hidden /> Excel
