@@ -26,6 +26,8 @@ export const settingsSchema = z.object({
     .int("Use whole years.")
     .min(1, "Use at least 1 year.")
     .max(30, "Use at most 30 years."),
+  /** Add a short "overdue payments" section to the daily reminder email (needs Payments, Phase 5). */
+  digestIncludeOverdue: z.boolean(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -79,6 +81,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   dpoName: "Data Protection Officer",
   dpoEmail: "privacy@example.com",
   retentionYears: 10,
+  digestIncludeOverdue: true,
 };
 
 export const updateSettingsSchema = settingsSchema.partial();

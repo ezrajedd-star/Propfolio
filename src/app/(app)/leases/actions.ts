@@ -16,6 +16,7 @@ import {
 import { requestMeta } from "@/server/request-meta";
 import { quickEditLease } from "@/server/leases/quick-edit";
 import { saveGridLayout } from "@/server/preferences";
+import { markReminderHandled, unmarkReminderHandled } from "@/server/reminders/handled";
 
 const refresh = () => revalidatePath("/", "layout");
 
@@ -114,5 +115,23 @@ export async function archiveLeasesAction(ids: string[], archived: boolean) {
     }
     refresh();
     return { done, failed };
+  });
+}
+
+export async function markHandledAction(leaseId: string, note?: string) {
+  return runAction(async () => {
+    const actor = await requireActor("reminder.handle");
+    await markReminderHandled(actor, leaseId, { note: note ?? "" }, await requestMeta());
+    refresh();
+    return null;
+  });
+}
+
+export async function unmarkHandledAction(leaseId: string) {
+  return runAction(async () => {
+    const actor = await requireActor("reminder.handle");
+    await unmarkReminderHandled(actor, leaseId, await requestMeta());
+    refresh();
+    return null;
   });
 }

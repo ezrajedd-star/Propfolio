@@ -29,6 +29,9 @@ import { NotFoundError, ValidationError } from "@/server/errors";
 import type { RequestMeta } from "@/server/request-meta";
 import { getSettings } from "@/server/settings/service";
 import { parseInput } from "@/server/validation";
+import { syncReminders } from "@/server/reminders/sync";
+import { reminderSummaries } from "@/server/reminders/summary";
+import type { ReminderSummary } from "@/domain/reminders/digest";
 import { leaseDatesOf, leaseStatusInclude, statusOf, unitReminderConfig } from "./status-context";
 
 // ─── Reading ───────────────────────────────────────────────────────────────────
@@ -71,6 +74,8 @@ export interface LeaseRow {
   rentDueDay: number;
   remarks: string | null;
   archived: boolean;
+  /** Filled in for list views (leases grid); null elsewhere. */
+  reminder: ReminderSummary | null;
 }
 
 export interface LeaseDetail extends LeaseRow, LeaseTermsView {
@@ -162,6 +167,7 @@ function toRow(l: LeaseWithRow, system: ReminderConfig, today: IsoDate): LeaseRo
     rentDueDay: l.rentDueDay,
     remarks: l.remarks,
     archived: l.archivedAt !== null,
+    reminder: null,
   };
 }
 
@@ -228,7 +234,15 @@ export async function listLeases(
       (r) => (r.status === "ACTIVE" || r.status === "EXPIRING") && r.daysLeft <= limit,
     );
   }
-  return out;
+  const handled = new Set(rows.filter((l) => l.reminderHandledAt).map((l) => l.id));
+  const summaries = await reminderSummaries(
+    out.map((r) => ({
+      id: r.id,
+      handled: handled.has(r.id),
+      stopped: r.archived || r.status === "RENEWED" || r.status === "TERMINATED",
+    })),
+  );
+  return out.map((r) => ({ ...r, reminder: summaries.get(r.id) ?? null }));
 }
 
 async function loadLease(id: string): Promise<LeaseWithRow> {
@@ -447,7 +461,7 @@ export async function createLease(
   const today = manilaToday(now);
   const { unit } = await loadParties(db, data.unitId, data.tenantId);
 
-  return withOverlapGuard(unit.unitNumber, () =>
+  const created = await withOverlapGuard(unit.unitNumber, () =>
     db.$transaction(async (tx) => {
       await assertNoOverlap(tx, unit, data);
       const refNo = await nextRefNo(tx, now);
@@ -478,6 +492,8 @@ export async function createLease(
       return lease;
     }),
   );
+  await syncReminders({ leaseIds: [created.id] }, now);
+  return created;
 }
 
 const AUDITED_FIELDS = [
@@ -532,7 +548,7 @@ export async function updateLease(
       ? await loadParties(db, data.unitId, data.tenantId)
       : { unit: before.unit };
 
-  return withOverlapGuard(unit.unitNumber, () =>
+  const updated = await withOverlapGuard(unit.unitNumber, () =>
     db.$transaction(async (tx) => {
       await assertNoOverlap(tx, unit, data, id);
       const status = statusOf(
@@ -563,6 +579,8 @@ export async function updateLease(
       return lease;
     }),
   );
+  await syncReminders({ leaseIds: [id] }, now);
+  return updated;
 }
 
 /**
@@ -597,7 +615,7 @@ export async function renewLease(
   const settings = await getSettings();
   const today = manilaToday(now);
 
-  return withOverlapGuard(prev.unit.unitNumber, () =>
+  const renewal = await withOverlapGuard(prev.unit.unitNumber, () =>
     db.$transaction(async (tx) => {
       // An archived earlier renewal releases the link so this one can take its place.
       if (prev.nextLease?.archivedAt) {
@@ -650,6 +668,9 @@ export async function renewLease(
       return lease;
     }),
   );
+  // Renewing stops the old lease's reminders and schedules the new one's.
+  await syncReminders({ leaseIds: [prev.id, renewal.id] }, now);
+  return renewal;
 }
 
 /** End a lease early. Requires the last day and a reason. */
@@ -677,7 +698,7 @@ export async function terminateLease(
       terminationDate: `Choose a date between ${formatIsoDate(start)} and ${formatIsoDate(end)}.`,
     });
   }
-  return db.$transaction(async (tx) => {
+  const terminated = await db.$transaction(async (tx) => {
     const lease = await tx.lease.update({
       where: { id },
       data: {
@@ -703,6 +724,9 @@ export async function terminateLease(
     );
     return lease;
   });
+  // Ending a lease early stops its expiry reminders.
+  await syncReminders({ leaseIds: [id] }, now);
+  return terminated;
 }
 
 /** Archive (hide) or restore a lease. Nothing is deleted. */
@@ -722,7 +746,7 @@ export async function setLeaseArchived(
     if (l.tenant.archivedAt) throw new ValidationError("Restore the tenant first.");
   }
   const settings = await getSettings();
-  return withOverlapGuard(l.unit.unitNumber, () =>
+  const result = await withOverlapGuard(l.unit.unitNumber, () =>
     db.$transaction(async (tx) => {
       if (!archived) await assertNoOverlap(tx, l.unit, leaseDatesOf(l), id);
       const lease = await tx.lease.update({
@@ -761,6 +785,8 @@ export async function setLeaseArchived(
       return lease;
     }),
   );
+  await syncReminders({ leaseIds: [id, ...(l.previousLeaseId ? [l.previousLeaseId] : [])] }, now);
+  return result;
 }
 
 // ─── Daily status sync ─────────────────────────────────────────────────────────

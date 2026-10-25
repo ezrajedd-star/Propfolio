@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LeaseStatusBadge } from "@/components/app/lease-badges";
+import { MarkHandledButton } from "@/components/app/mark-handled-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -331,13 +332,31 @@ export function CalendarView({
       </div>
 
       <Sheet open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent>{selected ? <EventPanel event={selected} /> : null}</SheetContent>
+        <SheetContent>
+          {selected ? (
+            <EventPanel
+              event={selected}
+              onHandled={(handled) => {
+                setSelected((cur) =>
+                  cur?.lease ? { ...cur, lease: { ...cur.lease, reminderHandled: handled } } : cur,
+                );
+                calRef.current?.getApi().refetchEvents();
+              }}
+            />
+          ) : null}
+        </SheetContent>
       </Sheet>
     </div>
   );
 }
 
-function EventPanel({ event: e }: { event: CalendarEvent }) {
+function EventPanel({
+  event: e,
+  onHandled,
+}: {
+  event: CalendarEvent;
+  onHandled: (handled: boolean) => void;
+}) {
   const Icon = TYPE_ICONS[e.type];
   const what =
     e.type === "REMINDER" && e.daysBefore !== undefined
@@ -385,17 +404,18 @@ function EventPanel({ event: e }: { event: CalendarEvent }) {
                 </Link>
               </Button>
             ) : null}
-            {(e.type === "REMINDER" || e.type === "END") &&
-            e.status !== "RENEWED" &&
-            e.status !== "TERMINATED" ? (
-              <div>
-                <Button variant="outline" className="w-full" disabled>
-                  <Bell aria-hidden /> Mark reminder handled
-                </Button>
-                <p className="text-muted-foreground mt-1.5 text-sm">
-                  Available when reminder emails are switched on (next update).
-                </p>
-              </div>
+            {e.lease.reminderHandled === true ? (
+              <p className="bg-success-soft flex items-center gap-2 rounded-lg p-3">
+                <CircleCheck className="text-success size-5" aria-hidden /> Reminders for this lease
+                are marked as handled.
+              </p>
+            ) : e.lease.reminderHandled === false && e.lease.canHandle ? (
+              <MarkHandledButton
+                variant="outline"
+                leaseId={e.lease.id}
+                tenantName={e.tenantName}
+                onDone={onHandled}
+              />
             ) : null}
           </div>
         ) : null}

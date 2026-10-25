@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  BellRing,
   Building2,
   CalendarClock,
   CircleCheck,
@@ -14,6 +15,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { EmptyState } from "@/components/app/empty-state";
+import { MarkHandledButton } from "@/components/app/mark-handled-button";
 import { LeaseStatusBadge } from "@/components/app/lease-badges";
 import { OccupancyBar } from "@/components/app/occupancy-bar";
 import { PageHeader } from "@/components/app/page-header";
@@ -92,32 +94,47 @@ export default async function HomePage() {
             <h2 id="attention" className="mb-3 text-xl font-semibold">
               What needs your attention
             </h2>
-            {dash.leases.expiringSoon.length === 0 ? (
+            {dash.leases.attention.length === 0 ? (
               <p className="bg-card flex items-center gap-2 rounded-xl border p-4">
                 <CircleCheck className="text-success size-5" aria-hidden /> Nothing urgent. No
-                leases end in the next 30 days.
+                leases end in the next 30 days, and every reminder has been handled.
               </p>
             ) : (
               <ul className="bg-card divide-y rounded-xl border">
-                {dash.leases.expiringSoon.map((l) => (
+                {dash.leases.attention.map(({ lease: l, endingSoon, reminderNotHandled }) => (
                   <li key={l.id} className="flex flex-wrap items-center gap-3 p-4">
-                    <AlertTriangle className="text-warning size-5" aria-hidden />
+                    {reminderNotHandled ? (
+                      <BellRing className="text-warning size-5" aria-hidden />
+                    ) : (
+                      <AlertTriangle className="text-warning size-5" aria-hidden />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">
                         {l.tenant.displayName} · Unit {l.unit.unitNumber}, {l.building.name}
                       </p>
                       <p className="text-muted-foreground">
                         {l.timeLeft} ({formatIsoDate(l.terminationDate ?? l.endDate)})
+                        {reminderNotHandled ? " · reminder sent, not handled yet" : ""}
                       </p>
                     </div>
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/leases/${l.id}`}>Open lease</Link>
                     </Button>
-                    <Button asChild size="sm">
-                      <Link href={`/leases/${l.id}/renew`}>
-                        <RefreshCw aria-hidden /> Renew
-                      </Link>
-                    </Button>
+                    {reminderNotHandled ? (
+                      <MarkHandledButton
+                        size="sm"
+                        variant="outline"
+                        leaseId={l.id}
+                        tenantName={l.tenant.displayName}
+                      />
+                    ) : null}
+                    {endingSoon || l.status === "EXPIRED" ? (
+                      <Button asChild size="sm">
+                        <Link href={`/leases/${l.id}/renew`}>
+                          <RefreshCw aria-hidden /> Renew
+                        </Link>
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
               </ul>

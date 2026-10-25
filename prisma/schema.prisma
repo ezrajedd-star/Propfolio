@@ -291,6 +291,11 @@ model Lease {
   nextLease             Lease?          @relation("Renewal")
   terminationDate       DateTime?       @db.Date
   terminationReason     String?
+  /// "Mark as handled": stops further expiry reminders for this lease.
+  reminderHandledAt     DateTime?       @db.Timestamptz(3)
+  reminderHandledById   String?         @db.Uuid
+  reminderHandledNote   String?
+  reminderEvents        ReminderEvent[]
   terminatedAt          DateTime?       @db.Timestamptz(3)
   terminatedById        String?         @db.Uuid
   archivedAt            DateTime?       @db.Timestamptz(3)
@@ -329,4 +334,66 @@ model UserPreference {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@id([userId, key])
+}
+
+// ─── Reminders ─────────────────────────────────────────────────────────────────
+
+enum ReminderKind {
+  /// One of the lead-time reminders (e.g. 90 days before the end).
+  EXPIRY
+  /// A weekly/daily repeat after the last lead-time reminder.
+  REPEAT
+}
+
+enum ReminderEventStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// One reminder date for one lease. Future PENDING rows are recalculated whenever the lease or
+/// its reminder settings change; SENT/FAILED/SKIPPED rows are history and never rewritten.
+model ReminderEvent {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  leaseId       String              @db.Uuid
+  lease         Lease               @relation(fields: [leaseId], references: [id])
+  scheduledDate DateTime            @db.Date
+  kind          ReminderKind
+  /// Days before the lease end (negative after it).
+  daysBefore    Int
+  status        ReminderEventStatus @default(PENDING)
+  digestId      String?             @db.Uuid
+  digest        ReminderDigest?     @relation(fields: [digestId], references: [id])
+  sentAt        DateTime?           @db.Timestamptz(3)
+  skippedReason String?
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@unique([leaseId, scheduledDate])
+  @@index([status, scheduledDate])
+}
+
+enum DigestStatus {
+  SENDING
+  SENT
+  FAILED
+  /// Nothing needed attention that day; no email was sent.
+  EMPTY
+}
+
+/// The one reminder email per day. Makes the daily job idempotent and records failures.
+model ReminderDigest {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  digestDate   DateTime        @unique @db.Date
+  status       DigestStatus
+  /// Active Admin and Leasing Staff user ids the email went to.
+  recipientIds String[]        @db.Uuid
+  leaseCount   Int             @default(0)
+  attempts     Int             @default(0)
+  lastError    String?
+  sentAt       DateTime?       @db.Timestamptz(3)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
+  events       ReminderEvent[]
 }

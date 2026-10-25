@@ -11,6 +11,7 @@ import { db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
 import { assertCan } from "@/server/auth/authorize";
 import { parseInput } from "@/server/validation";
+import { syncReminders } from "@/server/reminders/sync";
 
 /** Read all settings, falling back to defaults for missing or invalid values. */
 export async function getSettings(): Promise<Settings> {
@@ -59,5 +60,7 @@ export async function updateSettings(
       );
     }
   });
+  // New default reminder settings move the future reminder dates of every lease that uses them.
+  if (changes.reminderDefaults) await syncReminders("all");
   return getSettings();
 }

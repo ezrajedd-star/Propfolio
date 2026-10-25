@@ -136,3 +136,20 @@ picker can be added in Phase 7 if users still find it confusing.
   are prefixed with an apostrophe so spreadsheet programs can't run them as formulas.
 - Bulk actions are limited to export and archive, as the brief asks. A bulk archive reports any
   lease it couldn't archive instead of stopping silently.
+
+## 17. Reminder engine (Phase 4)
+
+- Reminder dates are stored per lease (`ReminderEvent`) instead of being worked out only at send
+  time, so the Reminders tab shows exactly what will be and was sent, and failures can be retried.
+  Only future PENDING rows are ever recalculated.
+- The daily email lists **leases**, not individual reminders: one line per lease, with the most
+  relevant reason ("30-day reminder before the lease ends", "The lease ended 9 days ago and
+  hasn't been renewed or marked as handled").
+- Missed reminders (failed sends, or the worker was down) are caught up for up to **7 days**. Older
+  ones are not sent, to avoid a confusing flood after a long outage.
+- A failed reminder for a lease that has since been renewed, ended or handled is marked "Not
+  needed" instead of being retried.
+- "Mark as handled" can be undone; reminders then resume from today. Both actions are audited.
+- Error messages shown to Admins have email addresses removed.
+- The "overdue payments" section of the email has its on/off setting already; it starts showing
+  once Payments (Phase 5) exist.

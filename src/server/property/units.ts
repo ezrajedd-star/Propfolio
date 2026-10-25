@@ -23,6 +23,7 @@ import {
 import type { RequestMeta } from "@/server/request-meta";
 import { getSettings } from "@/server/settings/service";
 import { parseInput } from "@/server/validation";
+import { syncReminders } from "@/server/reminders/sync";
 import { reminderJson } from "./unit-types";
 
 /**
@@ -290,7 +291,7 @@ export async function updateUnit(actor: AuditActor, id: string, input: unknown, 
   ]);
   if (Object.keys(changes).length === 0) return before;
   try {
-    return await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const u = await tx.unit.update({ where: { id }, data: { ...data, updatedById: actor.id } });
       await writeAudit(
         { actor, action: "unit.update", entityType: "Unit", entityId: id, changes, meta },
@@ -298,6 +299,8 @@ export async function updateUnit(actor: AuditActor, id: string, input: unknown, 
       );
       return u;
     });
+    if (data.unitTypeId !== before.unitTypeId) await syncReminders({ unitId: id });
+    return result;
   } catch (err) {
     if (isUniqueViolation(err)) throw numberTaken();
     throw err;
@@ -316,7 +319,7 @@ export async function setUnitReminderOverride(
   const { reminderConfig } = parseInput(unitReminderSchema, input);
   const before = await db.unit.findUnique({ where: { id } });
   if (!before) throw new NotFoundError("We couldn't find that unit.");
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const u = await tx.unit.update({
       where: { id },
       data: { reminderConfig: reminderJson(reminderConfig), updatedById: actor.id },
@@ -339,6 +342,9 @@ export async function setUnitReminderOverride(
     );
     return u;
   });
+  // Future reminder dates of this unit's leases follow the new settings.
+  await syncReminders({ unitId: id });
+  return result;
 }
 
 /** Archive a unit. Blocked while it has a current or upcoming lease. */

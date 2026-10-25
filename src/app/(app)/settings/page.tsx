@@ -2,6 +2,7 @@ import {
   Building2,
   BellRing,
   ChevronRight,
+  MailCheck,
   ScrollText,
   Settings2,
   ShieldCheck,
@@ -34,14 +35,30 @@ const SECTIONS = [
     title: "Audit log",
     text: "Who did what, and when.",
   },
-  { href: null, icon: Building2, title: "Buildings and units", text: "Coming in Phase 2." },
   {
-    href: null,
+    href: "/settings/buildings",
+    icon: Building2,
+    title: "Buildings and units",
+    text: "Add and edit buildings and their units.",
+  },
+  {
+    href: "/settings/unit-types",
     icon: BellRing,
     title: "Unit types and reminders",
-    text: "Coming in Phase 2 and 4.",
+    text: "When to remind the team before leases end.",
   },
-  { href: null, icon: ShieldCheck, title: "Privacy", text: "Coming in Phase 6." },
+  {
+    href: "/settings/reminder-emails",
+    icon: MailCheck,
+    title: "Reminder emails",
+    text: "Who gets the daily email, and whether it was sent.",
+  },
+  {
+    href: "/settings/privacy",
+    icon: ShieldCheck,
+    title: "Privacy",
+    text: "Privacy notice, privacy officer, data retention.",
+  },
 ];
 
 export default async function SettingsPage() {

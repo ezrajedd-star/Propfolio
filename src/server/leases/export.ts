@@ -13,8 +13,8 @@ export type ExportFormat = "xlsx" | "csv";
 
 type Cell = string | number | Date | null;
 
-/** Columns that can be exported (balance and reminder status arrive with payments/reminders). */
-const NOT_YET: GridColumnId[] = ["balanceDue", "reminderStatus"];
+/** Columns that can't be exported yet (the balance arrives with Payments). */
+const NOT_YET: GridColumnId[] = ["balanceDue"];
 
 function cell(row: LeaseRow, id: GridColumnId, forExcel: boolean): Cell {
   const date = (iso: string) => (forExcel ? new Date(`${iso}T00:00:00Z`) : formatIsoDate(iso));
@@ -46,6 +46,8 @@ function cell(row: LeaseRow, id: GridColumnId, forExcel: boolean): Cell {
       return LEASE_STATUS_LABELS[row.status];
     case "remarks":
       return row.remarks;
+    case "reminderStatus":
+      return row.reminder?.label ?? null;
     default:
       return null;
   }

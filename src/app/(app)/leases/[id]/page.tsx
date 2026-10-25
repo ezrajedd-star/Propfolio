@@ -11,24 +11,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auditActionLabel } from "@/domain/audit/labels";
 import { describeTerms } from "@/domain/leases/describe";
-import { LEASE_STATUS_LABELS } from "@/domain/leases/status";
 import { formatPeso } from "@/domain/money/money";
-import { describeConfig, describeRepeat } from "@/domain/reminders/schedule";
 import { formatDateTime, formatIsoDate, manilaToday } from "@/domain/time/manila";
 import { cn } from "@/lib/utils";
 import { getEntityHistory } from "@/server/audit-log/entity-history";
 import { requirePageUser } from "@/server/auth/current";
 import { getLease } from "@/server/leases/service";
+import { getLeaseReminderView } from "@/server/reminders/queries";
 import { LeaseActions } from "./lease-actions";
 import { LeaseTabs } from "./lease-tabs";
+import { RemindersTab } from "./reminders-tab";
 
 export const metadata: Metadata = { title: "Lease" };
-
-const SOURCE = {
-  unit: "set for this unit",
-  unitType: "from the unit type",
-  system: "the default settings",
-} as const;
 
 function describeChange(key: string, change: unknown): string {
   const c = change as { before?: unknown; after?: unknown };
@@ -45,14 +39,12 @@ function describeChange(key: string, change: unknown): string {
 export default async function LeasePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("lease.view");
   const { id } = await params;
-  const [lease, history] = await Promise.all([
+  const [lease, history, reminderView] = await Promise.all([
     getLease(actor, id),
     getEntityHistory(actor, "Lease", id),
+    getLeaseReminderView(actor, id),
   ]);
   const today = manilaToday();
-  const upcoming = lease.reminders.schedule.filter((r) => r.date >= today);
-  const past = lease.reminders.schedule.filter((r) => r.date < today);
-  const stopped = ["RENEWED", "TERMINATED"].includes(lease.status);
 
   const overview = (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -125,52 +117,14 @@ export default async function LeasePage({ params }: { params: Promise<{ id: stri
   );
 
   const reminders = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Expiry reminders</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p>
-          Reminder settings come from {SOURCE[lease.reminders.source]}:{" "}
-          {describeConfig(lease.reminders.config)}.
-        </p>
-        {stopped ? (
-          <p className="bg-muted rounded-lg p-3">
-            This lease was {LEASE_STATUS_LABELS[lease.status].toLowerCase()}, so no more expiry
-            reminders are sent.
-          </p>
-        ) : null}
-        <ul className="divide-y rounded-lg border">
-          {lease.reminders.schedule
-            .filter((r) => r.kind === "EXPIRY")
-            .map((r) => (
-              <li
-                key={r.date}
-                className={cn(
-                  "flex flex-wrap items-center justify-between gap-2 px-4 py-3",
-                  (r.date < today || stopped) && "text-muted-foreground",
-                )}
-              >
-                <span>
-                  {formatIsoDate(r.date)} · {r.daysBefore} days before the end
-                </span>
-                <Badge variant={r.date < today ? "neutral" : "default"}>
-                  {r.date < today ? "Date passed" : stopped ? "Won't be sent" : "Scheduled"}
-                </Badge>
-              </li>
-            ))}
-        </ul>
-        {describeRepeat(lease.reminders.config, lease.endDate) && !stopped ? (
-          <p className="text-muted-foreground">
-            {describeRepeat(lease.reminders.config, lease.endDate)}
-          </p>
-        ) : null}
-        <p className="text-muted-foreground text-sm">
-          {upcoming.length} upcoming, {past.length} past. Sending the daily reminder email and
-          &ldquo;Mark as handled&rdquo; arrive in the next update.
-        </p>
-      </CardContent>
-    </Card>
+    <RemindersTab
+      leaseId={lease.id}
+      tenantName={lease.tenant.displayName}
+      config={lease.reminders.config}
+      source={lease.reminders.source}
+      view={reminderView}
+      today={today}
+    />
   );
 
   const historyTab = (

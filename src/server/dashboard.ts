@@ -16,6 +16,8 @@ export interface Dashboard {
     expiredNotRenewed: number;
     upcomingExpiries: LeaseRow[];
     expiringSoon: LeaseRow[];
+    /** "What needs your attention": ending within 30 days, or a reminder sent but not handled. */
+    attention: { lease: LeaseRow; endingSoon: boolean; reminderNotHandled: boolean }[];
   };
 }
 
@@ -41,6 +43,14 @@ export async function getDashboard(actor: AuditActor, now = new Date()): Promise
       expiredNotRenewed: leases.filter((l) => l.status === "EXPIRED").length,
       upcomingExpiries: upcoming.slice(0, 8),
       expiringSoon: upcoming.filter((l) => l.daysLeft <= 30),
+      attention: leases
+        .map((l) => ({
+          lease: l,
+          endingSoon: LIVE.includes(l.status) && l.daysLeft <= 30,
+          reminderNotHandled: l.reminder?.state === "SENT" || l.reminder?.state === "FAILED",
+        }))
+        .filter((a) => a.endingSoon || a.reminderNotHandled)
+        .sort((a, b) => a.lease.daysLeft - b.lease.daysLeft),
     },
   };
 }

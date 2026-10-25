@@ -9,6 +9,7 @@ import { isUniqueViolation, isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
+import { syncReminders } from "@/server/reminders/sync";
 
 export interface UnitTypeView {
   id: string;
@@ -103,7 +104,7 @@ export async function updateUnitType(
   }
   if (Object.keys(changes).length === 0) return before;
   try {
-    return await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const t = await tx.unitType.update({
         where: { id },
         data: {
@@ -118,6 +119,8 @@ export async function updateUnitType(
       );
       return t;
     });
+    if (changes.reminderConfig) await syncReminders({ unitTypeId: id });
+    return result;
   } catch (err) {
     if (isUniqueViolation(err)) throw nameTaken();
     throw err;

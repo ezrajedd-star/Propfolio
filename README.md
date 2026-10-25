@@ -5,9 +5,10 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phases 1–3 of 7 are complete: sign-in, roles, users, audit log, design system;
+> **Status:** Phases 1–4 of 7 are complete: sign-in, roles, users, audit log, design system;
 > buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; and
-> the calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export.
+> the calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export; and
+> the daily reminder email with "Mark as handled".
 > See [Build phases](#build-phases).
 
 ---
@@ -105,8 +106,8 @@ database** on every run, so never point them at real data.
 - **React Hook Form + Zod**: the same schemas validate in the browser and on the server
 - **argon2id** password hashing; server-side sessions (see [decisions](docs/decisions.md))
 - **Nodemailer + React Email** for email templates
-- **pg-boss** worker for scheduled jobs (no Redis needed): lease status sync at 00:05 and
-  housekeeping at 03:15 Manila time
+- **pg-boss** worker for scheduled jobs (no Redis needed): lease status sync at 00:05,
+  housekeeping at 03:15 and the reminder email at 06:00 Manila time
 - **Vitest** (unit + integration) and **Playwright** (end-to-end)
 - Docker Compose: web, worker, Postgres, Mailpit
 
@@ -133,6 +134,30 @@ e2e/             Playwright tests.
 ```
 
 ---
+
+## How reminders work
+
+1. **Settings pass down:** the default (Settings → Unit types and reminders) → each unit type →
+   an optional override on a single unit. A setting is a list of "days before the lease ends"
+   (e.g. 90, 60, 30) plus what happens after the last one: nothing, weekly on a chosen day, or
+   daily, optionally continuing for a number of days after the end date.
+2. **Reminder dates are stored per lease** (`ReminderEvent`) when the lease is saved. They are
+   recalculated automatically when the lease's dates change, it is renewed, ended early or
+   archived, or when the unit's, unit type's or default settings change. Past reminders are history
+   and never rewritten.
+3. **Every morning at 06:00 (Asia/Manila)** the worker sends **one email** to every active Admin
+   and Leasing Staff user (never Property Management), listing every lease with a reminder due,
+   soonest first, each with a link. On days with nothing due, no email is sent. Subject example:
+   `Lease reminders – 3 leases need attention (23 Oct 2026)`.
+4. **Mark as handled** (on the lease's Reminders tab, the calendar, or Home) stops further reminders
+   for that lease. Renewing or ending a lease early also stops them. All of these can be undone.
+5. **If sending fails**, the job retries 3 times (10, 20 and 40 minutes later). Reminders that still
+   didn't go out are included in the next day's email (up to a week back). Admins see each day's
+   result, and any error, in **Settings → Reminder emails**, with a "Try again" button. If the worker
+   was down at 06:00, it sends the day's email when it starts.
+6. The job is **idempotent**: one email per day at most, however often it runs.
+
+To see the emails locally, run the worker with Mailpit (see [Testing email locally](#testing-email-locally)).
 
 ## Roles
 
@@ -236,8 +261,8 @@ with the database (see below).
 | 1. Foundation                  | Setup, auth, roles, users, audit log, layout, design system                         | ✅ Done |
 | 2. Property and lease register | Buildings, unit types, units, tenants, lease wizard, renewal, termination, statuses | ✅ Done |
 | 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | ✅ Done |
-| 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              | Next    |
-| 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            |         |
+| 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              | ✅ Done |
+| 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            | Next    |
 | 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           |         |
 | 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           |         |
 

@@ -59,7 +59,16 @@ export interface CalendarEvent {
   endDate: IsoDate;
   daysBefore?: number;
   /** Leasing staff only. */
-  lease?: { id: string; refNo: string; monthlyRent: string; timeLeft: string; canRenew: boolean };
+  lease?: {
+    id: string;
+    refNo: string;
+    monthlyRent: string;
+    timeLeft: string;
+    canRenew: boolean;
+    /** Reminders marked as handled; null when reminders no longer apply (renewed/ended). */
+    reminderHandled: boolean | null;
+    canHandle: boolean;
+  };
 }
 
 export async function getCalendarEvents(
@@ -142,6 +151,9 @@ export async function getCalendarEvents(
                 monthlyRent: l.monthlyRent.toFixed(2),
                 timeLeft: timeLeftText(dates, today),
                 canRenew: can(actor.role, "lease.edit") && !dates.terminationDate && !dates.renewed,
+                reminderHandled:
+                  dates.terminationDate || dates.renewed ? null : l.reminderHandledAt !== null,
+                canHandle: can(actor.role, "reminder.handle"),
               },
             }
           : {}),

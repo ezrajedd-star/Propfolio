@@ -39,6 +39,11 @@ const LABELS: Record<string, string> = {
   "lease.restore": "Restored lease",
   "lease.status_sync": "Updated lease statuses",
   "data.export": "Exported data",
+  "reminder.handled": "Marked reminder handled",
+  "reminder.unhandled": "Turned reminders back on",
+  "reminder.digest_sent": "Sent the daily reminder email",
+  "reminder.digest_failed": "Daily reminder email failed",
+  "reminder.digest_retry": "Retried the daily reminder email",
 };
 
 export function auditActionLabel(action: string): string {

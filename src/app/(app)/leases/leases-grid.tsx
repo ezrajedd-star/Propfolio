@@ -16,6 +16,11 @@ import {
   ArrowUp,
   ArrowUpDown,
   CalendarDays,
+  CircleCheck,
+  Clock,
+  MailCheck,
+  MinusCircle,
+  TriangleAlert,
   Columns3,
   Download,
   ExternalLink,
@@ -234,15 +239,8 @@ export function LeasesGrid({
       },
       reminderStatus: {
         id: "reminderStatus",
-        accessorFn: () => null,
-        cell: () => (
-          <span
-            className="text-muted-foreground"
-            title="Available once reminder emails are switched on"
-          >
-            —
-          </span>
-        ),
+        accessorFn: (r) => r.reminder?.label ?? null,
+        cell: ({ row }) => <ReminderStatusCell summary={row.original.reminder} />,
       },
       remarks: {
         id: "remarks",
@@ -549,6 +547,34 @@ export function LeasesGrid({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+const REMINDER_ICONS = {
+  HANDLED: CircleCheck,
+  STOPPED: MinusCircle,
+  SENT: MailCheck,
+  SCHEDULED: Clock,
+  FAILED: TriangleAlert,
+  NONE: MinusCircle,
+} as const;
+
+/** Reminder status with an icon (never colour alone). */
+function ReminderStatusCell({ summary }: { summary: LeaseRow["reminder"] }) {
+  if (!summary) return <span className="text-muted-foreground">—</span>;
+  const Icon = REMINDER_ICONS[summary.state];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap",
+        summary.state === "FAILED" && "text-danger font-medium",
+        summary.state === "HANDLED" && "text-success",
+        (summary.state === "STOPPED" || summary.state === "NONE") && "text-muted-foreground",
+      )}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden />
+      {summary.label}
+    </span>
   );
 }
 
