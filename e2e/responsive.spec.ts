@@ -13,3 +13,15 @@ test("the menu works on a phone", async ({ page }) => {
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the calendar opens in the list view on a phone, without sideways scrolling", async ({
+  page,
+}) => {
+  await signInAs(page, "staff");
+  await page.goto("/calendar");
+  await expect(page.getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

@@ -108,3 +108,31 @@ Tenant search uses `pg_trgm`. Both extensions are available on managed Postgres 
 Date fields use the browser's own date picker (best on phones) and repeat the chosen date in
 words underneath ("Friday, 23 Oct 2026"), so day and month can't be confused. A fully custom
 picker can be added in Phase 7 if users still find it confusing.
+
+## 15. Calendar contents (Phase 3)
+
+- Reminder events show the lead-time reminders ("90 days before the end"), not the weekly or
+  daily repeats after them, which would crowd the month view. The lease's Reminders tab lists
+  everything.
+- Rent due events show the due date only. Amounts (with escalations) come with Payments in Phase 5.
+- Property Management sees only lease start and end events, with the tenant's display name. The
+  server never sends them references, rent or lease ids.
+- The calendar loads its events from `/api/v1/calendar` each time it opens and when the browser
+  tab regains focus, so an edit in the grid shows up there without reloading the page.
+- Phones open the calendar in the List view, which reads better on a small screen.
+
+## 16. Leases grid (Phase 3)
+
+- In-line edits: remarks, rent due day and contact person. The contact person belongs to the
+  tenant, so editing it in one row updates every lease of that tenant. Dates, rent, unit and
+  tenant still go through the full form with its confirmation step.
+- Undo after an in-line edit is simply another edit back to the old value, so it is audited too.
+- Column layout (shown/hidden, order, group by building) is saved on the server per user, so it
+  follows people between computers. Saved layouts are repaired automatically if columns change.
+- "Balance due" and "Reminder status" columns show "—" until Payments (Phase 5) and Reminders
+  (Phase 4) exist. The "Overdue" filter is shown but disabled until then.
+- Exports (Excel or CSV) use the grid's current filters and visible columns, or only the selected
+  rows. Every export is written to the audit log. In CSV, values starting with `=`, `+`, `-` or `@`
+  are prefixed with an apostrophe so spreadsheet programs can't run them as formulas.
+- Bulk actions are limited to export and archive, as the brief asks. A bulk archive reports any
+  lease it couldn't archive instead of stopping silently.

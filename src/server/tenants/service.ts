@@ -36,7 +36,7 @@ const SEARCHABLE = [
   "tin",
 ] as const;
 
-function searchTextOf(t: Pick<Tenant, (typeof SEARCHABLE)[number]>): string {
+export function searchTextOf(t: Pick<Tenant, (typeof SEARCHABLE)[number]>): string {
   return buildSearchText(...SEARCHABLE.map((f) => t[f]));
 }
 

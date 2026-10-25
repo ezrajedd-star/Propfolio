@@ -38,6 +38,7 @@ const LABELS: Record<string, string> = {
   "lease.archive": "Archived lease",
   "lease.restore": "Restored lease",
   "lease.status_sync": "Updated lease statuses",
+  "data.export": "Exported data",
 };
 
 export function auditActionLabel(action: string): string {

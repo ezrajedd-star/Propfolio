@@ -320,3 +320,13 @@ model LeaseDraft {
   data      Json
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
+
+/// Per-user screen preferences, e.g. the leases grid's columns. Only the user's own rows are read.
+model UserPreference {
+  userId    String   @db.Uuid
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([userId, key])
+}

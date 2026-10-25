@@ -60,18 +60,20 @@ export interface LeaseRow {
   status: LeaseStatus;
   building: { id: string; name: string; code: string };
   unit: { id: string; unitNumber: string };
-  tenant: { id: string; displayName: string };
+  tenant: { id: string; displayName: string; contactPerson: string | null };
+  unitType: { id: string; name: string };
   startDate: IsoDate;
   endDate: IsoDate;
   terminationDate: IsoDate | null;
   daysLeft: number;
   timeLeft: string;
   monthlyRent: string;
+  rentDueDay: number;
+  remarks: string | null;
   archived: boolean;
 }
 
 export interface LeaseDetail extends LeaseRow, LeaseTermsView {
-  unitType: string;
   duration: string;
   statusDetail: string | null;
   terminationReason: string | null;
@@ -103,10 +105,18 @@ const rowInclude = {
       reminderConfig: true,
       archivedAt: true,
       building: { select: { id: true, name: true, code: true, archivedAt: true } },
-      unitType: { select: { name: true, reminderConfig: true } },
+      unitType: { select: { id: true, name: true, reminderConfig: true } },
     },
   },
-  tenant: { select: { id: true, displayName: true, archivedAt: true, anonymizedAt: true } },
+  tenant: {
+    select: {
+      id: true,
+      displayName: true,
+      contactPerson: true,
+      archivedAt: true,
+      anonymizedAt: true,
+    },
+  },
 } satisfies Prisma.LeaseInclude;
 
 type LeaseWithRow = Prisma.LeaseGetPayload<{ include: typeof rowInclude }>;
@@ -137,13 +147,20 @@ function toRow(l: LeaseWithRow, system: ReminderConfig, today: IsoDate): LeaseRo
     status: statusOf(l, system, today),
     building: { id: l.unit.building.id, name: l.unit.building.name, code: l.unit.building.code },
     unit: { id: l.unit.id, unitNumber: l.unit.unitNumber },
-    tenant: { id: l.tenant.id, displayName: l.tenant.displayName },
+    tenant: {
+      id: l.tenant.id,
+      displayName: l.tenant.displayName,
+      contactPerson: l.tenant.contactPerson,
+    },
+    unitType: { id: l.unit.unitType.id, name: l.unit.unitType.name },
     startDate: dates.startDate,
     endDate: dates.endDate,
     terminationDate: dates.terminationDate,
     daysLeft: daysLeft(dates, today),
     timeLeft: timeLeftText(dates, today),
     monthlyRent: l.monthlyRent.toFixed(2),
+    rentDueDay: l.rentDueDay,
+    remarks: l.remarks,
     archived: l.archivedAt !== null,
   };
 }
@@ -154,6 +171,9 @@ export interface LeaseFilters {
   /** Current leases (Active/Expiring) whose last day is within this many days. */
   endingWithinDays?: number;
   buildingId?: string;
+  unitTypeId?: string;
+  /** Only these leases (e.g. rows selected for export). */
+  ids?: string[];
   includeArchived?: boolean;
 }
 
@@ -170,9 +190,15 @@ export async function listLeases(
     db.lease.findMany({
       where: {
         ...(filters.includeArchived ? {} : { archivedAt: null }),
-        ...(filters.buildingId && isUuid(filters.buildingId)
-          ? { unit: { buildingId: filters.buildingId } }
-          : {}),
+        unit: {
+          ...(filters.buildingId && isUuid(filters.buildingId)
+            ? { buildingId: filters.buildingId }
+            : {}),
+          ...(filters.unitTypeId && isUuid(filters.unitTypeId)
+            ? { unitTypeId: filters.unitTypeId }
+            : {}),
+        },
+        ...(filters.ids ? { id: { in: filters.ids.filter(isUuid) } } : {}),
         ...(tokens.length
           ? {
               AND: tokens.map((t) => ({
@@ -253,7 +279,6 @@ export async function getLease(
   return {
     ...row,
     ...termsView(l),
-    unitType: l.unit.unitType.name,
     duration: formatDuration(row.startDate, row.endDate),
     statusDetail: statusDetail(row.status, leaseDatesOf(l)),
     terminationReason: l.terminationReason,

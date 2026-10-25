@@ -49,7 +49,7 @@ export default async function RenewPage({ params }: { params: Promise<{ id: stri
       <RenewForm
         leaseId={id}
         refNo={lease.refNo}
-        unitLabel={`Unit ${lease.unit.unitNumber}, ${lease.building.name} (${lease.unitType})`}
+        unitLabel={`Unit ${lease.unit.unitNumber}, ${lease.building.name} (${lease.unitType.name})`}
         tenantName={lease.tenant.displayName}
         defaults={defaults}
         reminderConfig={lease.reminders.config}

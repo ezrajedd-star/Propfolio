@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { runAction } from "@/server/actions";
+import { AppError } from "@/server/errors";
 import { requireActor } from "@/server/auth/current";
 import { discardLeaseDraft, saveLeaseDraft } from "@/server/leases/drafts";
 import {
@@ -13,6 +14,8 @@ import {
   updateLease,
 } from "@/server/leases/service";
 import { requestMeta } from "@/server/request-meta";
+import { quickEditLease } from "@/server/leases/quick-edit";
+import { saveGridLayout } from "@/server/preferences";
 
 const refresh = () => revalidatePath("/", "layout");
 
@@ -74,5 +77,42 @@ export async function discardLeaseDraftAction() {
     const actor = await requireActor("lease.edit");
     await discardLeaseDraft(actor);
     return null;
+  });
+}
+
+export async function quickEditLeaseAction(leaseId: string, input: unknown) {
+  return runAction(async () => {
+    const actor = await requireActor("lease.edit");
+    return quickEditLease(actor, leaseId, input, await requestMeta());
+  });
+}
+
+export async function saveGridLayoutAction(layout: unknown) {
+  return runAction(async () => {
+    const actor = await requireActor("lease.view");
+    await saveGridLayout(actor, layout);
+    return null;
+  });
+}
+
+/** Bulk archive (or restore) from the grid. Reports each lease that couldn't be changed. */
+export async function archiveLeasesAction(ids: string[], archived: boolean) {
+  return runAction(async () => {
+    const actor = await requireActor("record.archive");
+    const meta = await requestMeta();
+    const list = Array.isArray(ids) ? ids.slice(0, 500) : [];
+    const done: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    for (const id of list) {
+      try {
+        await setLeaseArchived(actor, id, archived, meta);
+        done.push(id);
+      } catch (err) {
+        if (!(err instanceof AppError)) throw err;
+        failed.push({ id, message: err.message });
+      }
+    }
+    refresh();
+    return { done, failed };
   });
 }

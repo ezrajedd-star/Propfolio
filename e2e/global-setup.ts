@@ -75,6 +75,39 @@ export default async function globalSetup() {
         privacyAckMethod: "SIGNED_FORM",
       },
     });
+
+    // A lease covering today, for the calendar/grid flows (dates relative to today).
+    const iso = (days: number) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() + days);
+      return new Date(d.toISOString().slice(0, 10));
+    };
+    const unit601 = await db.unit.create({
+      data: { buildingId: building.id, unitNumber: "601", unitTypeId: office.id },
+    });
+    const calTenant = await db.tenant.create({
+      data: {
+        type: "COMPANY",
+        displayName: "Calendar Test Co",
+        contactPerson: "Celia Reyes",
+        searchText: "calendar test co celia reyes",
+        privacyAckDate: new Date("2026-01-01"),
+        privacyAckMethod: "EMAIL",
+      },
+    });
+    await db.lease.create({
+      data: {
+        refNo: "LSE-E2E-0001",
+        unitId: unit601.id,
+        tenantId: calTenant.id,
+        startDate: iso(-60),
+        endDate: iso(400),
+        status: "ACTIVE",
+        monthlyRent: "65000",
+        rentDueDay: 5,
+        securityDeposit: "130000",
+      },
+    });
   } finally {
     await db.$disconnect();
   }

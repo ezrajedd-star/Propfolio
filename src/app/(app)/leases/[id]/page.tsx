@@ -80,10 +80,21 @@ export default async function LeasePage({ params }: { params: Promise<{ id: stri
                   >{`Unit ${lease.unit.unitNumber}, ${lease.building.name}`}</Link>
                 ),
               },
-              { label: "Unit type", value: lease.unitType },
+              { label: "Unit type", value: lease.unitType.name },
               { label: "Start", value: formatIsoDate(lease.startDate) },
               { label: "End", value: formatIsoDate(lease.endDate) },
               { label: "Length", value: lease.duration },
+              {
+                label: "Calendar",
+                value: (
+                  <Link
+                    href={`/calendar?date=${lease.terminationDate ?? lease.endDate}`}
+                    className="text-primary underline"
+                  >
+                    Show the end date on the calendar
+                  </Link>
+                ),
+              },
               ...(lease.terminationDate
                 ? [
                     { label: "Ended early on", value: formatIsoDate(lease.terminationDate) },

@@ -5,9 +5,10 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phases 1–2 of 7 are complete: sign-in, roles, users, audit log, design system,
-> plus buildings, units, unit types, tenants, the lease wizard, lease pages, renewal,
-> termination and calculated statuses. See [Build phases](#build-phases).
+> **Status:** Phases 1–3 of 7 are complete: sign-in, roles, users, audit log, design system;
+> buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; and
+> the calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export.
+> See [Build phases](#build-phases).
 
 ---
 
@@ -109,7 +110,9 @@ database** on every run, so never point them at real data.
 - **Vitest** (unit + integration) and **Playwright** (end-to-end)
 - Docker Compose: web, worker, Postgres, Mailpit
 
-Coming in later phases: FullCalendar, TanStack Table, exceljs, S3-compatible document storage.
+- **FullCalendar** (calendar), **TanStack Table** (leases grid), **exceljs** (Excel export)
+
+Coming in later phases: S3-compatible document storage.
 
 ### Project layout
 
@@ -232,8 +235,8 @@ with the database (see below).
 | ------------------------------ | ----------------------------------------------------------------------------------- | ------- |
 | 1. Foundation                  | Setup, auth, roles, users, audit log, layout, design system                         | ✅ Done |
 | 2. Property and lease register | Buildings, unit types, units, tenants, lease wizard, renewal, termination, statuses | ✅ Done |
-| 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | Next    |
-| 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              |         |
+| 3. Calendar and grid           | FullCalendar views, leases grid with in-line editing, filters, export               | ✅ Done |
+| 4. Reminders                   | Reminder inheritance, daily 06:00 job, digest email, "Mark as handled"              | Next    |
 | 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            |         |
 | 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention                           |         |
 | 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           |         |

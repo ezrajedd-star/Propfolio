@@ -115,3 +115,78 @@
     @apply tracking-tight;
   }
 }
+
+/* ─── FullCalendar, in Propfolio's look ─────────────────────────────────────── */
+.pf-calendar .fc {
+  --fc-border-color: var(--border);
+  --fc-today-bg-color: var(--primary-soft);
+  --fc-page-bg-color: var(--card);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-list-event-hover-bg-color: var(--muted);
+  font-size: 0.95rem;
+}
+.pf-calendar .fc .fc-col-header-cell-cushion,
+.pf-calendar .fc .fc-daygrid-day-number {
+  color: var(--foreground);
+  text-decoration: none;
+  padding: 6px 8px;
+}
+.pf-calendar .fc .fc-col-header-cell-cushion {
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.pf-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  font-weight: 700;
+  color: var(--primary);
+}
+.pf-calendar .fc .fc-daygrid-more-link {
+  font-weight: 600;
+  color: var(--primary);
+}
+.pf-calendar .fc-list-event-dot {
+  display: none;
+}
+.pf-calendar .fc-event {
+  cursor: pointer;
+}
+.pf-calendar .fc-daygrid-event {
+  margin-top: 2px;
+}
+
+/* Event chips: status colour + status icon + text label */
+.pf-event {
+  border: 0 !important;
+  border-left: 3px solid currentColor !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.pf-calendar .fc-list .pf-event {
+  border-left: 0 !important;
+  font-size: 0.95rem;
+}
+.pf-status-ACTIVE {
+  background: var(--success-soft) !important;
+  color: var(--success) !important;
+}
+.pf-status-UPCOMING {
+  background: var(--primary-soft) !important;
+  color: var(--accent-foreground) !important;
+}
+.pf-status-EXPIRING {
+  background: var(--warning-soft) !important;
+  color: var(--warning) !important;
+}
+.pf-status-EXPIRED {
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+.pf-status-RENEWED,
+.pf-status-TERMINATED {
+  background: var(--neutral-soft) !important;
+  color: var(--neutral-status) !important;
+}
+.pf-calendar .fc-event .fc-event-main {
+  color: inherit;
+}
