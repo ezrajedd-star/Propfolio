@@ -2,7 +2,7 @@
   "name": "propfolio",
   "version": "0.1.0",
   "private": true,
-  "description": "Propfolio — lease ledger for rental property companies",
+  "description": "Propfolio \u2014 lease ledger for rental property companies",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -24,7 +24,8 @@
     "db:seed": "tsx --tsconfig tsconfig.worker.json prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "qa": "playwright test --config qa/playwright.config.ts"
   },
   "prisma": {
     "seed": "tsx --tsconfig tsconfig.worker.json prisma/seed.ts"

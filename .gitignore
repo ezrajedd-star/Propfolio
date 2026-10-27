@@ -14,3 +14,7 @@ storage/
 
 # Server-only files
 deploy/.seeded
+
+# QA run output
+qa-report/
+qa-results/
