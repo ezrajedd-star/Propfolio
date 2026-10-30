@@ -13,6 +13,7 @@ import { formatDuration } from "@/domain/time/calendar-date";
 import { timeLeftText } from "@/domain/leases/status";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getUnit } from "@/server/property/units";
 import { UnitRemindersCard } from "./unit-reminders-card";
 
@@ -21,7 +22,8 @@ export const metadata: Metadata = { title: "Unit" };
 export default async function UnitPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("occupancy.view");
   const { id } = await params;
-  const unit = await getUnit(actor, id);
+  assertIdOrNotFound(id);
+  const unit = await orNotFound(getUnit(actor, id));
   const staff = can(actor.role, "lease.edit");
   const today = manilaToday();
   const current = unit.currentLease;

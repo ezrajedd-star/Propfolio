@@ -1,4 +1,4 @@
-import { Building2, DoorOpen, Settings2 } from "lucide-react";
+import { Building2, DoorOpen, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -66,11 +66,15 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
         }
         actions={
           can(actor.role, "property.manage") ? (
-            <Button asChild variant="outline">
+            <Button asChild>
               <Link href="/settings/buildings">
-                <Settings2 aria-hidden /> Manage buildings and units
+                <Plus aria-hidden /> Add a building or units
               </Link>
             </Button>
+          ) : staff ? (
+            <span className="text-muted-foreground text-sm">
+              New building or units? Ask an Admin to add them.
+            </span>
           ) : null
         }
       />

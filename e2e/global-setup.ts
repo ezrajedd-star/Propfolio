@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
 
 import { E2E_DATABASE_URL } from "../playwright.config";
+import { TASK_TOUR_IDS } from "../src/domain/guide/content";
 import { PASSWORD, USERS } from "./fixtures";
 
 export default async function globalSetup() {
@@ -37,9 +38,13 @@ export default async function globalSetup() {
       const user = await db.user.create({
         data: { ...u, role: roles[key], passwordHash, mustChangePassword: false },
       });
-      // These test users have seen the welcome tour (e2e/phase6.spec.ts tests it on purpose).
+      // These test users have seen all tours (e2e/phase6.spec.ts and tours.spec.ts test them on purpose).
       await db.userPreference.create({
-        data: { userId: user.id, key: "guide", value: { tourDone: true, on: false } },
+        data: {
+          userId: user.id,
+          key: "guide",
+          value: { tourDone: true, on: false, toursDone: [...TASK_TOUR_IDS] },
+        },
       });
     }
 

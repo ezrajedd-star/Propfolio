@@ -74,7 +74,7 @@ const STEPS = [
 
 function Progress({ step }: { step: number }) {
   return (
-    <div className="mb-6">
+    <div className="mb-6" data-guide="wizard-steps">
       <p className="mb-3 font-medium" aria-live="polite">
         Step {step} of 4 · {STEPS[step - 1]!.title}
       </p>
@@ -123,7 +123,7 @@ function UnitStep({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-6">
+      <div className="flex flex-wrap items-end gap-6" data-guide="unit-filters">
         <div className="w-full max-w-xs space-y-2">
           <Label htmlFor="wizard-building">Building</Label>
           <NativeSelect
@@ -160,6 +160,7 @@ function UnitStep({
         <div
           role="radiogroup"
           aria-label="Unit"
+          data-guide="unit-list"
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
           {visible.map((u) => (
@@ -498,7 +499,7 @@ export function LeaseWizard({
           </Button>
           {step < 4 ? (
             step === 2 && !values.tenantId ? null : (
-              <Button type="button" size="lg" onClick={next}>
+              <Button type="button" size="lg" onClick={next} data-guide="wizard-next">
                 Next: {STEPS[step]!.title} <ChevronRight aria-hidden />
               </Button>
             )

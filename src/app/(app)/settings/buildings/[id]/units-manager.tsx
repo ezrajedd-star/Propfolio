@@ -5,6 +5,7 @@ import {
   ArchiveRestore,
   DoorOpen,
   ExternalLink,
+  ListPlus,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -35,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import type { UnitSummary } from "@/server/property/units";
 import { archiveUnitAction } from "../../property-actions";
+import { BulkUnitsDialog } from "./bulk-units-dialog";
 import { UnitDialog } from "./unit-dialog";
 
 export function UnitsManager({
@@ -47,6 +49,7 @@ export function UnitsManager({
   unitTypes: { id: string; name: string }[];
 }) {
   const [editing, setEditing] = useState<UnitSummary | "new" | null>(null);
+  const [bulk, setBulk] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const archive = (u: UnitSummary, archived: boolean) =>
@@ -62,9 +65,23 @@ export function UnitsManager({
     });
 
   const addButton = (
-    <Button onClick={() => setEditing("new")} disabled={unitTypes.length === 0}>
-      <Plus aria-hidden /> Add unit
-    </Button>
+    <div className="flex flex-wrap gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setBulk(true)}
+        disabled={unitTypes.length === 0}
+        data-guide="unit-add-many"
+      >
+        <ListPlus aria-hidden /> Add several units
+      </Button>
+      <Button
+        onClick={() => setEditing("new")}
+        disabled={unitTypes.length === 0}
+        data-guide="unit-add"
+      >
+        <Plus aria-hidden /> Add unit
+      </Button>
+    </div>
   );
 
   return (
@@ -87,7 +104,7 @@ export function UnitsManager({
           Add each office, shop, apartment or warehouse that can be leased.
         </EmptyState>
       ) : (
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden" data-guide="unit-table">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -185,6 +202,14 @@ export function UnitsManager({
           }
           open
           onOpenChange={(o) => !o && setEditing(null)}
+        />
+      ) : null}
+      {bulk ? (
+        <BulkUnitsDialog
+          buildingId={buildingId}
+          unitTypes={unitTypes}
+          open
+          onOpenChange={setBulk}
         />
       ) : null}
     </>

@@ -7,6 +7,7 @@ import { can } from "@/domain/auth/roles";
 import { formatPeso } from "@/domain/money/money";
 import { formatDateTime, formatIsoDate } from "@/domain/time/manila";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getPaymentAcknowledgement } from "@/server/billing/payments";
 import { getSettings } from "@/server/settings/service";
 import { AcknowledgementActions } from "./acknowledgement-actions";
@@ -16,7 +17,10 @@ export const metadata: Metadata = { title: "Payment acknowledgement" };
 export default async function PaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("payment.view");
   const { id } = await params;
-  const [p, settings] = await Promise.all([getPaymentAcknowledgement(actor, id), getSettings()]);
+  assertIdOrNotFound(id);
+  const [p, settings] = await orNotFound(
+    Promise.all([getPaymentAcknowledgement(actor, id), getSettings()]),
+  );
   const companyName = settings.companyName;
   const voided = p.status === "VOID";
   return (

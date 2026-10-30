@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   "unitType.archive": "Archived unit type",
   "unitType.restore": "Restored unit type",
   "unit.create": "Added unit",
+  "unit.bulk_create": "Added several units",
   "unit.update": "Edited unit",
   "unit.reminders_update": "Changed unit reminders",
   "unit.archive": "Archived unit",

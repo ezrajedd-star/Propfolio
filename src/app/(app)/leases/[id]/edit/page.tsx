@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { BackLink } from "@/components/app/back-link";
 import { PageHeader } from "@/components/app/page-header";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getLease } from "@/server/leases/service";
 import { listUnits } from "@/server/property/units";
 import { listTenants } from "@/server/tenants/service";
@@ -14,7 +15,8 @@ export const metadata: Metadata = { title: "Change lease" };
 export default async function EditLeasePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("lease.edit");
   const { id } = await params;
-  const lease = await getLease(actor, id);
+  assertIdOrNotFound(id);
+  const lease = await orNotFound(getLease(actor, id));
   if (!lease.actions.canEdit) redirect(`/leases/${id}`);
   const [units, tenants] = await Promise.all([listUnits(actor), listTenants(actor)]);
 

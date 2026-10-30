@@ -158,6 +158,48 @@ export const GUIDE_HINTS: Record<string, GuideHint> = {
     title: "Upload",
     body: "Add a PDF, photo or Word file up to 20 MB, and say what it is.",
   },
+  "tour-button": {
+    title: "Show me how",
+    body: "Replays the short step-by-step tour for this page.",
+  },
+  "wizard-steps": {
+    title: "Four steps",
+    body: "Unit → Tenant → Terms → Review. Progress is saved as you go.",
+  },
+  "unit-filters": {
+    title: "Find the unit",
+    body: "Filter by building, or include occupied units to lease from a future date.",
+  },
+  "unit-list": { title: "Pick the unit", body: "Click a unit's card to choose it." },
+  "tenant-type": {
+    title: "Company or person",
+    body: "Whether the tenant is a company or an individual.",
+  },
+  "tenant-name": {
+    title: "Display name",
+    body: "The name everyone sees, including Property Management.",
+  },
+  "tenant-contact": {
+    title: "Contact details",
+    body: "Only Leasing Staff and Admins can see these.",
+  },
+  "building-add": {
+    title: "Add building",
+    body: "Add a new building: name, short code and address.",
+  },
+  "building-list": { title: "Buildings", body: "Open a building to add or edit its units." },
+  "unit-add": { title: "Add unit", body: "Add one unit with its details." },
+  "unit-add-many": {
+    title: "Add several units",
+    body: "Add many units at once from a list or a range like 101 to 120.",
+  },
+  "unit-table": { title: "Units", body: "This building's units and whether each is occupied." },
+  "report-list": {
+    title: "Reports",
+    body: "Six ready-made reports; each can be filtered and downloaded.",
+  },
+  "report-highlights": { title: "Totals", body: "The key numbers for the filters you chose." },
+  "report-table": { title: "Details", body: "One line per lease, tenant or payment, with totals." },
   "tenant-privacy": {
     title: "Privacy",
     body: "When the tenant received the privacy notice. Admins can download or anonymise the tenant's data here.",
@@ -289,3 +331,172 @@ export function tourSteps(role: Role, firstName: string, uat: boolean): TourStep
     ...end,
   ];
 }
+
+// ─── Task tours ────────────────────────────────────────────────────────────────
+
+export const TASK_TOUR_IDS = [
+  "new-lease",
+  "add-tenant",
+  "buildings",
+  "add-units",
+  "reports",
+  "report-page",
+] as const;
+export type TaskTourId = (typeof TASK_TOUR_IDS)[number];
+
+export function isTaskTourId(v: unknown): v is TaskTourId {
+  return typeof v === "string" && (TASK_TOUR_IDS as readonly string[]).includes(v);
+}
+
+const REPLAY: TourStep = {
+  target: "tour-button",
+  title: "See this again any time",
+  body: "Press “Show me how” at the top of this page to replay these steps.",
+};
+
+/**
+ * Short tours for the most important tasks. Each starts by itself the first time someone opens
+ * the page (after the welcome tour), and replays from the page's “Show me how” button.
+ */
+export const TASK_TOURS: Record<TaskTourId, { title: string; steps: TourStep[] }> = {
+  "new-lease": {
+    title: "Adding a lease",
+    steps: [
+      {
+        title: "Adding a lease",
+        body: "A new lease takes four short steps. Here is what to expect. It takes about a minute to read.",
+      },
+      {
+        target: "wizard-steps",
+        title: "Four steps",
+        body: "Unit → Tenant → Terms → Review. Your progress is saved as you go, so you can stop and come back later.",
+      },
+      {
+        target: "unit-filters",
+        title: "Find the unit",
+        body: "Narrow the list to one building. Only vacant units are shown; switch on “Also show units that are occupied” to lease a unit from a future date.",
+      },
+      {
+        target: "unit-list",
+        title: "Pick the unit",
+        body: "Click the unit's card. Its type decides when reminder emails go out before the lease ends.",
+      },
+      {
+        target: "wizard-next",
+        title: "Then the tenant, terms and review",
+        body: "Next you choose an existing tenant or add a new one, then enter the dates, rent, deposit, advance and any increases. The last step shows everything in plain words before you save.",
+      },
+      REPLAY,
+    ],
+  },
+  "add-tenant": {
+    title: "Adding a tenant",
+    steps: [
+      {
+        target: "tenant-type",
+        title: "Company or person?",
+        body: "Choose whether the tenant is a company or an individual.",
+      },
+      {
+        target: "tenant-name",
+        title: "The name everyone sees",
+        body: "The display name appears everywhere, including for Property Management. The registered name and TIN are optional and only Leasing sees them.",
+      },
+      {
+        target: "tenant-contact",
+        title: "Contact details",
+        body: "Who to call or email about the lease. Only Leasing Staff and Admins can see these.",
+      },
+      {
+        target: "tenant-privacy",
+        title: "The privacy notice",
+        body: "The Data Privacy Act requires the tenant to receive our privacy notice. Print or send it, then tick the box and choose how they acknowledged it.",
+      },
+      {
+        target: "tenant-save",
+        title: "Save",
+        body: "Press Add tenant. You can then start a lease for them from their page.",
+      },
+      REPLAY,
+    ],
+  },
+  buildings: {
+    title: "Adding a building and its units",
+    steps: [
+      {
+        target: "building-add",
+        title: "New building?",
+        body: "Add the building first: its name, a short code and the address.",
+      },
+      {
+        target: "building-list",
+        title: "Then add its units",
+        body: "Open the building to add its units, one at a time or many at once (e.g. 101 to 120).",
+      },
+      REPLAY,
+    ],
+  },
+  "add-units": {
+    title: "Adding units",
+    steps: [
+      {
+        target: "unit-add-many",
+        title: "Many units at once",
+        body: "Bought a building? Type the unit numbers, or a range like 101 to 120 or G-01 to G-12, choose the unit type, and add them all in one go.",
+      },
+      {
+        target: "unit-add",
+        title: "One unit",
+        body: "Add a single unit with its floor, floor area and notes. The form stays open so you can add the next one.",
+      },
+      {
+        target: "unit-table",
+        title: "Your units",
+        body: "Units appear here and on the Units page. Occupancy is worked out from leases; mark a unit Under renovation or Unavailable if it can't be leased.",
+      },
+      REPLAY,
+    ],
+  },
+  reports: {
+    title: "Reports",
+    steps: [
+      {
+        target: "report-list",
+        title: "Six ready-made reports",
+        body: "Expiries, occupancy, rent roll, collections, overdue aging and renewals. Pick one to open it.",
+      },
+      {
+        target: "report-expiry",
+        title: "A good place to start",
+        body: "Expiry pipeline lists the leases ending soon, so renewals are planned early.",
+      },
+      REPLAY,
+    ],
+  },
+  "report-page": {
+    title: "Using a report",
+    steps: [
+      {
+        target: "report-filters",
+        title: "Choose what to include",
+        body: "Pick a building, unit type, dates or how far ahead to look, then press Show report.",
+      },
+      {
+        target: "report-highlights",
+        title: "The totals at a glance",
+        body: "The key numbers for the filters you chose.",
+      },
+      {
+        target: "report-table",
+        title: "The details",
+        body: "One line per lease, tenant or payment, with a total at the bottom.",
+      },
+      {
+        target: "report-download",
+        title: "Download for Excel",
+        body: "Downloads exactly what you see, ready for the owner or the accountant. Downloads are recorded in the audit log.",
+      },
+      REPLAY,
+    ],
+  },
+};

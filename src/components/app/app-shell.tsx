@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 
 import { signOutAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ROLE_LABELS, can, type Role } from "@/domain/auth/roles";
+import type { TaskTourId } from "@/domain/guide/content";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "./feedback-button";
 import { GuideButton, GuideProvider, useGuide } from "./guide";
 import { KeepAlive } from "./keep-alive";
+import { NavigationProgress } from "./navigation-progress";
 import { Logo } from "./logo";
 import { NAV_ITEMS } from "./nav-items";
 
@@ -40,7 +42,7 @@ export interface ShellUser {
 
 export interface ShellOptions {
   /** Saved per person: whether the welcome tour was done and the Guide is on. */
-  guide: { on: boolean; tourDone: boolean };
+  guide: { on: boolean; tourDone: boolean; toursDone: TaskTourId[] };
   /** Test (UAT) version: banner and "Send feedback". */
   uat: boolean;
 }
@@ -231,6 +233,9 @@ function Shell({
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
       <KeepAlive />
+      <Suspense>
+        <NavigationProgress />
+      </Suspense>
     </div>
   );
 }

@@ -27,7 +27,7 @@ import {
   recordsPastRetention,
 } from "@/server/privacy/service";
 import { listBuildings } from "@/server/property/buildings";
-import { listUnits } from "@/server/property/units";
+import { createUnits, listUnits } from "@/server/property/units";
 import { exportReport } from "@/server/reports/export";
 import { runReport } from "@/server/reports/service";
 import { updateSettings } from "@/server/settings/service";
@@ -363,13 +363,65 @@ describe("feedback and the guide", () => {
     await expect(listFeedback(staff)).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("guide state is saved per person", async () => {
+  it("guide state is saved per person, including which task tours were seen", async () => {
     const { staff, viewer } = await setup();
-    expect(await getGuideState(staff)).toEqual({ tourDone: false, on: false });
+    expect(await getGuideState(staff)).toEqual({ tourDone: false, on: false, toursDone: [] });
     await saveGuideState(staff, { tourDone: true });
     await saveGuideState(staff, { on: true, tourDone: "yes" });
-    expect(await getGuideState(staff)).toEqual({ tourDone: true, on: true });
-    expect(await getGuideState(viewer)).toEqual({ tourDone: false, on: false });
+    await saveGuideState(staff, { taskTourDone: "new-lease" });
+    await saveGuideState(staff, { taskTourDone: "new-lease" });
+    await saveGuideState(staff, { taskTourDone: "not-a-tour" });
+    await saveGuideState(staff, { taskTourDone: "reports" });
+    expect(await getGuideState(staff)).toEqual({
+      tourDone: true,
+      on: true,
+      toursDone: ["new-lease", "reports"],
+    });
+    expect(await getGuideState(viewer)).toEqual({ tourDone: false, on: false, toursDone: [] });
+  });
+});
+
+describe("adding many units at once", () => {
+  it("expands ranges, skips numbers the building has, audits, and only Admins may", async () => {
+    const { admin, staff, building, unitType } = await setup();
+    const r = await createUnits(
+      admin,
+      {
+        buildingId: building.id,
+        unitTypeId: unitType.id,
+        unitNumbers: "101 to 105\nG-01 to G-02, penthouse",
+        floor: "1F",
+      },
+      meta,
+    );
+    // The building already has 101–103 (from setup), so those are skipped.
+    expect(r.created).toEqual(["104", "105", "G-01", "G-02", "penthouse"]);
+    expect(r.skipped).toEqual(["101", "102", "103"]);
+    const units = await db.unit.findMany({ where: { buildingId: building.id, floor: "1F" } });
+    expect(units).toHaveLength(5);
+    expect(await auditActions(building.id)).toContain("unit.bulk_create");
+
+    const again = await createUnits(
+      admin,
+      { buildingId: building.id, unitTypeId: unitType.id, unitNumbers: "PENTHOUSE, 106" },
+      meta,
+    );
+    expect(again).toEqual({ created: ["106"], skipped: ["PENTHOUSE"] });
+
+    await expect(
+      createUnits(
+        admin,
+        { buildingId: building.id, unitTypeId: unitType.id, unitNumbers: "120-101" },
+        meta,
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      createUnits(
+        staff,
+        { buildingId: building.id, unitTypeId: unitType.id, unitNumbers: "1" },
+        meta,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

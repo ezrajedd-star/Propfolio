@@ -10,6 +10,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { REPORT_IDS, REPORTS, type ReportId } from "@/domain/reports/definitions";
 import { requirePageUser } from "@/server/auth/current";
@@ -32,8 +33,9 @@ export default async function ReportsPage() {
       <PageHeader
         title="Reports"
         description="Choose a report. Each one can be filtered by building, unit type and dates, and downloaded for Excel."
+        actions={<TaskTourButton id="reports" />}
       />
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-guide="report-list">
         {REPORT_IDS.map((id) => {
           const r = REPORTS[id];
           const Icon = ICONS[id];
@@ -41,6 +43,7 @@ export default async function ReportsPage() {
             <li key={id}>
               <Link
                 href={`/reports/${id}`}
+                data-guide={`report-${id}`}
                 className="bg-card hover:bg-muted/50 flex h-full items-start gap-4 rounded-xl border p-5 shadow-sm transition-colors"
               >
                 <span className="bg-primary-soft text-primary flex size-11 shrink-0 items-center justify-center rounded-full">

@@ -220,3 +220,20 @@ picker can be added in Phase 7 if users still find it confusing.
 - Emails to demo addresses (`.test`, `example.com`) are skipped on hosted servers
   (`MAIL_SKIP_TEST_DOMAINS`).
 - Production will move the database and files to managed, encrypted services (Phase 7).
+
+## 23. Task tours, adding many units, and click feedback (UAT round 1)
+
+- **Task tours** for adding a lease, a tenant, a building and units, and reports. Each starts
+  once per person, the first time they open that page, then lives behind "Show me how". They
+  never start before the welcome tour is done, and only one tour shows at a time.
+- **Adding many units at once:** Admins type a list or ranges ("101 to 120", "G-01 to G-12",
+  "101-120"); numbers the building already has are skipped and reported, not duplicated. At most
+  300 per batch. Adding units stays Admin-only; the Units page now says so to Leasing Staff and
+  gives Admins an obvious "Add a building or units" button.
+- **Click feedback:** every link click immediately shows a progress bar and "Opening…", so a slow
+  server never looks like a dead button. We tried Next.js loading screens first, but they stream
+  pages in pieces and a click during start-up could be lost, so we didn't use them.
+- **Not found:** unknown or malformed ids on lease, tenant, payment and unit pages show a
+  friendly "We couldn't find that" page with HTTP 404, instead of an error (found by the QA robot).
+- The leases grid now saves a column change even if you leave the page within the 0.6-second
+  save delay.

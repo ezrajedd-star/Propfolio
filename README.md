@@ -222,6 +222,9 @@ every other overdue total.
 - **Guide button** (bottom of the menu; top bar on phones): numbered notes appear next to the main
   buttons on the current page, with a panel explaining each in a sentence. Click a note to
   highlight the button. It stays on while you move around until you turn it off.
+- **Task tours:** short step-by-step tours for the key tasks: adding a lease, adding a tenant,
+  adding a building and its units, and using reports. Each starts by itself the first time a person
+  opens that page (after the welcome tour), and replays from the page's **Show me how** button.
 - The words live in `src/domain/guide/content.ts`. To explain a new button, add
   `data-guide="some-id"` to it and a hint with the same id.
 

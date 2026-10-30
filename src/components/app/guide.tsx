@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Lightbulb, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CirclePlay, Lightbulb, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -17,7 +17,14 @@ import { createPortal } from "react-dom";
 import { saveGuideStateAction } from "@/app/(app)/guide-actions";
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/domain/auth/roles";
-import { GUIDE_HINTS, pageIntro, tourSteps, type TourStep } from "@/domain/guide/content";
+import {
+  GUIDE_HINTS,
+  pageIntro,
+  TASK_TOURS,
+  tourSteps,
+  type TaskTourId,
+  type TourStep,
+} from "@/domain/guide/content";
 import { cn } from "@/lib/utils";
 
 // ─── State ─────────────────────────────────────────────────────────────────────
@@ -27,6 +34,10 @@ interface GuideContextValue {
   toggle: () => void;
   setOn: (on: boolean) => void;
   startTour: () => void;
+  /** Start a task tour now ("Show me how"). */
+  startTaskTour: (id: TaskTourId) => void;
+  /** Start a task tour only if this person hasn't seen it (first visit to the page). */
+  offerTaskTour: (id: TaskTourId) => void;
 }
 
 const GuideContext = createContext<GuideContextValue | null>(null);
@@ -44,7 +55,7 @@ export function GuideProvider({
   uat,
   children,
 }: {
-  initial: { on: boolean; tourDone: boolean };
+  initial: { on: boolean; tourDone: boolean; toursDone: TaskTourId[] };
   role: Role;
   firstName: string;
   uat: boolean;
@@ -53,8 +64,11 @@ export function GuideProvider({
   const pathname = usePathname();
   const router = useRouter();
   const [on, setOnState] = useState(initial.on);
-  // The tour starts by itself once, on Home, for people who haven't seen it.
+  // The welcome tour starts by itself once, on Home, for people who haven't seen it.
   const [touring, setTouring] = useState(!initial.tourDone && pathname === "/");
+  const [taskTour, setTaskTour] = useState<TaskTourId | null>(null);
+  const seen = useRef(new Set<TaskTourId>(initial.toursDone));
+  const welcomeDone = useRef(initial.tourDone);
 
   const setOn = useCallback((value: boolean) => {
     setOnState(value);
@@ -69,23 +83,50 @@ export function GuideProvider({
       startTour: () => {
         if (pathname !== "/") router.push("/");
         setOnState(false);
+        setTaskTour(null);
         setTouring(true);
+      },
+      startTaskTour: (id) => {
+        setOnState(false);
+        setTaskTour(id);
+      },
+      offerTaskTour: (id) => {
+        // One tour at a time; the welcome tour comes first.
+        if (!welcomeDone.current || seen.current.has(id)) return;
+        setTaskTour((current) => current ?? id);
       },
     }),
     [on, setOn, pathname, router],
   );
 
+  const closeTaskTour = () => {
+    if (taskTour) {
+      seen.current.add(taskTour);
+      void saveGuideStateAction({ taskTourDone: taskTour });
+    }
+    setTaskTour(null);
+  };
+
   return (
     <GuideContext.Provider value={value}>
       {children}
-      {on && !touring ? <GuideLayer /> : null}
+      {on && !touring && !taskTour ? <GuideLayer /> : null}
       {touring ? (
-        <WelcomeTour
+        <Tour
           steps={tourSteps(role, firstName, uat)}
+          startLabel="Show me around"
           onClose={() => {
             setTouring(false);
+            welcomeDone.current = true;
             void saveGuideStateAction({ tourDone: true });
           }}
+        />
+      ) : taskTour ? (
+        <Tour
+          key={taskTour}
+          steps={TASK_TOURS[taskTour].steps}
+          startLabel="Next"
+          onClose={closeTaskTour}
         />
       ) : null}
     </GuideContext.Provider>
@@ -106,6 +147,29 @@ export function GuideButton({ className }: { className?: string }) {
       className={className}
     >
       <Lightbulb aria-hidden /> {on ? "Guide on" : "Guide"}
+    </Button>
+  );
+}
+
+/**
+ * "Show me how" for a page's task tour. Also starts the tour by itself the first time this
+ * person opens the page.
+ */
+export function TaskTourButton({ id }: { id: TaskTourId }) {
+  const { startTaskTour, offerTaskTour } = useGuide();
+  useEffect(() => {
+    // Let the page draw first so the tour can point at it.
+    const t = window.setTimeout(() => offerTaskTour(id), 400);
+    return () => window.clearTimeout(t);
+  }, [id, offerTaskTour]);
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => startTaskTour(id)}
+      data-guide="tour-button"
+    >
+      <CirclePlay aria-hidden /> Show me how
     </Button>
   );
 }
@@ -335,7 +399,15 @@ function NoteItem({
 
 // ─── Welcome tour ──────────────────────────────────────────────────────────────
 
-function WelcomeTour({ steps, onClose }: { steps: TourStep[]; onClose: () => void }) {
+function Tour({
+  steps,
+  startLabel,
+  onClose,
+}: {
+  steps: TourStep[];
+  startLabel: string;
+  onClose: () => void;
+}) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const mounted = useMounted();
@@ -348,6 +420,9 @@ function WelcomeTour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
       const el = step.target ? findTarget(step.target) : null;
       setRect(el ? el.getBoundingClientRect() : null);
     };
+    // Bring the highlighted item into view (form fields can be below the fold).
+    const target = step.target ? findTarget(step.target) : null;
+    target?.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
     measure();
     const t = window.setInterval(measure, 400);
     window.addEventListener("resize", measure);
@@ -430,7 +505,7 @@ function WelcomeTour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
               </Button>
             ) : null}
             <Button ref={next} onClick={() => (last ? onClose() : setIndex(index + 1))}>
-              {last ? "Finish" : index === 0 ? "Show me around" : "Next"}
+              {last ? "Finish" : index === 0 ? startLabel : "Next"}
               {last ? null : <ArrowRight aria-hidden />}
             </Button>
           </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/app/back-link";
 import { OccupancyBar } from "@/components/app/occupancy-bar";
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,7 +39,12 @@ export default async function BuildingPage({ params }: { params: Promise<{ id: s
             {building.archived ? <Badge variant="neutral">Archived</Badge> : null}
           </span>
         }
-        actions={<EditBuildingButton building={{ ...building, notes: building.notes ?? "" }} />}
+        actions={
+          <>
+            <TaskTourButton id="add-units" />
+            <EditBuildingButton building={{ ...building, notes: building.notes ?? "" }} />
+          </>
+        }
       />
       <Card className="mb-8">
         <CardContent>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { BackLink } from "@/components/app/back-link";
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { manilaToday } from "@/domain/time/manila";
 import { renderPrivacyNotice } from "@/schemas/settings";
@@ -38,6 +39,7 @@ export default async function NewLeasePage({
       <PageHeader
         title="New lease"
         description="Four short steps. Your progress is saved as you go."
+        actions={<TaskTourButton id="new-lease" />}
       />
       <LeaseWizard
         units={units.map((u) => ({

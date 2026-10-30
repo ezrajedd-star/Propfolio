@@ -1,4 +1,5 @@
 import type { Prisma, UnitStatusOverride } from "@prisma/client";
+import { z } from "zod";
 
 import { can } from "@/domain/auth/roles";
 import { unitOccupancy, type Occupancy } from "@/domain/leases/occupancy";
@@ -8,6 +9,8 @@ import { parseStoredReminderConfig } from "@/domain/reminders/config";
 import { fromDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { searchTokens } from "@/domain/search/search";
+import { expandUnitNumbers } from "@/domain/property/unit-numbers";
+import { optionalText, uuidSchema } from "@/schemas/common-fields";
 import { unitReminderSchema, unitSchema } from "@/schemas/property";
 import { diffFields, writeAudit, type AuditActor } from "@/server/audit";
 import { assertCan } from "@/server/auth/authorize";
@@ -268,6 +271,69 @@ export async function createUnit(actor: AuditActor, input: unknown, meta: Reques
     if (isUniqueViolation(err)) throw numberTaken();
     throw err;
   }
+}
+
+const bulkUnitsSchema = z.object({
+  buildingId: uuidSchema("Choose the building."),
+  unitTypeId: uuidSchema("Choose the unit type."),
+  unitNumbers: z.string().max(20_000),
+  floor: optionalText(20, "The floor"),
+});
+
+/**
+ * Add many units at once (a newly acquired building): a list or ranges like "101 to 120".
+ * Numbers the building already has are skipped and reported, not duplicated.
+ */
+export async function createUnits(
+  actor: AuditActor,
+  input: unknown,
+  meta: RequestMeta,
+): Promise<{ created: string[]; skipped: string[] }> {
+  assertCan(actor, "property.manage");
+  const data = parseInput(bulkUnitsSchema, input);
+  const list = expandUnitNumbers(data.unitNumbers);
+  if (!list.ok) {
+    throw new ValidationError("Please check the highlighted fields.", { unitNumbers: list.error });
+  }
+  await assertRefsUsable(data.buildingId, data.unitTypeId);
+  return db.$transaction(async (tx) => {
+    const existing = await tx.unit.findMany({
+      where: { buildingId: data.buildingId, archivedAt: null },
+      select: { unitNumber: true },
+    });
+    const taken = new Set(existing.map((u) => u.unitNumber.toLowerCase()));
+    const created = list.numbers.filter((n) => !taken.has(n.toLowerCase()));
+    const skipped = list.numbers.filter((n) => taken.has(n.toLowerCase()));
+    if (created.length) {
+      await tx.unit.createMany({
+        data: created.map((unitNumber) => ({
+          buildingId: data.buildingId,
+          unitTypeId: data.unitTypeId,
+          unitNumber,
+          floor: data.floor,
+          createdById: actor.id,
+          updatedById: actor.id,
+        })),
+      });
+      await writeAudit(
+        {
+          actor,
+          action: "unit.bulk_create",
+          entityType: "Building",
+          entityId: data.buildingId,
+          metadata: {
+            count: created.length,
+            unitNumbers: created,
+            unitTypeId: data.unitTypeId,
+            skipped,
+          },
+          meta,
+        },
+        tx,
+      );
+    }
+    return { created, skipped };
+  });
 }
 
 export async function updateUnit(actor: AuditActor, id: string, input: unknown, meta: RequestMeta) {

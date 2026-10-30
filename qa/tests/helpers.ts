@@ -9,7 +9,15 @@ export const hasCredentials = Boolean(QA_EMAIL && QA_PASSWORD);
 /** Everything the QA run creates carries this label, so testers can tell it apart. */
 export const QA_LABEL = "QA Robot";
 
+/** Tours open by themselves on a person's first visit to some pages; the robot skips them. */
+export async function skipToursAutomatically(page: Page) {
+  await page.addLocatorHandler(page.getByRole("button", { name: "Skip tour" }), async (button) => {
+    await button.click();
+  });
+}
+
 export async function signIn(page: Page) {
+  await skipToursAutomatically(page);
   await page.goto("/login");
   await page.getByLabel("Email").fill(QA_EMAIL);
   await page.getByLabel("Password", { exact: true }).fill(QA_PASSWORD);
@@ -98,6 +106,7 @@ export async function createRoleAccount(
 }
 
 export async function signInWith(page: Page, account: { email: string; password: string }) {
+  await skipToursAutomatically(page);
   await page.goto("/login");
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Password", { exact: true }).fill(account.password);

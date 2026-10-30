@@ -108,16 +108,28 @@ export function LeasesGrid({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  // Remember the layout for this user (debounced).
+  // Remember the layout for this user (debounced). A change still waiting when the page is
+  // left is saved straight away, so it is never lost.
   const firstLayout = useRef(true);
+  const unsavedLayout = useRef<typeof layout | null>(null);
   useEffect(() => {
     if (firstLayout.current) {
       firstLayout.current = false;
       return;
     }
-    const t = setTimeout(() => void saveGridLayoutAction(layout), 600);
+    unsavedLayout.current = layout;
+    const t = setTimeout(() => {
+      unsavedLayout.current = null;
+      void saveGridLayoutAction(layout);
+    }, 600);
     return () => clearTimeout(t);
   }, [layout]);
+  useEffect(
+    () => () => {
+      if (unsavedLayout.current) void saveGridLayoutAction(unsavedLayout.current);
+    },
+    [],
+  );
 
   /** Save one in-line edit, then offer Undo for a few seconds. */
   const save = async (row: LeaseRow, field: Field, raw: string) => {

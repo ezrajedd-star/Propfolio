@@ -15,6 +15,7 @@ import { formatDateTime, formatIsoDate, manilaToday } from "@/domain/time/manila
 import { cn } from "@/lib/utils";
 import { getEntityHistory } from "@/server/audit-log/entity-history";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getLeaseLedger } from "@/server/billing/payments";
 import { listDocuments } from "@/server/documents/service";
 import { getLease } from "@/server/leases/service";
@@ -47,14 +48,17 @@ export default async function LeasePage({
 }) {
   const actor = await requirePageUser("lease.view");
   const { id } = await params;
+  assertIdOrNotFound(id);
   const { tab } = await searchParams;
-  const [lease, history, reminderView, ledger, documents] = await Promise.all([
-    getLease(actor, id),
-    getEntityHistory(actor, "Lease", id),
-    getLeaseReminderView(actor, id),
-    getLeaseLedger(actor, id),
-    listDocuments(actor, { leaseId: id }),
-  ]);
+  const [lease, history, reminderView, ledger, documents] = await orNotFound(
+    Promise.all([
+      getLease(actor, id),
+      getEntityHistory(actor, "Lease", id),
+      getLeaseReminderView(actor, id),
+      getLeaseLedger(actor, id),
+      listDocuments(actor, { leaseId: id }),
+    ]),
+  );
   const today = manilaToday();
 
   const overview = (

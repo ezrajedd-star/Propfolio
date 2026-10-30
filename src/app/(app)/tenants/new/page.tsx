@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { BackLink } from "@/components/app/back-link";
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { renderPrivacyNotice } from "@/schemas/settings";
@@ -19,6 +20,7 @@ export default async function NewTenantPage() {
       <PageHeader
         title="Add a tenant"
         description="Only the display name is required. Add the rest when you have it."
+        actions={<TaskTourButton id="add-tenant" />}
       />
       <Card className="max-w-3xl">
         <CardContent>

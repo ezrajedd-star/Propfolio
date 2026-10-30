@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { BackLink } from "@/components/app/back-link";
 import { EmptyState } from "@/components/app/empty-state";
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -90,6 +91,7 @@ export default async function ReportPage({
         actions={
           can(actor.role, "data.export") ? (
             <>
+              <TaskTourButton id="report-page" />
               <Button variant="outline" asChild>
                 <a href={`/api/v1/reports/${id}/export?${query}&format=csv`}>
                   <Download aria-hidden /> CSV
@@ -162,7 +164,7 @@ export default async function ReportPage({
       </form>
 
       {report.highlights.length ? (
-        <dl className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <dl className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4" data-guide="report-highlights">
           {report.highlights.map((h) => (
             <div key={h.label} className="bg-card rounded-xl border p-4">
               <dt className="text-muted-foreground">{h.label}</dt>
@@ -173,7 +175,7 @@ export default async function ReportPage({
       ) : null}
 
       {report.rows.length ? (
-        <Card>
+        <Card data-guide="report-table">
           <CardContent className="overflow-x-auto pt-2">
             <Table>
               <TableHeader>

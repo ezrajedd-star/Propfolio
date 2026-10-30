@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/app/back-link";
+import { TaskTourButton } from "@/components/app/guide";
 import { PageHeader } from "@/components/app/page-header";
 import { requirePageUser } from "@/server/auth/current";
 import { listBuildings } from "@/server/property/buildings";
@@ -23,6 +24,7 @@ export default async function BuildingsPage({
       <PageHeader
         title="Buildings and units"
         description="Add buildings, then the units inside them. Archived buildings are hidden but kept."
+        actions={<TaskTourButton id="buildings" />}
       />
       <BuildingsList buildings={buildings} />
       <p className="mt-6">

@@ -8,6 +8,7 @@ import { createBuilding, setBuildingArchived, updateBuilding } from "@/server/pr
 import { createUnitType, setUnitTypeArchived, updateUnitType } from "@/server/property/unit-types";
 import {
   createUnit,
+  createUnits,
   setUnitArchived,
   setUnitReminderOverride,
   updateUnit,
@@ -68,6 +69,15 @@ export async function saveUnitAction(id: string | null, input: unknown) {
     const u = id ? await updateUnit(actor, id, input, meta) : await createUnit(actor, input, meta);
     refresh();
     return { id: u.id };
+  });
+}
+
+export async function addUnitsAction(input: unknown) {
+  return runAction(async () => {
+    const actor = await requireActor("property.manage");
+    const r = await createUnits(actor, input, await requestMeta());
+    refresh();
+    return r;
   });
 }
 

@@ -23,6 +23,7 @@ import { formatPeso, money } from "@/domain/money/money";
 import { formatDateTime, formatIsoDate } from "@/domain/time/manila";
 import { PRIVACY_ACK_METHOD_LABELS, TENANT_TYPE_LABELS } from "@/schemas/tenant";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { balancesForLeases } from "@/server/billing/balances";
 import { listDocuments } from "@/server/documents/service";
 import { getTenant } from "@/server/tenants/service";
@@ -34,10 +35,10 @@ export const metadata: Metadata = { title: "Tenant" };
 export default async function TenantPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("tenant.view");
   const { id } = await params;
-  const [t, documents] = await Promise.all([
-    getTenant(actor, id),
-    listDocuments(actor, { tenantId: id }),
-  ]);
+  assertIdOrNotFound(id);
+  const [t, documents] = await orNotFound(
+    Promise.all([getTenant(actor, id), listDocuments(actor, { tenantId: id })]),
+  );
   const balances = await balancesForLeases(t.leases.map((l) => l.id));
   const totalDue = [...balances.values()].reduce((s, b) => s.plus(b.balanceDue), money(0));
   const totalOverdue = [...balances.values()].reduce((s, b) => s.plus(b.overdue), money(0));

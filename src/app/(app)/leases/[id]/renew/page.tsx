@@ -7,6 +7,7 @@ import { addDays, addMonths, leaseDuration } from "@/domain/time/calendar-date";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
 import type { LeaseTermsInput } from "@/schemas/lease";
 import { requirePageUser } from "@/server/auth/current";
+import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getLease } from "@/server/leases/service";
 import { RenewForm } from "./renew-form";
 
@@ -15,7 +16,8 @@ export const metadata: Metadata = { title: "Renew lease" };
 export default async function RenewPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requirePageUser("lease.edit");
   const { id } = await params;
-  const lease = await getLease(actor, id);
+  assertIdOrNotFound(id);
+  const lease = await orNotFound(getLease(actor, id));
   if (!lease.actions.canRenew) redirect(`/leases/${id}`);
 
   // Pre-fill: starts the day after the current lease ends, same length, same terms.

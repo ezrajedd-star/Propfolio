@@ -74,7 +74,10 @@ export function NewTenantForm({
       {error ? <FormAlert>{error}</FormAlert> : null}
       <TenantFields register={form.register} errors={errors} />
 
-      <fieldset className="bg-primary-soft/30 space-y-4 rounded-xl border p-4">
+      <fieldset
+        className="bg-primary-soft/30 space-y-4 rounded-xl border p-4"
+        data-guide="tenant-privacy"
+      >
         <legend className="px-1 font-semibold">Privacy notice</legend>
         <p>
           Under the Data Privacy Act, the tenant must receive our privacy notice before we keep
@@ -136,7 +139,7 @@ export function NewTenantForm({
             Cancel
           </Button>
         ) : null}
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} data-guide="tenant-save">
           {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
           {submitLabel}
         </Button>

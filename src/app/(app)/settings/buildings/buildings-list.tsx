@@ -45,7 +45,7 @@ export function BuildingsList({ buildings }: { buildings: BuildingSummary[] }) {
   return (
     <>
       <div className="mb-6 flex justify-end">
-        <Button onClick={() => setEditing("new")}>
+        <Button onClick={() => setEditing("new")} data-guide="building-add">
           <Plus aria-hidden /> Add building
         </Button>
       </div>
@@ -62,7 +62,7 @@ export function BuildingsList({ buildings }: { buildings: BuildingSummary[] }) {
           Add a building, then its units. Leases are created for units.
         </EmptyState>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2">
+        <ul className="grid gap-4 md:grid-cols-2" data-guide="building-list">
           {buildings.map((b) => (
             <li key={b.id} className="bg-card rounded-xl border p-5 shadow-sm">
               <div className="flex items-start gap-3">
