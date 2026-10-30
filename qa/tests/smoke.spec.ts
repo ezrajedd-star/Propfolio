@@ -139,7 +139,16 @@ test.describe("@smoke signed in: every screen opens", () => {
     await page.getByRole("button", { name: "Guide", exact: true }).first().click();
     const guide = page.getByRole("complementary", { name: "Guide" });
     await expect(guide.getByRole("heading", { name: "Payments" })).toBeVisible();
+    // The Guide is a saved setting, saved in the background: wait for it, or the panel comes back
+    // and covers buttons in later checks.
+    const saved = page.waitForResponse(
+      (r) => r.request().postData()?.includes('"on":false') ?? false,
+    );
     await page.keyboard.press("Escape");
+    await expect(guide).toHaveCount(0);
+    await saved;
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(guide).toHaveCount(0);
   });
 
