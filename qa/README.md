@@ -2,10 +2,13 @@
 
 Automated browser checks that run against a live site (the UAT server) rather than a test database.
 
-| Group    | What it does                                                                                                                                     | Changes data?                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `@smoke` | HTTPS and security headers, signed-out access is refused, every screen and report opens without errors, the Guide, Excel downloads, phone layout | No (the Guide setting of the QA account is turned on and off again)                                |
-| `@flow`  | A whole lease: new tenant, lease, charges, record and void a payment, upload/open/remove a document, then archive everything                     | Yes, all labelled "QA Robot", archived at the end. A "QA Robot (automated checks)" building stays. |
+| Group    | What it does                                                                                                                                                                                                  | Changes data?                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `@smoke` | HTTPS and security headers, signed-out access is refused, every screen and report opens without errors, the Guide, Excel downloads, phone layout                                                              | No (the Guide setting of the QA account is turned on and off again)                                |
+| `@roles` | Creates a throwaway Leasing Staff and Viewer account, then checks what each can and can't open: menus, pages, downloads, APIs, guessed addresses (IDOR), sign-out, lockout. Turns the accounts off at the end | Yes: two "QA Robot" users, turned off                                                              |
+| `@abuse` | Tries to break it: hostile text (SQL/script injection), impossible lease terms, bad payment amounts, triple-clicks, disguised/empty/oversized/path-trick uploads, odd report filters, Back/Refresh            | Yes: "QA Robot" tenants and leases, archived                                                       |
+| `@speed` | Time from click to the next screen for the main buttons and menu items (over 2 s flagged, over 6 s fails)                                                                                                     | No                                                                                                 |
+| `@flow`  | A whole lease: new tenant, lease, charges, record and void a payment, upload/open/remove a document, then archive everything                                                                                  | Yes, all labelled "QA Robot", archived at the end. A "QA Robot (automated checks)" building stays. |
 
 ## Running
 
