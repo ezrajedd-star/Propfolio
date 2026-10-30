@@ -65,6 +65,7 @@ test.describe("@abuse signed out", () => {
     for (const email of ["nobody-qa-robot@example.com", "admin@propfolio.test"]) {
       await page.goto("/login");
       await page.getByRole("link", { name: /Forgot/ }).click();
+      await page.waitForURL(/\/forgot-password/);
       await page.getByLabel("Email").fill(email);
       await page.getByRole("button", { name: "Email me a link" }).click();
       await expect(page.getByText("Check your email")).toBeVisible();

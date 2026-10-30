@@ -23,6 +23,9 @@ Automated browser checks that run against a live site (the UAT server) rather th
 
    Without `QA_EMAIL`/`QA_PASSWORD` only the signed-out checks run. Never commit the credentials.
 
+   If Playwright says the browser version doesn't match (some cloud machines), add
+   `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium` in front of the command.
+
 3. Results: `qa-report/index.html` (screenshots and a step-by-step trace for anything that failed).
 
 Don't run `@flow` while testers are in a session that compares totals: the QA lease is overdue
