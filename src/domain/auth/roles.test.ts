@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { PERMISSIONS, can, receivesReminders, type Permission, type Role } from "./roles";
+import {
+  ASSIGNABLE_ROLES,
+  PERMISSIONS,
+  can,
+  isAdminRole,
+  receivesReminders,
+  type Permission,
+  type Role,
+} from "./roles";
 
 const ADMIN_ONLY: Permission[] = [
   "user.manage",
@@ -14,6 +22,19 @@ const ADMIN_ONLY: Permission[] = [
 describe("role permissions", () => {
   it.each(PERMISSIONS)("Admin can %s", (p) => {
     expect(can("ADMIN", p)).toBe(true);
+  });
+
+  it.each(PERMISSIONS)("Owner can %s", (p) => {
+    expect(can("OWNER", p)).toBe(true);
+  });
+
+  it("the Owner role can't be given to someone; Owner and Admin manage the account", () => {
+    expect(ASSIGNABLE_ROLES).not.toContain("OWNER");
+    expect([isAdminRole("OWNER"), isAdminRole("ADMIN"), isAdminRole("LEASING_STAFF")]).toEqual([
+      true,
+      true,
+      false,
+    ]);
   });
 
   it.each(PERMISSIONS)("Viewer can only view occupancy (%s)", (p) => {
@@ -31,6 +52,7 @@ describe("role permissions", () => {
   });
 
   it.each<[Role, boolean]>([
+    ["OWNER", true],
     ["ADMIN", true],
     ["LEASING_STAFF", true],
     ["VIEWER", false],

@@ -5,13 +5,18 @@
  * Jobs (times are Asia/Manila):
  * - 00:05 lease-status-sync: recompute every lease's stored status for the new day.
  * - 03:15 housekeeping: remove old sessions and abandoned lease drafts.
- * - 06:00 daily-reminders: the one reminder email of the day to the Leasing team. If sending
+ * - 06:00 daily-reminders: each account's one reminder email of the day to its Leasing team. If sending
  *   fails it is retried 3 times (10, 20, 40 minutes later); failures are shown to Admins in
  *   Settings → Reminder emails, and missed reminders go out with the next day's email.
+ *
+ * Lease statuses and reminders run once per active account, inside that account (so its data
+ * is all they can see). Suspended accounts are skipped. A retry only redoes accounts that still
+ * need it: both jobs are idempotent.
  */
 import PgBoss from "pg-boss";
 
 import { BUSINESS_TIME_ZONE } from "../src/domain/time/manila";
+import { forEachActiveAccount } from "../src/server/accounts/each";
 import { purgeOldSessions } from "../src/server/auth/session";
 import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
@@ -30,17 +35,12 @@ const dailyReminders: Job = {
   cron: "0 6 * * *",
   retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
   run: async () => {
-    const r = await sendDailyDigest();
-    switch (r.status) {
-      case "SENT":
-        return `sent to ${r.recipientCount} people about ${r.leaseCount} lease(s)`;
-      case "EMPTY":
-        return "nothing needed attention today; no email sent";
-      case "ALREADY_DONE":
-        return "today's email was already handled";
-      default:
-        return "another run is sending right now";
-    }
+    const results = await forEachActiveAccount(() => sendDailyDigest());
+    const count = (s: string) => results.filter((r) => r.result?.status === s).length;
+    return (
+      `${results.length} account(s): ${count("SENT")} sent, ${count("EMPTY")} with nothing to send, ` +
+      `${count("ALREADY_DONE")} already done, ${count("IN_PROGRESS")} in progress`
+    );
   },
 };
 
@@ -48,7 +48,11 @@ const JOBS: Job[] = [
   {
     name: "lease-status-sync",
     cron: "5 0 * * *",
-    run: async () => `updated ${await syncLeaseStatuses()} lease status(es)`,
+    run: async () => {
+      const results = await forEachActiveAccount(() => syncLeaseStatuses());
+      const updated = results.reduce((n, r) => n + (r.result ?? 0), 0);
+      return `updated ${updated} lease status(es) in ${results.length} account(s)`;
+    },
   },
   {
     name: "housekeeping",

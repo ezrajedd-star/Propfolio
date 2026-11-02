@@ -8,7 +8,7 @@ import {
 } from "@/server/auth/passwords";
 import { signIn } from "@/server/auth/sign-in";
 import { validateSessionToken } from "@/server/auth/session";
-import { db } from "@/server/db";
+import { asSystem, db } from "@/server/db";
 import { ValidationError } from "@/server/errors";
 import { logOutbox } from "@/server/mail/transport";
 import { DEFAULT_PASSWORD, auditActions, makeUser, meta, resetDb } from "./helpers";
@@ -105,7 +105,7 @@ describe("sessions", () => {
     const user = await makeUser("LEASING_STAFF");
     const r = await signIn(user.email, DEFAULT_PASSWORD, meta, t0);
     if (!r.ok) throw new Error("sign-in failed");
-    await db.user.update({ where: { id: user.id }, data: { isActive: false } });
+    await db.membership.updateMany({ where: { userId: user.id }, data: { isActive: false } });
     expect(await validateSessionToken(r.token, at(1))).toBeNull();
   });
 });
@@ -237,7 +237,11 @@ describe("audit log", () => {
       /append-only/,
     );
     await expect(db.auditLog.deleteMany({})).rejects.toThrow(/append-only/);
-    await expect(db.$executeRawUnsafe(`TRUNCATE "AuditLog"`)).rejects.toThrow(/append-only/);
+    // Customer work can't even try; below that, the trigger stops the database owner too.
+    await expect(db.$executeRawUnsafe(`TRUNCATE "AuditLog"`)).rejects.toThrow(/permission denied/);
+    await expect(asSystem(() => db.$executeRawUnsafe(`TRUNCATE "AuditLog"`))).rejects.toThrow(
+      /append-only/,
+    );
   });
 
   it("never stores password hashes", async () => {

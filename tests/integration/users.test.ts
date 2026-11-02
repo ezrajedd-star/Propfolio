@@ -146,7 +146,7 @@ describe.each(["LEASING_STAFF", "VIEWER"] as const)("%s cannot use admin functio
       updateSettings(someone, { companyName: "Hacked" }, meta),
     ];
     for (const attempt of attempts) await expect(attempt).rejects.toBeInstanceOf(ForbiddenError);
-    expect(await db.user.count({ where: { role: "ADMIN" } })).toBe(1);
+    expect(await db.membership.count({ where: { role: "ADMIN" } })).toBe(1);
     expect((await getSettings()).companyName).not.toBe("Hacked");
   });
 });
@@ -161,7 +161,7 @@ describe("settings", () => {
     expect(saved.companyName).toBe("Sample Realty Corp.");
     const log = await listAuditLog(admin, { action: "settings.update" });
     expect(log.rows[0]?.changes).toEqual({
-      companyName: { before: "Your Company", after: "Sample Realty Corp." },
+      companyName: { before: "Test Leasing Co.", after: "Sample Realty Corp." },
     });
   });
 });

@@ -4,7 +4,7 @@ import { isTaskTourId, type TaskTourId } from "@/domain/guide/content";
 import { normalizeGridLayout, type GridLayout } from "@/domain/leases/grid-columns";
 import type { AuditActor } from "@/server/audit";
 import { assertCan } from "@/server/auth/authorize";
-import { db } from "@/server/db";
+import { currentAccountId, db } from "@/server/db";
 
 const GRID_KEY = "leaseGrid";
 
@@ -12,7 +12,13 @@ const GRID_KEY = "leaseGrid";
 export async function getGridLayout(actor: AuditActor): Promise<GridLayout> {
   assertCan(actor, "lease.view");
   const row = await db.userPreference.findUnique({
-    where: { userId_key: { userId: actor.id, key: GRID_KEY } },
+    where: {
+      accountId_userId_key: {
+        accountId: await currentAccountId(),
+        userId: actor.id,
+        key: GRID_KEY,
+      },
+    },
   });
   return normalizeGridLayout(row?.value);
 }
@@ -22,7 +28,13 @@ export async function saveGridLayout(actor: AuditActor, input: unknown): Promise
   const layout = normalizeGridLayout(input);
   const value = layout as unknown as Prisma.InputJsonValue;
   await db.userPreference.upsert({
-    where: { userId_key: { userId: actor.id, key: GRID_KEY } },
+    where: {
+      accountId_userId_key: {
+        accountId: await currentAccountId(),
+        userId: actor.id,
+        key: GRID_KEY,
+      },
+    },
     create: { userId: actor.id, key: GRID_KEY, value },
     update: { value },
   });
@@ -40,10 +52,16 @@ export interface GuideState {
   toursDone: TaskTourId[];
 }
 
-/** Everyone signed in has their own guide state, so each tour shows once per person. */
+/** Everyone signed in has their own guide state (per account), so each tour shows once per person. */
 export async function getGuideState(actor: AuditActor): Promise<GuideState> {
   const row = await db.userPreference.findUnique({
-    where: { userId_key: { userId: actor.id, key: GUIDE_KEY } },
+    where: {
+      accountId_userId_key: {
+        accountId: await currentAccountId(),
+        userId: actor.id,
+        key: GUIDE_KEY,
+      },
+    },
   });
   const v = (row?.value ?? {}) as Partial<Record<keyof GuideState, unknown>>;
   return {
@@ -67,7 +85,13 @@ export async function saveGuideState(actor: AuditActor, input: unknown): Promise
   };
   const value = next as unknown as Prisma.InputJsonValue;
   await db.userPreference.upsert({
-    where: { userId_key: { userId: actor.id, key: GUIDE_KEY } },
+    where: {
+      accountId_userId_key: {
+        accountId: await currentAccountId(),
+        userId: actor.id,
+        key: GUIDE_KEY,
+      },
+    },
     create: { userId: actor.id, key: GUIDE_KEY, value },
     update: { value },
   });

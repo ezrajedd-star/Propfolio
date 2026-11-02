@@ -18,9 +18,147 @@ datasource db {
 }
 
 enum Role {
+  /// An Admin who also controls billing and can't be removed. One per account.
+  OWNER
   ADMIN
   LEASING_STAFF
   VIEWER
+}
+
+// ─── Accounts ──────────────────────────────────────────────────────────────────
+
+enum AccountStatus {
+  ACTIVE
+  /// Turned off by the platform admin: nobody in it can sign in. Nothing is deleted.
+  SUSPENDED
+}
+
+enum Plan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+/// One customer: a company or person who leases out property. Every business record belongs to
+/// exactly one account. Not filtered by row-level security (only the platform admin lists them),
+/// but customers only ever read their own through their session.
+model Account {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  /// The name they lease under, e.g. "Santos Realty Corp." Shown in emails and the privacy notice.
+  name            String
+  status          AccountStatus @default(ACTIVE)
+  plan            Plan          @default(PREMIUM)
+  /// While set and in the future, the account is on a free Premium trial.
+  trialEndsAt     DateTime?     @db.Timestamptz(3)
+  /// Paid until this Manila date (inclusive), e.g. after a manual bank transfer.
+  paidUntil       DateTime?     @db.Date
+  suspendedAt     DateTime?     @db.Timestamptz(3)
+  suspendedReason String?
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  memberships        Membership[]
+  sessions           Session[]
+  manualPayments     ManualPayment[]
+  auditLogs          AuditLog[]
+  settings           Setting[]
+  buildings          Building[]
+  unitTypes          UnitType[]
+  units              Unit[]
+  tenants            Tenant[]
+  leases             Lease[]
+  leaseCounters      LeaseCounter[]
+  leaseDrafts        LeaseDraft[]
+  userPreferences    UserPreference[]
+  reminderEvents     ReminderEvent[]
+  reminderDigests    ReminderDigest[]
+  charges            Charge[]
+  payments           Payment[]
+  paymentAllocations PaymentAllocation[]
+  paymentCounters    PaymentCounter[]
+  documents          Document[]
+  feedback           Feedback[]
+}
+
+/// A person's place in an account, with their role there. One person can belong to several
+/// accounts (e.g. an outside accountant). Turning someone off in an account doesn't touch others.
+model Membership {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  accountId  String    @default(dbgenerated("current_account_id()")) @db.Uuid
+  account    Account   @relation(fields: [accountId], references: [id])
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+
+  @@unique([accountId, userId])
+  @@index([userId])
+}
+
+/// A payment recorded by hand by the platform admin (bank transfer for annual or corporate
+/// customers). Not an official receipt; posted records are never edited.
+model ManualPayment {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  accountId    String   @db.Uuid
+  account      Account  @relation(fields: [accountId], references: [id])
+  amount       Decimal  @db.Decimal(14, 2)
+  /// The account is paid up to and including this Manila date.
+  paidUntil    DateTime @db.Date
+  reference    String
+  note         String?
+  recordedById String   @db.Uuid
+  recordedAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([accountId, recordedAt])
+}
+
+// ─── Platform admin (Propfolio staff) ──────────────────────────────────────────
+
+/// Propfolio's own staff. Separate from customer users: no membership in any account, so no
+/// access to tenant records. Two-step sign-in (authenticator app) is always required.
+model PlatformAdmin {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  name                String
+  /// Always stored lower-cased and trimmed.
+  email               String    @unique
+  /// Null until the admin finishes set-up with their one-time link.
+  passwordHash        String?
+  /// Authenticator secret, encrypted with APP_SECRET (AES-256-GCM).
+  totpSecretEnc       String?
+  totpConfirmedAt     DateTime? @db.Timestamptz(3)
+  /// The last 30-second step used, so a code can't be used twice.
+  totpLastStep        BigInt?
+  setupTokenHash      String?   @unique
+  setupTokenExpiresAt DateTime? @db.Timestamptz(3)
+  isActive            Boolean   @default(true)
+  failedLoginCount    Int       @default(0)
+  lockedUntil         DateTime? @db.Timestamptz(3)
+  lastLoginAt         DateTime? @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  sessions PlatformSession[]
+}
+
+model PlatformSession {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  tokenHash  String        @unique
+  adminId    String        @db.Uuid
+  admin      PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime      @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime      @db.Timestamptz(3)
+  revokedAt  DateTime?     @db.Timestamptz(3)
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([adminId])
 }
 
 model User {
@@ -29,8 +167,6 @@ model User {
   /// Always stored lower-cased and trimmed.
   email              String    @unique
   passwordHash       String
-  role               Role
-  isActive           Boolean   @default(true)
   mustChangePassword Boolean   @default(true)
   passwordChangedAt  DateTime? @db.Timestamptz(3)
   lastLoginAt        DateTime? @db.Timestamptz(3)
@@ -44,8 +180,7 @@ model User {
 
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
-
-  @@index([role, isActive])
+  memberships         Membership[]
 }
 
 /// Server-side session. The browser only holds an opaque random token; we store its SHA-256.
@@ -54,6 +189,9 @@ model Session {
   tokenHash  String    @unique
   userId     String    @db.Uuid
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The account this session works in (a person can belong to several).
+  accountId  String    @db.Uuid
+  account    Account   @relation(fields: [accountId], references: [id])
   createdAt  DateTime  @default(now()) @db.Timestamptz(3)
   lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
   /// Absolute expiry, regardless of activity.
@@ -83,6 +221,9 @@ model PasswordResetToken {
 model AuditLog {
   /// Monotonic sequence so entries have a strict order.
   seq        BigInt   @id @default(autoincrement())
+  /// Null for platform-admin actions and failed sign-ins that match no account.
+  accountId  String?  @default(dbgenerated("current_account_id()")) @db.Uuid
+  account    Account? @relation(fields: [accountId], references: [id])
   at         DateTime @default(now()) @db.Timestamptz(3)
   /// Null for system actions (worker jobs) and failed logins for unknown accounts.
   actorId    String?  @db.Uuid
@@ -99,6 +240,7 @@ model AuditLog {
   ipAddress  String?
   userAgent  String?
 
+  @@index([accountId, at])
   @@index([at])
   @@index([entityType, entityId])
   @@index([actorId])
@@ -106,12 +248,16 @@ model AuditLog {
 }
 
 model Setting {
-  key         String   @id
+  accountId   String   @default(dbgenerated("current_account_id()")) @db.Uuid
+  account     Account  @relation(fields: [accountId], references: [id])
+  key         String
   value       Json
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
   createdById String?  @db.Uuid
   updatedById String?  @db.Uuid
+
+  @@id([accountId, key])
 }
 
 // ─── Property structure ────────────────────────────────────────────────────────
@@ -125,9 +271,13 @@ enum BuildingType {
 
 model Building {
   id         String       @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId  String       @default(dbgenerated("current_account_id()")) @db.Uuid
+  account    Account      @relation(fields: [accountId], references: [id])
   name       String
-  /// Short code used in lists and unit labels, e.g. "TWR1". Unique.
-  code       String       @unique
+  /// Short code used in lists and unit labels, e.g. "TWR1". Unique within the account.
+  code       String
   address    String
   type       BuildingType
   notes      String?
@@ -139,11 +289,17 @@ model Building {
   updatedById String?  @db.Uuid
 
   units Unit[]
+
+  @@unique([accountId, code])
 }
 
 model UnitType {
   id             String    @id @default(uuid(7)) @db.Uuid
-  name           String    @unique
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId      String    @default(dbgenerated("current_account_id()")) @db.Uuid
+  account        Account   @relation(fields: [accountId], references: [id])
+  name           String
   /// Default reminder settings for units of this type (ReminderConfig JSON). Null = system default.
   reminderConfig Json?
   sortOrder      Int       @default(0)
@@ -155,6 +311,8 @@ model UnitType {
   updatedById String?  @db.Uuid
 
   units Unit[]
+
+  @@unique([accountId, name])
 }
 
 enum UnitStatusOverride {
@@ -164,6 +322,10 @@ enum UnitStatusOverride {
 
 model Unit {
   id             String              @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId      String              @default(dbgenerated("current_account_id()")) @db.Uuid
+  account        Account             @relation(fields: [accountId], references: [id])
   buildingId     String              @db.Uuid
   building       Building            @relation(fields: [buildingId], references: [id])
   /// Unit number or name, unique within the building (among non-archived units).
@@ -188,6 +350,7 @@ model Unit {
 
   leases Lease[]
 
+  @@index([accountId])
   @@index([buildingId])
   @@index([unitTypeId])
 }
@@ -208,6 +371,10 @@ enum PrivacyAckMethod {
 /// Only the fields listed in the brief (DPA proportionality). No ID numbers besides an optional TIN.
 model Tenant {
   id               String            @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId        String            @default(dbgenerated("current_account_id()")) @db.Uuid
+  account          Account           @relation(fields: [accountId], references: [id])
   type             TenantType
   /// The name everyone sees, including Property Management.
   displayName      String
@@ -232,6 +399,8 @@ model Tenant {
   updatedById String?  @db.Uuid
 
   leases Lease[]
+
+  @@index([accountId])
 }
 
 // ─── Leases ────────────────────────────────────────────────────────────────────
@@ -261,8 +430,12 @@ enum EscalationType {
 
 model Lease {
   id                    String          @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId             String          @default(dbgenerated("current_account_id()")) @db.Uuid
+  account               Account         @relation(fields: [accountId], references: [id])
   /// e.g. LSE-2026-0001
-  refNo                 String          @unique
+  refNo                 String
   unitId                String          @db.Uuid
   unit                  Unit            @relation(fields: [unitId], references: [id])
   tenantId              String          @db.Uuid
@@ -307,35 +480,48 @@ model Lease {
   createdById String?  @db.Uuid
   updatedById String?  @db.Uuid
 
+  @@unique([accountId, refNo])
   @@index([unitId])
   @@index([tenantId])
-  @@index([status])
+  @@index([accountId, status])
   @@index([endDate])
 }
 
-/// Per-year counter for lease reference numbers.
+/// Per-account, per-year counter for lease reference numbers.
 model LeaseCounter {
-  year    Int @id
-  lastSeq Int
+  accountId String  @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account @relation(fields: [accountId], references: [id])
+  year      Int
+  lastSeq   Int
+
+  @@id([accountId, year])
 }
 
 /// The new-lease wizard's work in progress, kept on the server (not in the browser) so drafts
 /// survive navigation without leaving tenant details on shared computers.
 model LeaseDraft {
   id        String   @id @default(uuid(7)) @db.Uuid
-  userId    String   @unique @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId String   @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account  @relation(fields: [accountId], references: [id])
+  userId    String   @db.Uuid
   data      Json
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([accountId, userId])
 }
 
 /// Per-user screen preferences, e.g. the leases grid's columns. Only the user's own rows are read.
 model UserPreference {
+  accountId String   @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account  @relation(fields: [accountId], references: [id])
   userId    String   @db.Uuid
   key       String
   value     Json
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
-  @@id([userId, key])
+  @@id([accountId, userId, key])
 }
 
 // ─── Reminders ─────────────────────────────────────────────────────────────────
@@ -358,6 +544,10 @@ enum ReminderEventStatus {
 /// its reminder settings change; SENT/FAILED/SKIPPED rows are history and never rewritten.
 model ReminderEvent {
   id            String              @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId     String              @default(dbgenerated("current_account_id()")) @db.Uuid
+  account       Account             @relation(fields: [accountId], references: [id])
   leaseId       String              @db.Uuid
   lease         Lease               @relation(fields: [leaseId], references: [id])
   scheduledDate DateTime            @db.Date
@@ -373,7 +563,7 @@ model ReminderEvent {
   updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
 
   @@unique([leaseId, scheduledDate])
-  @@index([status, scheduledDate])
+  @@index([accountId, status, scheduledDate])
 }
 
 enum DigestStatus {
@@ -387,7 +577,11 @@ enum DigestStatus {
 /// The one reminder email per day. Makes the daily job idempotent and records failures.
 model ReminderDigest {
   id           String          @id @default(uuid(7)) @db.Uuid
-  digestDate   DateTime        @unique @db.Date
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId    String          @default(dbgenerated("current_account_id()")) @db.Uuid
+  account      Account         @relation(fields: [accountId], references: [id])
+  digestDate   DateTime        @db.Date
   status       DigestStatus
   /// Active Admin and Leasing Staff user ids the email went to.
   recipientIds String[]        @db.Uuid
@@ -398,6 +592,8 @@ model ReminderDigest {
   createdAt    DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
   events       ReminderEvent[]
+
+  @@unique([accountId, digestDate])
 }
 
 // ─── Money ─────────────────────────────────────────────────────────────────────
@@ -420,6 +616,10 @@ enum ChargeStatus {
 
 model Charge {
   id           String       @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId    String       @default(dbgenerated("current_account_id()")) @db.Uuid
+  account      Account      @relation(fields: [accountId], references: [id])
   leaseId      String       @db.Uuid
   lease        Lease        @relation(fields: [leaseId], references: [id])
   type         ChargeType
@@ -442,7 +642,7 @@ model Charge {
   allocations PaymentAllocation[]
 
   @@index([leaseId, status])
-  @@index([dueDate])
+  @@index([accountId, dueDate])
 }
 
 enum PaymentMethod {
@@ -459,8 +659,12 @@ enum PaymentStatus {
 
 model Payment {
   id           String        @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId    String        @default(dbgenerated("current_account_id()")) @db.Uuid
+  account      Account       @relation(fields: [accountId], references: [id])
   /// e.g. PAY-2026-0001 (shown on the acknowledgement; not an official receipt number)
-  paymentNo    String        @unique
+  paymentNo    String
   leaseId      String        @db.Uuid
   lease        Lease         @relation(fields: [leaseId], references: [id])
   receivedDate DateTime      @db.Date
@@ -480,13 +684,18 @@ model Payment {
 
   allocations PaymentAllocation[]
 
+  @@unique([accountId, paymentNo])
   @@index([leaseId, status])
-  @@index([receivedDate])
+  @@index([accountId, receivedDate])
 }
 
 /// How much of a payment went to which charge. Replaced (not edited) when re-allocated.
 model PaymentAllocation {
   id        String   @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId String   @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account  @relation(fields: [accountId], references: [id])
   paymentId String   @db.Uuid
   payment   Payment  @relation(fields: [paymentId], references: [id])
   chargeId  String   @db.Uuid
@@ -499,8 +708,12 @@ model PaymentAllocation {
 }
 
 model PaymentCounter {
-  year    Int @id
-  lastSeq Int
+  accountId String  @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account @relation(fields: [accountId], references: [id])
+  year      Int
+  lastSeq   Int
+
+  @@id([accountId, year])
 }
 
 // ─── Documents ─────────────────────────────────────────────────────────────────
@@ -516,6 +729,10 @@ enum DocumentCategory {
 /// private storage (local disk or S3) under `storageKey`; it is never served directly.
 model Document {
   id            String           @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId     String           @default(dbgenerated("current_account_id()")) @db.Uuid
+  account       Account          @relation(fields: [accountId], references: [id])
   tenantId      String           @db.Uuid
   leaseId       String?          @db.Uuid
   category      DocumentCategory
@@ -531,6 +748,7 @@ model Document {
   archivedById  String?          @db.Uuid
   archiveReason String?
 
+  @@index([accountId])
   @@index([tenantId])
   @@index([leaseId])
 }
@@ -545,6 +763,10 @@ enum FeedbackStatus {
 /// Notes from testers ("Send feedback"). The page path is stored without its query string.
 model Feedback {
   id        String         @id @default(uuid(7)) @db.Uuid
+  /// The customer account this row belongs to. Filled in by the database from the request's
+  /// account (see src/server/db.ts); row-level security keeps accounts apart.
+  accountId String         @default(dbgenerated("current_account_id()")) @db.Uuid
+  account   Account        @relation(fields: [accountId], references: [id])
   userId    String?        @db.Uuid
   userName  String
   role      Role
@@ -555,5 +777,5 @@ model Feedback {
   doneAt    DateTime?      @db.Timestamptz(3)
   doneById  String?        @db.Uuid
 
-  @@index([status, createdAt])
+  @@index([accountId, status, createdAt])
 }

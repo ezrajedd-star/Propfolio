@@ -396,7 +396,7 @@ describe("privacy settings", () => {
 
   it("a bad stored value falls back to its default without affecting other settings", async () => {
     await db.setting.create({ data: { key: "retentionYears", value: "ten" } });
-    await db.setting.create({ data: { key: "companyName", value: "Kept Corp" } });
-    expect(await getSettings()).toMatchObject({ retentionYears: 10, companyName: "Kept Corp" });
+    await db.setting.create({ data: { key: "dpoName", value: "Kept Person" } });
+    expect(await getSettings()).toMatchObject({ retentionYears: 10, dpoName: "Kept Person" });
   });
 });

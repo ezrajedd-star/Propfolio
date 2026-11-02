@@ -7,17 +7,19 @@ import {
   type Settings,
 } from "@/schemas/settings";
 import { writeAudit, type AuditActor } from "@/server/audit";
-import { db } from "@/server/db";
+import { currentAccountId, db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
 import { assertCan } from "@/server/auth/authorize";
 import { parseInput } from "@/server/validation";
 import { syncReminders } from "@/server/reminders/sync";
 
-/** Read all settings, falling back to defaults for missing or invalid values. */
+/** The current account's settings, falling back to defaults for missing or invalid values. */
 export async function getSettings(): Promise<Settings> {
-  const rows = await db.setting.findMany({
-    where: { key: { in: Object.keys(SETTINGS_DEFAULTS) } },
-  });
+  const accountId = await currentAccountId();
+  const [account, rows] = await Promise.all([
+    db.account.findUniqueOrThrow({ where: { id: accountId }, select: { name: true } }),
+    db.setting.findMany({ where: { key: { in: Object.keys(SETTINGS_DEFAULTS) } } }),
+  ]);
   const out: Record<string, unknown> = { ...SETTINGS_DEFAULTS };
   for (const row of rows) {
     // Validate each key on its own, so one bad value can't reset everything else.
@@ -25,6 +27,7 @@ export async function getSettings(): Promise<Settings> {
     const parsed = field?.safeParse(row.value);
     if (parsed?.success) out[row.key] = parsed.data;
   }
+  out.companyName = account.name;
   return out as Settings;
 }
 
@@ -37,13 +40,18 @@ export async function updateSettings(
   const data = parseInput(updateSettingsSchema, input);
   const current = await getSettings();
   const changes: Record<string, { before: unknown; after: unknown }> = {};
+  const accountId = await currentAccountId();
 
   await db.$transaction(async (tx) => {
     for (const [key, value] of Object.entries(data) as [keyof Settings, unknown][]) {
       if (value === undefined || JSON.stringify(value) === JSON.stringify(current[key])) continue;
       changes[key] = { before: current[key], after: value };
+      if (key === "companyName") {
+        await tx.account.update({ where: { id: accountId }, data: { name: value as string } });
+        continue;
+      }
       await tx.setting.upsert({
-        where: { key },
+        where: { accountId_key: { accountId, key } },
         create: {
           key,
           value: value as Prisma.InputJsonValue,

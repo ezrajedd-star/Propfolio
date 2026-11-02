@@ -29,6 +29,7 @@ export default async function PrivacyPage() {
       ) : null}
       <PrivacyForm
         companyName={s.companyName}
+        companyAddress={s.companyAddress}
         initial={{
           privacyNotice: s.privacyNotice,
           dpoName: s.dpoName,

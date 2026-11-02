@@ -14,13 +14,19 @@ export interface AuditActor {
 export type FieldChanges = Record<string, { before: unknown; after: unknown }>;
 
 export interface AuditEntry {
-  actor: AuditActor | null;
+  /** `role` is null when the person has no role anywhere (a failed sign-in after being turned off). */
+  actor: (Omit<AuditActor, "role"> & { role: Role | null }) | null;
   action: string;
   entityType: string;
   entityId?: string | null;
   changes?: FieldChanges | Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
   meta?: RequestMeta | null;
+  /**
+   * Only for entries written outside an account's work (sign-in, the platform admin): the
+   * account the entry belongs to. Otherwise the current account is used.
+   */
+  accountId?: string | null;
 }
 
 /** Fields that must never be written to the audit log, even as before/after values. */
@@ -37,6 +43,7 @@ function toJson(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull 
 export async function writeAudit(entry: AuditEntry, client: DbClient = db): Promise<void> {
   await client.auditLog.create({
     data: {
+      ...(entry.accountId !== undefined ? { accountId: entry.accountId } : {}),
       actorId: entry.actor?.id ?? null,
       actorName: entry.actor?.name ?? null,
       actorRole: entry.actor?.role ?? null,

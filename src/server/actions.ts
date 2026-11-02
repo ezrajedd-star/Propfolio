@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { withRequestScope } from "@/server/db";
 import {
   AppError,
   PasswordChangeRequiredError,
@@ -16,7 +17,7 @@ export type ActionResult<T = null> =
  */
 export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
-    return { ok: true, data: await fn() };
+    return { ok: true, data: await withRequestScope(fn) };
   } catch (err) {
     if (err instanceof UnauthenticatedError) redirect("/login?reason=signed-out");
     if (err instanceof PasswordChangeRequiredError) redirect("/change-password");

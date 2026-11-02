@@ -2,9 +2,14 @@ import { z } from "zod";
 
 import { SYSTEM_REMINDER_DEFAULT, reminderConfigSchema } from "@/domain/reminders/config";
 
-/** System settings. Every key has a default, so a fresh database works without seeding. */
+/**
+ * An account's settings. Every key has a default, so a new account works straight away.
+ * `companyName` is the account's own name (the lessor), stored on the account itself.
+ */
 export const settingsSchema = z.object({
   companyName: z.string().trim().min(1, "Enter the company name.").max(120),
+  /** The lessor's address, shown in the tenant privacy notice. */
+  companyAddress: z.string().trim().max(300),
   /** Display name on outgoing emails. The address itself comes from MAIL_FROM. */
   mailFromName: z.string().trim().min(1, "Enter a sender name.").max(80),
   mailReplyTo: z
@@ -17,7 +22,7 @@ export const settingsSchema = z.object({
     ),
   /** Reminder settings for unit types that don't set their own. */
   reminderDefaults: reminderConfigSchema,
-  /** Privacy notice shown when a tenant is added. `{{companyName}}`, `{{dpoName}}`, `{{dpoEmail}}`, `{{retentionYears}}` are filled in. */
+  /** Privacy notice shown when a tenant is added. `{{companyName}}`, `{{companyAddress}}`, `{{dpoName}}`, `{{dpoEmail}}`, `{{retentionYears}}` are filled in. */
   privacyNotice: z.string().trim().min(50, "The privacy notice looks too short.").max(10_000),
   dpoName: z.string().trim().min(1, "Enter who handles privacy questions.").max(120),
   dpoEmail: z.email("Enter a valid email address.").max(254),
@@ -39,7 +44,7 @@ export type Settings = z.infer<typeof settingsSchema>;
  */
 export const DEFAULT_PRIVACY_NOTICE = `PRIVACY NOTICE FOR TENANTS
 
-{{companyName}} ("we") collects and uses your personal information to manage your lease. We follow the Data Privacy Act of 2012 (Republic Act No. 10173).
+{{companyName}} ("we"), {{companyAddress}}, collects and uses your personal information to manage your lease, and is responsible for it as the personal information controller. We follow the Data Privacy Act of 2012 (Republic Act No. 10173).
 
 What we collect
 • Name of the tenant (and registered business name for companies)
@@ -74,6 +79,7 @@ If you think your rights were violated, you may file a complaint with the Nation
 
 export const SETTINGS_DEFAULTS: Settings = {
   companyName: "Your Company",
+  companyAddress: "",
   mailFromName: "Propfolio",
   mailReplyTo: "",
   reminderDefaults: SYSTEM_REMINDER_DEFAULT,
@@ -86,12 +92,19 @@ export const SETTINGS_DEFAULTS: Settings = {
 
 export const updateSettingsSchema = settingsSchema.partial();
 
-/** The notice with its placeholders filled in. */
+/** Shown in the notice until the lessor's address is filled in. */
+export const ADDRESS_MISSING = "[address: add it in Settings → General]";
+
+/** The notice with its placeholders filled in. It names the lessor, never Propfolio. */
 export function renderPrivacyNotice(
-  s: Pick<Settings, "privacyNotice" | "companyName" | "dpoName" | "dpoEmail" | "retentionYears">,
+  s: Pick<
+    Settings,
+    "privacyNotice" | "companyName" | "companyAddress" | "dpoName" | "dpoEmail" | "retentionYears"
+  >,
 ): string {
   return s.privacyNotice
     .replaceAll("{{companyName}}", s.companyName)
+    .replaceAll("{{companyAddress}}", s.companyAddress || ADDRESS_MISSING)
     .replaceAll("{{dpoName}}", s.dpoName)
     .replaceAll("{{dpoEmail}}", s.dpoEmail)
     .replaceAll("{{retentionYears}}", String(s.retentionYears));

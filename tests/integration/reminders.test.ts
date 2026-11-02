@@ -175,9 +175,17 @@ describe("reminder schedule records", () => {
 
   it("is refused to Viewers", async () => {
     const { lease } = await setup();
-    const viewer = await db.user.findFirstOrThrow({ where: { role: "VIEWER" } });
+    const viewer = await db.membership.findFirstOrThrow({
+      where: { role: "VIEWER" },
+      include: { user: true },
+    });
     await expect(
-      markReminderHandled({ id: viewer.id, name: viewer.name, role: "VIEWER" }, lease.id, {}, meta),
+      markReminderHandled(
+        { id: viewer.userId, name: viewer.user.name, role: "VIEWER" },
+        lease.id,
+        {},
+        meta,
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -335,8 +343,8 @@ describe("daily digest", () => {
 
   it("fails clearly when there is nobody to send to", async () => {
     await setup();
-    await db.user.updateMany({
-      where: { role: { in: ["ADMIN", "LEASING_STAFF"] } },
+    await db.membership.updateMany({
+      where: { role: { in: ["OWNER", "ADMIN", "LEASING_STAFF"] } },
       data: { isActive: false },
     });
     await expect(sendDailyDigest(at6am("2026-10-02"))).rejects.toThrow(

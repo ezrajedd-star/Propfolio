@@ -1,14 +1,14 @@
-import type { User } from "@prisma/client";
+import type { Membership, User } from "@prisma/client";
 
 import { isLocked } from "@/domain/auth/lockout";
-import type { Role } from "@/domain/auth/roles";
+import { isAdminRole, type Role } from "@/domain/auth/roles";
 import { createUserSchema, updateUserSchema } from "@/schemas/user";
-import { diffFields, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { diffFields, writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { hashPassword } from "@/server/auth/password";
 import { revokeUserSessions } from "@/server/auth/session";
 import { temporaryPassword } from "@/server/auth/tokens";
-import { db, type Tx } from "@/server/db";
+import { asSystem, db, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { sendEmailChangedEmail } from "@/server/mail/account-mail";
 import type { RequestMeta } from "@/server/request-meta";
@@ -17,7 +17,10 @@ import { isUniqueViolation, isUuid } from "@/server/db-errors";
 
 export type UserStatus = "active" | "locked" | "inactive" | "invited";
 
-/** User fields safe to send to the browser. Never includes the password hash. */
+/**
+ * A person as seen from the current account. Never includes the password hash. `role` and
+ * `isActive` are about this account only.
+ */
 export interface UserView {
   id: string;
   name: string;
@@ -31,8 +34,11 @@ export interface UserView {
   createdAt: Date;
 }
 
-function toView(u: User, now: Date): UserView {
-  const status: UserStatus = !u.isActive
+type MemberWithUser = Membership & { user: User };
+
+function toView(m: MemberWithUser, now: Date): UserView {
+  const u = m.user;
+  const status: UserStatus = !m.isActive
     ? "inactive"
     : isLocked(u, now)
       ? "locked"
@@ -43,33 +49,36 @@ function toView(u: User, now: Date): UserView {
     id: u.id,
     name: u.name,
     email: u.email,
-    role: u.role,
-    isActive: u.isActive,
+    role: m.role,
+    isActive: m.isActive,
     mustChangePassword: u.mustChangePassword,
     lastLoginAt: u.lastLoginAt,
     lockedUntil: isLocked(u, now) ? u.lockedUntil : null,
     status,
-    createdAt: u.createdAt,
+    createdAt: m.createdAt,
   };
 }
 
-export async function listUsers(actor: AuditActor, now = new Date()): Promise<UserView[]> {
+/** People in the current account (only memberships of this account are visible). */
+export async function listUsers(actor: Actor, now = new Date()): Promise<UserView[]> {
   assertCan(actor, "user.manage");
-  const users = await db.user.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }] });
-  return users.map((u) => toView(u, now));
+  const members = await db.membership.findMany({
+    include: { user: true },
+    orderBy: [{ isActive: "desc" }, { user: { name: "asc" } }],
+  });
+  return members.map((m) => toView(m, now));
 }
 
-export async function getUser(actor: AuditActor, id: string, now = new Date()): Promise<UserView> {
+export async function getUser(actor: Actor, id: string, now = new Date()): Promise<UserView> {
   assertCan(actor, "user.manage");
-  const user = await findUser(db, id);
-  return toView(user, now);
+  return toView(await findMember(db, id), now);
 }
 
-async function findUser(client: Tx | typeof db, id: string): Promise<User> {
-  if (!isUuid(id)) throw new NotFoundError("We couldn't find that user.");
-  const user = await client.user.findUnique({ where: { id } });
-  if (!user) throw new NotFoundError("We couldn't find that user.");
-  return user;
+async function findMember(client: Tx | typeof db, userId: string): Promise<MemberWithUser> {
+  if (!isUuid(userId)) throw new NotFoundError("We couldn't find that user.");
+  const member = await client.membership.findFirst({ where: { userId }, include: { user: true } });
+  if (!member) throw new NotFoundError("We couldn't find that user.");
+  return member;
 }
 
 const emailTaken = () =>
@@ -78,11 +87,14 @@ const emailTaken = () =>
   });
 
 /**
- * Create an account with a one-time temporary password. The Admin passes it to the person,
- * who must choose their own password at first sign-in.
+ * Add a person to the current account with a one-time temporary password. The Admin passes it
+ * to the person, who must choose their own password at first sign-in.
+ *
+ * The sign-in record is created outside the account's data (it isn't anyone's to see yet),
+ * together with the membership and the audit entry, in one transaction.
  */
 export async function createUser(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
   now = new Date(),
@@ -91,42 +103,57 @@ export async function createUser(
   const data = parseInput(createUserSchema, input);
   const password = temporaryPassword();
   const passwordHash = await hashPassword(password);
+  const { accountId } = actor;
 
   try {
-    const user = await db.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          ...data,
-          passwordHash,
-          mustChangePassword: true,
-          createdById: actor.id,
-          updatedById: actor.id,
-        },
-      });
-      await writeAudit(
-        {
-          actor,
-          action: "user.create",
-          entityType: "User",
-          entityId: created.id,
-          changes: { name: data.name, email: data.email, role: data.role },
-          meta,
-        },
-        tx,
-      );
-      return created;
-    });
-    return { user: toView(user, now), temporaryPassword: password };
+    const member = await asSystem(() =>
+      db.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            name: data.name,
+            email: data.email,
+            passwordHash,
+            mustChangePassword: true,
+            createdById: actor.id,
+            updatedById: actor.id,
+          },
+        });
+        const membership = await tx.membership.create({
+          data: {
+            accountId,
+            userId: user.id,
+            role: data.role,
+            createdById: actor.id,
+            updatedById: actor.id,
+          },
+          include: { user: true },
+        });
+        await writeAudit(
+          {
+            actor,
+            action: "user.create",
+            entityType: "User",
+            entityId: user.id,
+            changes: { name: data.name, email: data.email, role: data.role },
+            meta,
+            accountId,
+          },
+          tx,
+        );
+        return membership;
+      }),
+    );
+    return { user: toView(member, now), temporaryPassword: password };
   } catch (err) {
     if (isUniqueViolation(err)) throw emailTaken();
     throw err;
   }
 }
 
-/** There must always be at least one active Admin. */
+/** There must always be at least one other active Owner or Admin. */
 async function assertOtherActiveAdmin(tx: Tx, exceptUserId: string) {
-  const others = await tx.user.count({
-    where: { role: "ADMIN", isActive: true, id: { not: exceptUserId } },
+  const others = await tx.membership.count({
+    where: { role: { in: ["OWNER", "ADMIN"] }, isActive: true, userId: { not: exceptUserId } },
   });
   if (others === 0) {
     throw new ValidationError(
@@ -135,8 +162,16 @@ async function assertOtherActiveAdmin(tx: Tx, exceptUserId: string) {
   }
 }
 
+/** Does this person also belong to another account? Then only they can change their details. */
+async function belongsElsewhere(userId: string, accountId: string): Promise<boolean> {
+  const n = await asSystem(() =>
+    db.membership.count({ where: { userId, accountId: { not: accountId } } }),
+  );
+  return n > 0;
+}
+
 export async function updateUser(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   input: unknown,
   meta: RequestMeta,
@@ -147,37 +182,63 @@ export async function updateUser(
 
   try {
     const { before, after } = await db.$transaction(async (tx) => {
-      const before = await findUser(tx, id);
+      const before = await findMember(tx, id);
 
       if (data.role && data.role !== before.role) {
-        if (before.id === actor.id) {
+        if (before.role === "OWNER") {
+          throw new ValidationError("The Owner's role can't be changed.", {
+            role: "The Owner's role can't be changed.",
+          });
+        }
+        if (before.userId === actor.id) {
           throw new ValidationError("You can't change your own role. Ask another Admin.", {
             role: "You can't change your own role.",
           });
         }
-        if (before.role === "ADMIN" && before.isActive) await assertOtherActiveAdmin(tx, before.id);
+        if (isAdminRole(before.role) && before.isActive) {
+          await assertOtherActiveAdmin(tx, before.userId);
+        }
       }
 
-      const changes = diffFields(before, data, ["name", "email", "role"]);
+      const userChanges = diffFields(before.user, data, ["name", "email"]);
+      const roleChanges = diffFields(before, data, ["role"]);
+      if (Object.keys(userChanges).length > 0 && (await belongsElsewhere(id, actor.accountId))) {
+        throw new ValidationError(
+          "This person also uses Propfolio with another company, so only they can change their name or email.",
+        );
+      }
+      const changes = { ...userChanges, ...roleChanges };
       if (Object.keys(changes).length === 0) return { before, after: before };
 
-      const after = await tx.user.update({
-        where: { id },
-        data: { ...data, updatedById: actor.id },
-      });
+      const user =
+        Object.keys(userChanges).length > 0
+          ? await tx.user.update({
+              where: { id },
+              data: { name: data.name, email: data.email, updatedById: actor.id },
+            })
+          : before.user;
+      const membership =
+        Object.keys(roleChanges).length > 0
+          ? await tx.membership.update({
+              where: { id: before.id },
+              data: { role: data.role, updatedById: actor.id },
+            })
+          : before;
       await writeAudit(
         { actor, action: "user.update", entityType: "User", entityId: id, changes, meta },
         tx,
       );
-      return { before, after };
+      return { before, after: { ...membership, user } };
     });
 
-    // A role change takes effect at once: sign the user out so their next session
-    // starts with the new permissions.
-    if (after.role !== before.role) await revokeUserSessions(after.id, {}, now);
-    if (after.email !== before.email) {
+    // A role change takes effect at once: sign the person out of this account so their next
+    // session starts with the new permissions.
+    if (after.role !== before.role) {
+      await revokeUserSessions(id, { accountId: actor.accountId }, now);
+    }
+    if (after.user.email !== before.user.email) {
       await sendEmailChangedEmail(
-        { name: after.name, oldEmail: before.email, newEmail: after.email },
+        { name: after.user.name, oldEmail: before.user.email, newEmail: after.user.email },
         now,
       );
     }
@@ -188,25 +249,32 @@ export async function updateUser(
   }
 }
 
-/** Turn an account off (signing it out everywhere) or back on. Accounts are never deleted. */
+/**
+ * Turn someone off in this account (signing them out of it) or back on. Nobody is deleted, and
+ * their access to other accounts is not affected.
+ */
 export async function setUserActive(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   active: boolean,
   meta: RequestMeta,
   now = new Date(),
 ): Promise<UserView> {
   assertCan(actor, "user.manage");
-  const user = await db.$transaction(async (tx) => {
-    const before = await findUser(tx, id);
+  const member = await db.$transaction(async (tx) => {
+    const before = await findMember(tx, id);
     if (before.isActive === active) return before;
     if (!active) {
-      if (before.id === actor.id) throw new ValidationError("You can't turn off your own account.");
-      if (before.role === "ADMIN") await assertOtherActiveAdmin(tx, before.id);
+      if (before.userId === actor.id) {
+        throw new ValidationError("You can't turn off your own account.");
+      }
+      if (before.role === "OWNER") throw new ValidationError("The Owner can't be turned off.");
+      if (isAdminRole(before.role)) await assertOtherActiveAdmin(tx, before.userId);
     }
-    const after = await tx.user.update({
-      where: { id },
+    const after = await tx.membership.update({
+      where: { id: before.id },
       data: { isActive: active, updatedById: actor.id },
+      include: { user: true },
     });
     await writeAudit(
       {
@@ -221,25 +289,25 @@ export async function setUserActive(
     );
     return after;
   });
-  if (!active) await revokeUserSessions(id, {}, now);
-  return toView(user, now);
+  if (!active) await revokeUserSessions(id, { accountId: actor.accountId }, now);
+  return toView(member, now);
 }
 
 export async function unlockUser(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   meta: RequestMeta,
   now = new Date(),
 ): Promise<UserView> {
   assertCan(actor, "user.manage");
-  const user = await db.$transaction(async (tx) => {
-    await findUser(tx, id);
-    const after = await tx.user.update({
+  const member = await db.$transaction(async (tx) => {
+    const before = await findMember(tx, id);
+    const user = await tx.user.update({
       where: { id },
       data: { failedLoginCount: 0, lockedUntil: null, updatedById: actor.id },
     });
     await writeAudit({ actor, action: "user.unlock", entityType: "User", entityId: id, meta }, tx);
-    return after;
+    return { ...before, user };
   });
-  return toView(user, now);
+  return toView(member, now);
 }

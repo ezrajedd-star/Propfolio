@@ -77,16 +77,16 @@ export async function listDigests(actor: AuditActor, limit = 30) {
   assertCan(actor, "settings.manage");
   const [digests, users] = await Promise.all([
     db.reminderDigest.findMany({ orderBy: { digestDate: "desc" }, take: limit }),
-    db.user.findMany({
+    db.membership.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, role: true },
-      orderBy: { name: "asc" },
+      select: { role: true, user: { select: { id: true, name: true } } },
+      orderBy: { user: { name: "asc" } },
     }),
   ]);
   return {
     recipients: users
-      .filter((u) => receivesReminders(u.role))
-      .map((u) => ({ id: u.id, name: u.name, role: u.role })),
+      .filter((m) => receivesReminders(m.role))
+      .map((m) => ({ id: m.user.id, name: m.user.name, role: m.role })),
     digests: digests.map((d) => ({
       id: d.id,
       date: fromDbDate(d.digestDate),

@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { WelcomeToast } from "@/components/app/welcome-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { isAdminRole } from "@/domain/auth/roles";
 import { greeting } from "@/domain/time/greeting";
 import { formatDate, formatIsoDate } from "@/domain/time/manila";
 import { formatPeso } from "@/domain/money/money";
@@ -94,7 +95,7 @@ export default async function HomePage() {
         title={`${greeting()}, ${firstName}`}
         description={`Today is ${formatDate(new Date())}.`}
       />
-      {user.role === "ADMIN" ? <GettingStarted /> : null}
+      {isAdminRole(user.role) ? <GettingStarted /> : null}
 
       {dash.leases ? (
         <>
@@ -287,7 +288,7 @@ export default async function HomePage() {
           </Card>
         )}
       </div>
-      {dash.buildings.length === 0 && user.role !== "ADMIN" ? (
+      {dash.buildings.length === 0 && !isAdminRole(user.role) ? (
         <div className="mt-8">
           <EmptyState icon={FileSpreadsheet} title="Nothing here yet">
             An Admin needs to add buildings and units first.

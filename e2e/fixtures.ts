@@ -8,7 +8,13 @@ export const USERS = {
   staff: { email: "staff@e2e.test", name: "Sam Staff" },
   viewer: { email: "viewer@e2e.test", name: "Vic Viewer" },
   lockme: { email: "lockme@e2e.test", name: "Lou Locked" },
+  /** The Owner of a second, unrelated customer account. */
+  other: { email: "other@e2e.test", name: "Olga Other" },
 } as const;
+
+/** The main e2e account ("E2E Leasing Co.") and a second customer for separation checks. */
+export const E2E_ACCOUNT_ID = "00000000-0000-7000-8000-0000000e2e01";
+export const OTHER_ACCOUNT_ID = "00000000-0000-7000-8000-0000000e2e02";
 
 export async function signIn(page: Page, email: string, password = PASSWORD) {
   await page.goto("/login");

@@ -151,7 +151,7 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                             <LockOpen /> Unlock
                           </DropdownMenuItem>
                         ) : null}
-                        {!isSelf ? (
+                        {!isSelf && user.role !== "OWNER" ? (
                           <>
                             <DropdownMenuSeparator />
                             {user.isActive ? (

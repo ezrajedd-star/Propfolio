@@ -35,7 +35,15 @@ const privacySchema = settingsSchema
 
 type Values = Pick<Settings, "privacyNotice" | "dpoName" | "dpoEmail" | "retentionYears">;
 
-export function PrivacyForm({ initial, companyName }: { initial: Values; companyName: string }) {
+export function PrivacyForm({
+  initial,
+  companyName,
+  companyAddress,
+}: {
+  initial: Values;
+  companyName: string;
+  companyAddress: string;
+}) {
   const [showPreview, setShowPreview] = useState(false);
   const { form, error, pending, onSubmit, errors } = useActionForm(
     privacySchema,
@@ -112,7 +120,8 @@ export function PrivacyForm({ initial, companyName }: { initial: Values; company
           <CardTitle>Privacy notice</CardTitle>
           <CardDescription>
             Shown when a tenant is added. These words are filled in automatically:{" "}
-            {"{{companyName}}"}, {"{{dpoName}}"}, {"{{dpoEmail}}"}, {"{{retentionYears}}"}.
+            {"{{companyName}}"}, {"{{companyAddress}}"}, {"{{dpoName}}"}, {"{{dpoEmail}}"},{" "}
+            {"{{retentionYears}}"}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -149,6 +158,7 @@ export function PrivacyForm({ initial, companyName }: { initial: Values; company
                 ...watched,
                 retentionYears: Number(watched.retentionYears) || 0,
                 companyName,
+                companyAddress,
               })}
             </div>
           ) : null}

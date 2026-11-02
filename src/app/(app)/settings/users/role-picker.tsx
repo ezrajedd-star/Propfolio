@@ -1,6 +1,11 @@
 "use client";
 
-import { ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type Role } from "@/domain/auth/roles";
+import {
+  ASSIGNABLE_ROLES,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  type AssignableRole as Role,
+} from "@/domain/auth/roles";
 import { cn } from "@/lib/utils";
 
 /** Roles as large radio cards, each with a one-line explanation. */
@@ -22,7 +27,7 @@ export function RolePicker({
       aria-invalid={invalid || undefined}
       className="grid gap-2"
     >
-      {ROLES.map((role) => {
+      {ASSIGNABLE_ROLES.map((role) => {
         const checked = value === role;
         return (
           <label

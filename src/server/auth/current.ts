@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { can, type Permission } from "@/domain/auth/roles";
+import { setRequestAccountResolver } from "@/server/db";
 import { isSecureDeployment } from "@/server/env";
 import { ForbiddenError, PasswordChangeRequiredError, UnauthenticatedError } from "@/server/errors";
 import type { Actor } from "./authorize";
@@ -39,8 +40,18 @@ export const getCurrentSession = cache(async (): Promise<ValidSession | null> =>
   return validateSessionToken(token);
 });
 
+// Queries in a web request work for the signed-in person's current account.
+setRequestAccountResolver(async () => {
+  try {
+    return (await getCurrentSession())?.accountId ?? null;
+  } catch {
+    // Outside a request (no cookies): no account.
+    return null;
+  }
+});
+
 function toActor(s: ValidSession): Actor {
-  return { ...s.user, sessionId: s.sessionId };
+  return { ...s.user, accountId: s.accountId, sessionId: s.sessionId };
 }
 
 /**
