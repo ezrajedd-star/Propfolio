@@ -617,7 +617,7 @@ describe("signing in with accounts", () => {
     expect(await validateSessionToken(r.token, NOW)).toBeNull();
     expect(await signIn(a.staff.email, DEFAULT_PASSWORD, meta, NOW)).toEqual({
       ok: false,
-      reason: "inactive",
+      reason: "suspended",
     });
     // No reset link either.
     await requestPasswordReset(a.staff.email, meta, NOW);

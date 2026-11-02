@@ -11,7 +11,9 @@ export type SignInResult =
   | { ok: true; token: string; expiresAt: Date; mustChangePassword: boolean }
   | { ok: false; reason: "invalid" }
   | { ok: false; reason: "locked"; lockedUntil: Date }
-  | { ok: false; reason: "inactive" };
+  | { ok: false; reason: "inactive" }
+  /** Turned on in an account, but the platform admin suspended that account. */
+  | { ok: false; reason: "suspended" };
 
 /**
  * Check credentials and start a session.
@@ -114,16 +116,20 @@ async function signInAsSystem(
   }
 
   if (!target) {
+    const suspended = await db.membership.count({
+      where: { userId: user.id, isActive: true, account: { status: "SUSPENDED" } },
+    });
+    const reason = suspended > 0 ? "suspended" : "inactive";
     await writeAudit({
       actor,
       action: "auth.login_failed",
       entityType: "User",
       entityId: user.id,
-      metadata: { reason: "inactive" },
+      metadata: { reason },
       meta,
       accountId,
     });
-    return { ok: false, reason: "inactive" };
+    return { ok: false, reason };
   }
 
   await db.user.update({

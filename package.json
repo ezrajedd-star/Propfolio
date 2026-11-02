@@ -2,7 +2,7 @@
   "name": "propfolio",
   "version": "0.1.0",
   "private": true,
-  "description": "Propfolio \u2014 lease ledger for rental property companies",
+  "description": "Propfolio — lease ledger for rental property companies",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -25,7 +25,8 @@
     "db:reset": "prisma migrate reset --force",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage",
-    "qa": "playwright test --config qa/playwright.config.ts"
+    "qa": "playwright test --config qa/playwright.config.ts",
+    "platform:admin": "tsx --tsconfig tsconfig.worker.json scripts/platform-admin.ts"
   },
   "prisma": {
     "seed": "tsx --tsconfig tsconfig.worker.json prisma/seed.ts"
@@ -54,6 +55,7 @@
     "next": "15.5.28",
     "nodemailer": "7.0.13",
     "pg-boss": "10.4.2",
+    "qrcode": "1.5.4",
     "radix-ui": "1.4.3",
     "react": "19.2.9",
     "react-dom": "19.2.9",
@@ -68,6 +70,7 @@
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "22.19.1",
     "@types/nodemailer": "7.0.4",
+    "@types/qrcode": "1.5.5",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "3.2.7",

@@ -21,7 +21,7 @@ import type { ActionResult } from "@/server/actions";
 
 type Result = ActionResult<unknown>;
 
-/** Confirm a void (payment or charge) and ask for the reason. */
+/** Confirm a void (payment or charge) or another serious step, and ask for the reason. */
 export function ReasonDialog({
   open,
   onOpenChange,
@@ -29,6 +29,7 @@ export function ReasonDialog({
   description,
   confirmLabel,
   done,
+  placeholder = "e.g. Cheque bounced; amount entered wrongly",
   onConfirm,
 }: {
   open: boolean;
@@ -37,6 +38,7 @@ export function ReasonDialog({
   description: string;
   confirmLabel: string;
   done: string;
+  placeholder?: string;
   onConfirm: (reason: string) => Promise<Result>;
 }) {
   const [reason, setReason] = useState("");
@@ -71,7 +73,7 @@ export function ReasonDialog({
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. Cheque bounced; amount entered wrongly"
+            placeholder={placeholder}
           />
         </div>
         <DialogFooter>

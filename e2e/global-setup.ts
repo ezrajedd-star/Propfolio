@@ -3,9 +3,10 @@ import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
 
-import { E2E_DATABASE_URL } from "../playwright.config";
+import { E2E_APP_SECRET, E2E_DATABASE_URL } from "../playwright.config";
 import { TASK_TOUR_IDS } from "../src/domain/guide/content";
-import { E2E_ACCOUNT_ID, OTHER_ACCOUNT_ID, PASSWORD, USERS } from "./fixtures";
+import { encryptSecret } from "../src/server/platform/secrets";
+import { E2E_ACCOUNT_ID, OTHER_ACCOUNT_ID, PASSWORD, PLATFORM_ADMIN, USERS } from "./fixtures";
 
 export default async function globalSetup() {
   execSync("pnpm prisma migrate deploy", {
@@ -62,6 +63,20 @@ export default async function globalSetup() {
         },
       });
     }
+
+    // A platform admin who has finished set-up. The secret is encrypted with the e2e server's
+    // APP_SECRET, as the app does it.
+    process.env.APP_SECRET = E2E_APP_SECRET;
+    process.env.DATABASE_URL ??= E2E_DATABASE_URL;
+    await db.platformAdmin.create({
+      data: {
+        email: PLATFORM_ADMIN.email,
+        name: PLATFORM_ADMIN.name,
+        passwordHash: await hash(PLATFORM_ADMIN.password),
+        totpSecretEnc: encryptSecret(PLATFORM_ADMIN.totpSecret),
+        totpConfirmedAt: new Date(),
+      },
+    });
 
     // The other account has a little data of its own, so its screens aren't empty.
     await db.$transaction(async (tx) => {
