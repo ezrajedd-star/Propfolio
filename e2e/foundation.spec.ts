@@ -49,7 +49,7 @@ test.describe("Phase 1 acceptance", () => {
     await newUser.getByLabel("New password", { exact: true }).fill("short");
     await newUser.getByLabel("Type the new password again").fill("short");
     await newUser.getByRole("button", { name: "Save new password" }).click();
-    await expect(newUser.getByText(/at least 10 characters/i).first()).toBeVisible();
+    await expect(newUser.getByText(/at least 12 characters/i).first()).toBeVisible();
 
     await newUser.getByLabel("New password", { exact: true }).fill("my own long password");
     await newUser.getByLabel("Type the new password again").fill("my own long password");

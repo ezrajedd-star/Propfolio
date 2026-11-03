@@ -5,7 +5,7 @@ import { hash } from "@node-rs/argon2";
 
 import { E2E_APP_SECRET, E2E_DATABASE_URL } from "../playwright.config";
 import { TASK_TOUR_IDS } from "../src/domain/guide/content";
-import { encryptSecret } from "../src/server/platform/secrets";
+import { encryptSecret } from "../src/server/auth/secrets";
 import { E2E_ACCOUNT_ID, OTHER_ACCOUNT_ID, PASSWORD, PLATFORM_ADMIN, USERS } from "./fixtures";
 
 export default async function globalSetup() {
@@ -50,6 +50,8 @@ export default async function globalSetup() {
           ...u,
           passwordHash,
           mustChangePassword: false,
+          // Owners would have to set up two-step sign-in first; e2e/two-step.spec.ts covers that.
+          twoStepGraceUntil: new Date("2100-01-01"),
           memberships: { create: { accountId, role } },
         },
       });

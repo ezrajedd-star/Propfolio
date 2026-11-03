@@ -6,14 +6,16 @@ import { checkSession, shouldTouch } from "@/domain/auth/session-policy";
 import { newTotpSecret, totpUri, verifyTotp } from "@/domain/auth/totp";
 import { platformSetupSchema, platformSignInSchema } from "@/schemas/platform";
 import { writeAudit } from "@/server/audit";
+import { BREACHED_MESSAGE, isBreachedPassword } from "@/server/auth/breached";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/server/auth/password";
 import { randomToken, sha256 } from "@/server/auth/tokens";
 import { asSystem, db } from "@/server/db";
 import { env } from "@/server/env";
 import { ValidationError } from "@/server/errors";
+import { hitRateLimit } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
-import { decryptSecret, encryptSecret } from "./secrets";
+import { decryptSecret, encryptSecret } from "@/server/auth/secrets";
 
 /**
  * Sign-in for Propfolio's own staff (the platform admin). Separate from customer sign-in: its
@@ -140,6 +142,11 @@ export async function completePlatformSetup(input: unknown, meta: RequestMeta, n
         password: PASSWORD_PROBLEM_MESSAGES[problem],
       });
     }
+    if (await isBreachedPassword(data.password)) {
+      throw new ValidationError("Please choose a different password.", {
+        password: BREACHED_MESSAGE,
+      });
+    }
     const step = verifyTotp(decryptSecret(admin.totpSecretEnc), data.code, now);
     if (step === null) {
       throw new ValidationError("Please check the code.", {
@@ -166,6 +173,7 @@ export async function completePlatformSetup(input: unknown, meta: RequestMeta, n
 export type PlatformSignInResult =
   | { ok: true; token: string; expiresAt: Date }
   | { ok: false; reason: "invalid" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
   | { ok: false; reason: "locked"; lockedUntil: Date };
 
 /**
@@ -179,6 +187,10 @@ export async function platformSignIn(
 ): Promise<PlatformSignInResult> {
   const data = parseInput(platformSignInSchema, input);
   return asSystem(async () => {
+    const limit = await hitRateLimit("platformSignInByIp", meta.ipAddress, now);
+    if (!limit.allowed) {
+      return { ok: false, reason: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
+    }
     const admin = await db.platformAdmin.findUnique({ where: { email: data.email } });
     if (
       !admin ||

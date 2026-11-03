@@ -14,6 +14,10 @@ const NOTICES: Record<string, { tone: "info" | "success"; text: string }> = {
   },
   "signed-out": { tone: "info", text: "You have been signed out." },
   "password-reset": { tone: "success", text: "Your new password is set. Sign in with it below." },
+  "code-expired": {
+    tone: "info",
+    text: "The code step timed out (5 minutes) or had too many tries. Please sign in again.",
+  },
 };
 
 export default async function LoginPage({

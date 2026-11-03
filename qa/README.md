@@ -23,6 +23,12 @@ Automated browser checks that run against a live site (the UAT server) rather th
 
    Without `QA_EMAIL`/`QA_PASSWORD` only the signed-out checks run. Never commit the credentials.
 
+   The QA account is an Admin, so it uses **two-step sign-in**. Set it up once by hand: sign in
+   as QA Robot, and on "Set up two-step sign-in" use **Can't scan?** — copy the setup key shown
+   there into `QA_TOTP_SECRET` (environment only, like the password), and finish set-up with a
+   code from any authenticator app holding that key. The robot then types its own codes and asks
+   the site to remember its browser for the run.
+
    If Playwright says the browser version doesn't match (some cloud machines), add
    `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium` in front of the command.
 

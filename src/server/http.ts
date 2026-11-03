@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { withRequestScope } from "@/server/db";
 import { env } from "@/server/env";
+import { reportError } from "@/server/monitoring/report-error";
 import { AppError, ForbiddenError } from "@/server/errors";
 
 type RouteContext<P> = { params: Promise<P> };
@@ -42,8 +43,8 @@ export function errorResponse(err: unknown): Response {
       { status: err.status, headers: { "Cache-Control": "no-store" } },
     );
   }
-  // Log the error type only; messages from the database can contain submitted values.
-  console.error("[api] unexpected error:", err instanceof Error ? err.name : typeof err);
+  // Only the error type is recorded; messages from the database can contain submitted values.
+  reportError(err, "api");
   if (process.env.NODE_ENV !== "production") console.error(err);
   return NextResponse.json(
     { error: { code: "INTERNAL", message: "Something went wrong on our side. Please try again." } },

@@ -23,6 +23,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Other sites' windows can't reach this one (e.g. a page opened from a link).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   ...(isDev
     ? []
     : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),

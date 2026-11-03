@@ -13,6 +13,7 @@ import {
   getPlatformAdmin,
   setPlatformCookie,
 } from "@/server/platform/current";
+import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
 
 /** Platform actions need a platform session; without one, back to the platform sign-in. */
@@ -34,7 +35,9 @@ export async function platformSignInAction(input: unknown): Promise<ActionResult
       message:
         r.reason === "locked"
           ? `Sign-in is locked for 15 minutes after too many attempts. Try again after ${formatTime(r.lockedUntil)}.`
-          : "That didn't work. Check your email, password and the code your app shows right now.",
+          : r.reason === "rate_limited"
+            ? `Too many sign-in attempts. Please wait ${waitText(r.retryAfterSeconds)} and try again.`
+            : "That didn't work. Check your email, password and the code your app shows right now.",
     };
   }
   await setPlatformCookie(r.token, r.expiresAt);

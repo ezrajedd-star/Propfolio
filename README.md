@@ -87,6 +87,9 @@ recipients are logged, never addresses or contents.
 | `MAIL_SKIP_TEST_DOMAINS`                                                            | no           | `true` stops emails to demo addresses (`@propfolio.test`, `example.com` …). Set on hosted servers.                                          |
 | `SEED_PASSWORD`                                                                     | no           | Dev only: one known password for all seed users.                                                                                            |
 | `POSTGRES_PASSWORD`                                                                 | compose only | Password for the bundled Postgres container.                                                                                                |
+| `UPLOAD_VIRUS_SCAN`, `CLAMAV_HOST`, `CLAMAV_PORT`                                   | no           | `clamav` scans uploads with ClamAV (default `off`). Needs the `clamav` service (~1.5 GB memory).                                            |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT`                                                  | no           | Report unexpected errors to Sentry (error type and code location only).                                                                     |
+| `PASSWORD_BREACH_CHECK`                                                             | no           | `on` (default) checks new passwords against Have I Been Pwned; `off` for tests and offline work.                                            |
 
 All secrets come from the environment. Nothing secret is committed. `.env` is git-ignored.
 
@@ -285,13 +288,26 @@ Add yourself (or start again after losing your phone) on the server:
 
 ```bash
 pnpm platform:admin --email you@example.com --name "Your Name"
-# Docker: docker compose run --rm migrate pnpm platform:admin --email … --name "…"
+# On the server: cd /opt/propfolio/deploy && docker compose run --rm platform-admin --email … --name "…"
 ```
 
 It prints a one-time set-up link (24 hours) where you choose a password and scan a QR code.
 `APP_SECRET` must stay the same afterwards: it encrypts the authenticator secrets.
 
 ---
+
+## Monitoring and backups
+
+- **Uptime:** point a free uptime monitor (e.g. UptimeRobot, every 5 minutes) at
+  `https://<your site>/api/health`. It checks that the app and its database answer.
+- **Errors:** create a free Sentry project (Platform: Node.js) and put its DSN in `SENTRY_DSN`
+  in `deploy/.env`, then `docker compose up -d`. Only the error type and the code location are
+  sent, never messages or personal data.
+- **Failed sign-ins:** 30 or more in 15 minutes email the platform admins (counts only), at most
+  once an hour.
+- **Backups:** nightly, local 14 days; run `sudo bash deploy/backup-setup.sh` once for encrypted
+  off-site copies kept 30 days. Restore steps: [docs/restore.md](docs/restore.md).
+- **For security testers:** [docs/security-summary.md](docs/security-summary.md).
 
 ## Security and Data Privacy Act notes
 
@@ -397,8 +413,8 @@ Public launch ([brief](docs/brief-public-launch.md)):
 | ----------------------------- | --------------------------------------------------------------------------------- | ------- |
 | 0. Inspect and plan           | Stack, data, plan, conflicts, questions                                           | ✅ Done |
 | 1. Separate customer accounts | Accounts, memberships, Owner, two-lock separation, per-account settings, platform | ✅ Done |
-| 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | Next    |
-| 3. Plans, limits, trial       | (moved before sign-up)                                                            |         |
+| 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | ✅ Done |
+| 3. Plans, limits, trial       | (moved before sign-up)                                                            | Next    |
 | 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  |         |
 | 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        |         |
 | 6. Teams                      | Invitations, seats, ownership transfer                                            |         |

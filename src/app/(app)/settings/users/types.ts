@@ -9,6 +9,7 @@ export interface UserRow {
   role: Role;
   isActive: boolean;
   status: UserStatus;
+  twoStepOn: boolean;
   lastLoginAt: string | null;
   lockedUntil: string | null;
 }

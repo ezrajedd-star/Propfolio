@@ -1,6 +1,15 @@
 "use client";
 
-import { KeyRound, LockOpen, MoreHorizontal, Pencil, Power, PowerOff } from "lucide-react";
+import {
+  KeyRound,
+  LockOpen,
+  MoreHorizontal,
+  Pencil,
+  Power,
+  PowerOff,
+  ShieldCheck,
+  Smartphone,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { ROLE_LABELS } from "@/domain/auth/roles";
 import { formatDateTime, formatTime } from "@/domain/time/manila";
+import { resetTwoStepForUserAction } from "../../../(auth)/two-step-actions";
 import { sendPasswordResetAction, setUserActiveAction, unlockUserAction } from "./actions";
 import type { UserRow } from "./types";
 import { EditUserDialog } from "./user-dialogs";
@@ -56,7 +66,7 @@ function UserStatusBadge({ user }: { user: UserRow }) {
   }
 }
 
-type Confirm = { kind: "reset" | "deactivate"; user: UserRow } | null;
+type Confirm = { kind: "reset" | "deactivate" | "twoStep"; user: UserRow } | null;
 
 export function UsersTable({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -113,6 +123,11 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                       ) : null}
                     </div>
                     <div className="text-muted-foreground text-sm">{user.email}</div>
+                    {user.twoStepOn ? (
+                      <div className="text-muted-foreground flex items-center gap-1 text-sm">
+                        <ShieldCheck className="size-4" aria-hidden /> Two-step sign-in on
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">{ROLE_LABELS[user.role]}</TableCell>
                   <TableCell>
@@ -140,6 +155,11 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                         {user.isActive ? (
                           <DropdownMenuItem onSelect={() => setConfirm({ kind: "reset", user })}>
                             <KeyRound /> Reset password
+                          </DropdownMenuItem>
+                        ) : null}
+                        {user.twoStepOn && !isSelf ? (
+                          <DropdownMenuItem onSelect={() => setConfirm({ kind: "twoStep", user })}>
+                            <Smartphone /> Reset two-step sign-in
                           </DropdownMenuItem>
                         ) : null}
                         {user.status === "locked" ? (
@@ -223,6 +243,34 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                   }}
                 >
                   Send link
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) : confirm?.kind === "twoStep" ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Reset {confirm.user.name}&apos;s two-step sign-in?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Only do this if they lost their phone and their recovery codes, and you&apos;re
+                  sure it&apos;s really them asking. They&apos;ll be signed out, and set it up again
+                  with a new phone the next time they sign in.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  destructive
+                  onClick={() => {
+                    const user = confirm.user;
+                    run(
+                      () => resetTwoStepForUserAction(user.id),
+                      `${user.name} will set up two-step sign-in again ✓`,
+                    );
+                  }}
+                >
+                  Reset two-step sign-in
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

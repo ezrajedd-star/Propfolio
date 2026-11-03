@@ -4,10 +4,14 @@
  *
  * Jobs (times are Asia/Manila):
  * - 00:05 lease-status-sync: recompute every lease's stored status for the new day.
- * - 03:15 housekeeping: remove old sessions and abandoned lease drafts.
+ * - 03:15 housekeeping: remove old sessions, abandoned lease drafts, finished two-step sign-in
+ *   steps, expired remembered devices and old rate-limit counters.
  * - 06:00 daily-reminders: each account's one reminder email of the day to its Leasing team. If sending
  *   fails it is retried 3 times (10, 20, 40 minutes later); failures are shown to Admins in
  *   Settings → Reminder emails, and missed reminders go out with the next day's email.
+ *
+ * - every 10 minutes failed-sign-in-alert: emails the platform admins about a burst of failed
+ *   sign-ins (counts only), at most once an hour.
  *
  * Lease statuses and reminders run once per active account, inside that account (so its data
  * is all they can see). Suspended accounts are skipped. A retry only redoes accounts that still
@@ -18,6 +22,10 @@ import PgBoss from "pg-boss";
 import { BUSINESS_TIME_ZONE } from "../src/domain/time/manila";
 import { forEachActiveAccount } from "../src/server/accounts/each";
 import { purgeOldSessions } from "../src/server/auth/session";
+import { purgeOldTwoStepRows } from "../src/server/auth/two-step";
+import { reportError } from "../src/server/monitoring/report-error";
+import { checkFailedSignIns } from "../src/server/monitoring/sign-in-alert";
+import { purgeOldRateLimits } from "../src/server/rate-limit";
 import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
@@ -58,9 +66,18 @@ const JOBS: Job[] = [
     name: "housekeeping",
     cron: "15 3 * * *",
     run: async () =>
-      `removed ${await purgeOldSessions()} old session(s), ${await purgeOldDrafts()} old draft(s)`,
+      `removed ${await purgeOldSessions()} old session(s), ${await purgeOldDrafts()} old draft(s), ` +
+      `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s)`,
   },
   dailyReminders,
+  {
+    name: "failed-sign-in-alert",
+    cron: "*/10 * * * *",
+    run: async () => {
+      const r = await checkFailedSignIns();
+      return `${r.failed} failed sign-in(s) in 15 minutes${r.alerted ? "; platform admins alerted" : ""}`;
+    },
+  },
 ];
 
 /** Current hour in Manila (0–23). */
@@ -92,10 +109,8 @@ async function main() {
         const summary = await job.run();
         console.info(`[worker] ${job.name}: ${summary} (${Date.now() - started} ms)`);
       } catch (err) {
-        // Log the error type only (no personal data); pg-boss retries the job.
-        console.error(
-          `[worker] ${job.name} failed: ${err instanceof Error ? err.name : typeof err}`,
-        );
+        // The error type only (no personal data); pg-boss retries the job.
+        reportError(err, `worker:${job.name}`);
         throw err;
       }
     });

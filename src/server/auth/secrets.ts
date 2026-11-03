@@ -3,11 +3,11 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { appSecret } from "@/server/env";
 
 /**
- * Authenticator secrets are stored encrypted (AES-256-GCM) with a key derived from APP_SECRET,
+ * Authenticator secrets (customers and platform admins) are stored encrypted (AES-256-GCM) with a key derived from APP_SECRET,
  * so a copy of the database alone can't be used to produce sign-in codes.
  */
 function key(): Buffer {
-  return createHash("sha256").update(`propfolio:platform-totp:${appSecret()}`).digest();
+  return createHash("sha256").update(`propfolio:totp:${appSecret()}`).digest();
 }
 
 export function encryptSecret(plain: string): string {

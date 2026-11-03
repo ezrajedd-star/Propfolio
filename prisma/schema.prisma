@@ -172,6 +172,14 @@ model User {
   lastLoginAt        DateTime? @db.Timestamptz(3)
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime? @db.Timestamptz(3)
+  /// Two-step sign-in: authenticator secret, encrypted with APP_SECRET (AES-256-GCM).
+  totpSecretEnc      String?
+  /// Set when two-step sign-in is on (the first code was confirmed).
+  totpConfirmedAt    DateTime? @db.Timestamptz(3)
+  /// The last 30-second step used, so a code can't be used twice.
+  totpLastStep       BigInt?
+  /// Owners and Admins may wait until this moment before two-step sign-in is enforced.
+  twoStepGraceUntil  DateTime? @db.Timestamptz(3)
 
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
@@ -181,6 +189,54 @@ model User {
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   memberships         Membership[]
+  recoveryCodes       RecoveryCode[]
+  trustedDevices      TrustedDevice[]
+  signInChallenges    SignInChallenge[]
+}
+
+/// One-time codes for two-step sign-in when the phone is lost. Only hashes are stored.
+model RecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+/// A browser where the person ticked "Don't ask for a code on this device for 30 days".
+/// The browser holds a random token; only its hash is stored.
+model TrustedDevice {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  userAgent  String?
+
+  @@index([userId])
+}
+
+/// The password was right; waiting for the 6-digit code (5 minutes, 5 tries).
+model SignInChallenge {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String    @db.Uuid
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+
+  @@index([userId])
 }
 
 /// Server-side session. The browser only holds an opaque random token; we store its SHA-256.
@@ -778,4 +834,16 @@ model Feedback {
   doneById  String?        @db.Uuid
 
   @@index([accountId, status, createdAt])
+}
+
+// ─── Rate limits ───────────────────────────────────────────────────────────────
+
+/// Fixed-window counters for sign-in, codes and password resets (by IP address and by email).
+/// The key is a SHA-256 hash, so no address or email is stored.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int
+
+  @@index([windowStart])
 }

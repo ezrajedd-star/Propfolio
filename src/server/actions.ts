@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { withRequestScope } from "@/server/db";
+import { reportError } from "@/server/monitoring/report-error";
 import {
   AppError,
   PasswordChangeRequiredError,
+  TwoStepSetupRequiredError,
   UnauthenticatedError,
   ValidationError,
 } from "@/server/errors";
@@ -21,13 +23,14 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
   } catch (err) {
     if (err instanceof UnauthenticatedError) redirect("/login?reason=signed-out");
     if (err instanceof PasswordChangeRequiredError) redirect("/change-password");
+    if (err instanceof TwoStepSetupRequiredError) redirect("/setup-two-step");
     if (err instanceof ValidationError) {
       return { ok: false, message: err.message, fieldErrors: err.fieldErrors };
     }
     if (err instanceof AppError) return { ok: false, message: err.message };
     // Let Next.js redirects/notFound propagate.
     if (err instanceof Error && "digest" in err) throw err;
-    console.error("[action] unexpected error:", err instanceof Error ? err.name : typeof err);
+    reportError(err, "action");
     if (process.env.NODE_ENV !== "production") console.error(err);
     return { ok: false, message: "Something went wrong on our side. Please try again." };
   }

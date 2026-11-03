@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 
-import { expect, type Browser, type Page } from "@playwright/test";
+import { expect, type Browser, type Cookie, type Page } from "@playwright/test";
+
+import { base32Decode, totpCode, totpStep } from "../../src/domain/auth/totp";
 
 export const QA_EMAIL = process.env.QA_EMAIL ?? "";
 export const QA_PASSWORD = process.env.QA_PASSWORD ?? "";
@@ -16,17 +20,86 @@ export async function skipToursAutomatically(page: Page) {
   });
 }
 
+/**
+ * The QA account is an Admin, so it uses two-step sign-in. QA_TOTP_SECRET is the setup key shown
+ * under "Can't scan?" when two-step sign-in was set up for it by hand (environment only).
+ */
+export const QA_TOTP_SECRET = (process.env.QA_TOTP_SECRET ?? "").replace(/\s/g, "");
+
+// The robot ticks "Don't ask again on this device" once, and reuses that device cookie for the
+// rest of the run (kept in the git-ignored results folder, so a restarted worker has it too).
+const DEVICE_FILE = path.resolve(__dirname, "../../qa-results/.qa-device.json");
+let lastStep = 0;
+
+async function answerCodeStep(page: Page) {
+  if (!QA_TOTP_SECRET) {
+    throw new Error(
+      "The QA account uses two-step sign-in: add its setup key to QA_TOTP_SECRET in the environment.",
+    );
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // Each code works once: never reuse a 30-second step.
+    let step = totpStep(new Date());
+    if (step <= lastStep) {
+      await page.waitForTimeout((lastStep + 1) * 30_000 - Date.now() + 500);
+      step = totpStep(new Date());
+    }
+    lastStep = step;
+    await page
+      .getByRole("textbox", { name: "Code" })
+      .fill(totpCode(base32Decode(QA_TOTP_SECRET), step));
+    const remember = page.getByLabel(/Don't ask for a code on this device/);
+    if (!(await remember.isChecked())) await remember.check();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page
+      .waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 10_000 })
+      .catch(() => undefined);
+    if (!new URL(page.url()).pathname.startsWith("/login")) break;
+  }
+  const device = (await page.context().cookies()).find((c) => c.name.endsWith("propfolio_device"));
+  if (device) {
+    await mkdir(path.dirname(DEVICE_FILE), { recursive: true });
+    await writeFile(DEVICE_FILE, JSON.stringify(device), { mode: 0o600 });
+  }
+}
+
+// The QA account's session is reused for the whole run, so the robot doesn't sign in dozens of
+// times (sign-in is rate-limited per address and per email).
+const SESSION_FILE = path.resolve(__dirname, "../../qa-results/.qa-session.json");
+
 export async function signIn(page: Page) {
   await skipToursAutomatically(page);
+  const saved = await readFile(DEVICE_FILE, "utf8").catch(() => null);
+  if (saved) await page.context().addCookies([JSON.parse(saved) as Cookie]);
+  const session = await readFile(SESSION_FILE, "utf8").catch(() => null);
+  if (session) {
+    await page.context().addCookies([JSON.parse(session) as Cookie]);
+    await page.goto("/");
+    if (!new URL(page.url()).pathname.startsWith("/login")) return;
+  }
   await page.goto("/login");
   await page.getByLabel("Email").fill(QA_EMAIL);
   await page.getByLabel("Password", { exact: true }).fill(QA_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/login") || u.pathname === "/login/code", {
+    timeout: 20_000,
+  });
+  if (new URL(page.url()).pathname === "/login/code") await answerCodeStep(page);
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20_000 });
   if (new URL(page.url()).pathname.startsWith("/change-password")) {
     throw new Error(
       "The QA account must change its password first. Sign in once by hand, set the password, and use that.",
     );
+  }
+  if (new URL(page.url()).pathname.startsWith("/setup-two-step")) {
+    throw new Error(
+      "The QA account must set up two-step sign-in first. Do it once by hand (use “Can't scan?”), and put the setup key in QA_TOTP_SECRET.",
+    );
+  }
+  const cookie = (await page.context().cookies()).find((c) => c.name.endsWith("propfolio_session"));
+  if (cookie) {
+    await mkdir(path.dirname(SESSION_FILE), { recursive: true });
+    await writeFile(SESSION_FILE, JSON.stringify(cookie), { mode: 0o600 });
   }
   // The welcome tour may appear for a new QA account; finish it so it doesn't cover the page.
   const skip = page.getByRole("button", { name: "Skip tour" });

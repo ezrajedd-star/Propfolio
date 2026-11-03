@@ -25,6 +25,12 @@ export class PasswordChangeRequiredError extends AppError {
   }
 }
 
+export class TwoStepSetupRequiredError extends AppError {
+  constructor() {
+    super("Please set up two-step sign-in before continuing.", 403, "TWO_STEP_SETUP_REQUIRED");
+  }
+}
+
 export class ForbiddenError extends AppError {
   constructor(message = "You don't have access to this. Ask an Admin if you need it.") {
     super(message, 403, "FORBIDDEN");

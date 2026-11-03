@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/domain/auth/roles";
 import { formatDateTime } from "@/domain/time/manila";
 import { requirePageUser } from "@/server/auth/current";
+import { getTwoStepSummary } from "@/server/auth/two-step";
 import { db } from "@/server/db";
 
 export const metadata: Metadata = { title: "My account" };
@@ -18,6 +19,7 @@ export default async function AccountPage() {
     where: { id: actor.id },
     select: { passwordChangedAt: true, lastLoginAt: true },
   });
+  const twoStep = await getTwoStepSummary(actor);
 
   const rows: [string, React.ReactNode][] = [
     ["Name", actor.name],
@@ -33,6 +35,16 @@ export default async function AccountPage() {
     [
       "Password last changed",
       user.passwordChangedAt ? formatDateTime(user.passwordChangedAt) : "Not yet",
+    ],
+    [
+      "Two-step sign-in",
+      <Link
+        key="two-step"
+        href="/account/two-step"
+        className="text-primary font-medium underline-offset-4 hover:underline"
+      >
+        {twoStep.state === "on" ? "On — manage" : "Off — set up"}
+      </Link>,
     ],
   ];
 

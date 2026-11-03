@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 const MESSAGES: Record<string, string> = {
   "password-changed": "Your new password is saved ✓",
+  "two-step": "Two-step sign-in is on ✓",
 };
 
 /** Shows a one-off confirmation passed as ?welcome=…, then removes it from the URL. */
