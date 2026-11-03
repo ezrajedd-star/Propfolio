@@ -1,5 +1,6 @@
 import { asSystem, db } from "@/server/db";
 import { sha256 } from "@/server/auth/tokens";
+import { env } from "@/server/env";
 
 /**
  * Rate limits on sign-in and recovery, on top of the per-account lockout (5 wrong passwords →
@@ -36,7 +37,8 @@ export function hitRateLimit(
   now = new Date(),
 ): Promise<RateLimitResult> {
   if (!subject) return Promise.resolve({ allowed: true });
-  const { max, windowSeconds } = RATE_LIMITS[name];
+  const { windowSeconds } = RATE_LIMITS[name];
+  const max = RATE_LIMITS[name].max * env().RATE_LIMIT_SCALE;
   const key = sha256(`${name}:${subject.trim().toLowerCase()}`);
   const windowOpen = new Date(now.getTime() - windowSeconds * 1000);
   return asSystem(async () => {

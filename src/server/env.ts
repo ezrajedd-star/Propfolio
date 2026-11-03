@@ -42,6 +42,11 @@ const schema = z.object({
   /** Optional: report unexpected errors (type and code location only) to this Sentry project. */
   SENTRY_DSN: z.preprocess((v) => (v === "" ? undefined : v), z.url().optional()),
   SENTRY_ENVIRONMENT: z.string().optional(),
+  /**
+   * Multiplies every rate limit. Only for automated browser tests, which sign the same people in
+   * far more often than anyone would; real servers leave it at 1.
+   */
+  RATE_LIMIT_SCALE: z.coerce.number().int().min(1).max(100).default(1),
   /** Check new passwords against breached passwords (Have I Been Pwned). `off` for tests. */
   PASSWORD_BREACH_CHECK: z.enum(["on", "off"]).default("on"),
   /** Test (UAT) version: shows the "Test version" banner and the "Send feedback" button. */

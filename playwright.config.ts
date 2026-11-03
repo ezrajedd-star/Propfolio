@@ -37,6 +37,8 @@ export default defineConfig({
       STORAGE_DIR: `${process.env.TMPDIR ?? "/tmp"}/propfolio-e2e-storage`,
       UAT_MODE: "true",
       PASSWORD_BREACH_CHECK: "off",
+      // The suite signs the same few people in dozens of times in a few minutes.
+      RATE_LIMIT_SCALE: "10",
     },
   },
 });
