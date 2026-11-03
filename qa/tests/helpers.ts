@@ -63,10 +63,20 @@ async function answerCodeStep(page: Page) {
   }
 }
 
+// The QA account's session is reused for the whole run, so the robot doesn't sign in dozens of
+// times (sign-in is rate-limited per address and per email).
+const SESSION_FILE = path.resolve(__dirname, "../../qa-results/.qa-session.json");
+
 export async function signIn(page: Page) {
   await skipToursAutomatically(page);
   const saved = await readFile(DEVICE_FILE, "utf8").catch(() => null);
   if (saved) await page.context().addCookies([JSON.parse(saved) as Cookie]);
+  const session = await readFile(SESSION_FILE, "utf8").catch(() => null);
+  if (session) {
+    await page.context().addCookies([JSON.parse(session) as Cookie]);
+    await page.goto("/");
+    if (!new URL(page.url()).pathname.startsWith("/login")) return;
+  }
   await page.goto("/login");
   await page.getByLabel("Email").fill(QA_EMAIL);
   await page.getByLabel("Password", { exact: true }).fill(QA_PASSWORD);
@@ -85,6 +95,11 @@ export async function signIn(page: Page) {
     throw new Error(
       "The QA account must set up two-step sign-in first. Do it once by hand (use “Can't scan?”), and put the setup key in QA_TOTP_SECRET.",
     );
+  }
+  const cookie = (await page.context().cookies()).find((c) => c.name.endsWith("propfolio_session"));
+  if (cookie) {
+    await mkdir(path.dirname(SESSION_FILE), { recursive: true });
+    await writeFile(SESSION_FILE, JSON.stringify(cookie), { mode: 0o600 });
   }
   // The welcome tour may appear for a new QA account; finish it so it doesn't cover the page.
   const skip = page.getByRole("button", { name: "Skip tour" });

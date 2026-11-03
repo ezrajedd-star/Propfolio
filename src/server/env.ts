@@ -32,6 +32,8 @@ const schema = z.object({
   S3_ENDPOINT: z.url().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Check new passwords against breached passwords (Have I Been Pwned). `off` for tests. */
+  PASSWORD_BREACH_CHECK: z.enum(["on", "off"]).default("on"),
   /** Test (UAT) version: shows the "Test version" banner and the "Send feedback" button. */
   UAT_MODE: z
     .enum(["true", "false"])

@@ -1,10 +1,11 @@
 import { z } from "zod";
 
+import { PASSWORD_MIN_LENGTH } from "@/domain/auth/password-policy";
 import { emailSchema } from "./common";
 import { isoDateSchema, moneySchema, requiredText } from "./common-fields";
 
-/** Platform admins (Propfolio staff) use longer passwords than the current customer minimum. */
-export const PLATFORM_PASSWORD_MIN_LENGTH = 12;
+/** Platform admins (Propfolio staff) follow the same password rules as customers. */
+export const PLATFORM_PASSWORD_MIN_LENGTH = PASSWORD_MIN_LENGTH;
 
 const codeSchema = z
   .string({ error: "Enter the 6-digit code from your authenticator app." })

@@ -5,6 +5,7 @@ import type { Role } from "@/domain/auth/roles";
 import { CODE_STEP_MINUTES, MAX_CODE_ATTEMPTS } from "@/domain/auth/two-step";
 import { writeAudit } from "@/server/audit";
 import { asSystem, db } from "@/server/db";
+import { hitRateLimit, hitRateLimits } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { anyAccountOf, signInTarget, type SignInTarget } from "./memberships";
 import { burnPasswordCheck, verifyPassword } from "./password";
@@ -27,6 +28,8 @@ export type SignInResult =
   | { ok: false; reason: "code_needed"; challengeToken: string; expiresAt: Date }
   | { ok: false; reason: "invalid" }
   | { ok: false; reason: "locked"; lockedUntil: Date }
+  /** Too many attempts from this network or for this email: wait and try again. */
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
   | { ok: false; reason: "inactive" }
   /** Turned on in an account, but the platform admin suspended that account. */
   | { ok: false; reason: "suspended" };
@@ -62,6 +65,16 @@ async function signInAsSystem(
   now: Date,
   deviceToken: string | undefined,
 ): Promise<SignInResult> {
+  const limit = await hitRateLimits(
+    [
+      ["signInByIp", meta.ipAddress],
+      ["signInByEmail", email],
+    ],
+    now,
+  );
+  if (!limit.allowed) {
+    return { ok: false, reason: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
+  }
   const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
 
   if (!user) {
@@ -208,6 +221,7 @@ export type CodeStepResult =
   | { ok: false; reason: "invalid" }
   /** The 5 minutes ran out, the tries ran out, or the step was already used: start again. */
   | { ok: false; reason: "expired" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
   | { ok: false; reason: "locked"; lockedUntil: Date };
 
 /**
@@ -222,6 +236,10 @@ export function completeSignInWithCode(
   now = new Date(),
 ): Promise<CodeStepResult> {
   return asSystem(async () => {
+    const limit = await hitRateLimit("codeByIp", meta.ipAddress, now);
+    if (!limit.allowed) {
+      return { ok: false, reason: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
+    }
     const challenge = await db.signInChallenge.findUnique({
       where: { tokenHash: sha256(challengeToken) },
       include: { user: true },

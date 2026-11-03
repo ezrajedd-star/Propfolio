@@ -22,6 +22,7 @@ import {
 } from "@/server/auth/passwords";
 import { completeSignInWithCode, signIn, signOut, type SignedIn } from "@/server/auth/sign-in";
 import { UnauthenticatedError } from "@/server/errors";
+import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 
@@ -60,6 +61,11 @@ export async function signInAction(input: unknown, next?: string): Promise<Actio
         return {
           ok: false,
           message: `This account is locked for 15 minutes after too many wrong passwords. Try again after ${formatTime(r.lockedUntil)}, or ask an Admin to unlock it.`,
+        };
+      case "rate_limited":
+        return {
+          ok: false,
+          message: `Too many sign-in attempts. For your security, please wait ${waitText(r.retryAfterSeconds)} and try again.`,
         };
       case "inactive":
         return { ok: false, message: "This account has been turned off. Please ask an Admin." };
@@ -107,6 +113,11 @@ export async function signInCodeAction(
       case "expired":
         await clearPendingSignInCookie();
         redirect("/login?reason=code-expired");
+      case "rate_limited":
+        return {
+          ok: false,
+          message: `Too many codes tried. For your security, please wait ${waitText(r.retryAfterSeconds)} and try again.`,
+        };
       case "locked":
         await clearPendingSignInCookie();
         return {

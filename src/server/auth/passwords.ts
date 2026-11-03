@@ -6,8 +6,10 @@ import { env } from "@/server/env";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { sendPasswordChangedEmail, sendPasswordResetEmail } from "@/server/mail/account-mail";
 import type { RequestMeta } from "@/server/request-meta";
+import { hitRateLimit, waitText } from "@/server/rate-limit";
 import { parseInput } from "@/server/validation";
 import { assertCan, type Actor } from "./authorize";
+import { BREACHED_MESSAGE, isBreachedPassword } from "./breached";
 import { signInTarget } from "./memberships";
 import { hashPassword, verifyPassword } from "./password";
 import { revokeUserSessions } from "./session";
@@ -18,11 +20,16 @@ export const RESET_TOKEN_MINUTES = 60;
 /** At most this many self-service reset emails per account per hour (stops inbox flooding). */
 export const RESET_REQUESTS_PER_HOUR = 3;
 
-function assertPolicy(password: string, email: string) {
+async function assertPolicy(password: string, email: string) {
   const problem = checkPassword(password, email);
   if (problem) {
     throw new ValidationError("Please choose a different password.", {
       newPassword: PASSWORD_PROBLEM_MESSAGES[problem],
+    });
+  }
+  if (await isBreachedPassword(password)) {
+    throw new ValidationError("Please choose a different password.", {
+      newPassword: BREACHED_MESSAGE,
     });
   }
 }
@@ -47,7 +54,7 @@ export async function changeOwnPassword(
       currentPassword: "That isn't your current password.",
     });
   }
-  assertPolicy(data.newPassword, user.email);
+  await assertPolicy(data.newPassword, user.email);
 
   const firstLogin = user.mustChangePassword;
   await db.$transaction(async (tx) => {
@@ -105,6 +112,8 @@ function issueResetToken(userId: string, createdById: string | null, now: Date) 
  * can sign in somewhere get a link; the email comes from the account they'd sign into.
  */
 export async function requestPasswordReset(email: string, meta: RequestMeta, now = new Date()) {
+  // Too many requests from one network: quietly do nothing (the page looks the same).
+  if (!(await hitRateLimit("resetRequestByIp", meta.ipAddress, now)).allowed) return;
   const found = await asSystem(async () => {
     const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user) return null;
@@ -186,6 +195,12 @@ export async function checkResetToken(token: string, now = new Date()): Promise<
 /** Complete a reset from the emailed link. Signs the user out everywhere and unlocks them. */
 export async function resetPasswordWithToken(input: unknown, meta: RequestMeta, now = new Date()) {
   const data = parseInput(resetPasswordSchema, input);
+  const limit = await hitRateLimit("resetCompleteByIp", meta.ipAddress, now);
+  if (!limit.allowed) {
+    throw new ValidationError(
+      `Too many tries from your network. Please wait ${waitText(limit.retryAfterSeconds)} and try again.`,
+    );
+  }
   return asSystem(() => resetAsSystem(data, meta, now));
 }
 
@@ -204,7 +219,7 @@ async function resetAsSystem(
       "This link has expired or was already used. Ask for a new one from the sign-in page.",
     );
   }
-  assertPolicy(data.newPassword, row.user.email);
+  await assertPolicy(data.newPassword, row.user.email);
   const user = row.user;
 
   await db.$transaction(async (tx) => {

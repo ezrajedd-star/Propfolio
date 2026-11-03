@@ -105,6 +105,20 @@ export async function rememberDevice(userId: string, meta: RequestMeta, now: Dat
   return { token, expiresAt };
 }
 
+/** Worker housekeeping: finished code steps and devices that ended more than a day ago. */
+export async function purgeOldTwoStepRows(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - 86_400_000);
+  return asSystem(async () => {
+    const challenges = await db.signInChallenge.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+    const devices = await db.trustedDevice.deleteMany({
+      where: { OR: [{ expiresAt: { lt: cutoff } }, { revokedAt: { lt: cutoff } }] },
+    });
+    return challenges.count + devices.count;
+  });
+}
+
 /** Forget every remembered device (after a password change, a reset, or on request). */
 export function forgetDevices(userId: string, now = new Date()) {
   return asSystem(() =>
