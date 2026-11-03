@@ -312,4 +312,12 @@ ALTER TABLE "PasswordResetToken" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "ManualPayment" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "PlatformAdmin" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "PlatformSession" ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON "Session", "PasswordResetToken", "ManualPayment", "PlatformAdmin", "PlatformSession", "_prisma_migrations" FROM propfolio_tenant;
+REVOKE ALL ON "Session", "PasswordResetToken", "ManualPayment", "PlatformAdmin", "PlatformSession" FROM propfolio_tenant;
+-- Prisma's own bookkeeping table (absent in the scratch database `prisma migrate dev` uses).
+DO $$
+BEGIN
+  IF to_regclass('public."_prisma_migrations"') IS NOT NULL THEN
+    REVOKE ALL ON "_prisma_migrations" FROM propfolio_tenant;
+  END IF;
+END
+$$;
