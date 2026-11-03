@@ -5,7 +5,10 @@ export interface Actor {
   id: string;
   name: string;
   email: string;
+  /** The person's role in `accountId`. */
   role: Role;
+  /** The account this person is working in. Every query is limited to it. */
+  accountId: string;
   sessionId?: string;
 }
 

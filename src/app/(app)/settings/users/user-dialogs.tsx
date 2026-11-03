@@ -34,7 +34,8 @@ function UserForm({
   onCancel,
 }: {
   defaultValues: Partial<Values>;
-  roleLocked?: boolean;
+  /** Why the role can't be changed here, or nothing when it can. */
+  roleLocked?: string;
   submitLabel: string;
   onSubmit: (
     values: Values,
@@ -86,23 +87,17 @@ function UserForm({
         <legend className="mb-2 text-base font-medium">
           Role <span className="text-muted-foreground text-sm font-normal">(required)</span>
         </legend>
-        <Controller
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <RolePicker
-              value={field.value}
-              onChange={field.onChange}
-              disabled={roleLocked}
-              invalid={!!errors.role}
-            />
-          )}
-        />
         {roleLocked ? (
-          <p className="text-muted-foreground text-sm">
-            You can&apos;t change your own role. Ask another Admin.
-          </p>
-        ) : null}
+          <p className="text-muted-foreground">{roleLocked}</p>
+        ) : (
+          <Controller
+            control={form.control}
+            name="role"
+            render={({ field }) => (
+              <RolePicker value={field.value} onChange={field.onChange} invalid={!!errors.role} />
+            )}
+          />
+        )}
         {errors.role ? (
           <p role="alert" className="text-destructive text-sm font-medium">
             {errors.role.message}
@@ -219,6 +214,12 @@ export function EditUserDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const roleLock =
+    user.role === "OWNER"
+      ? "This is the account's Owner. The Owner's role can't be changed."
+      : isSelf
+        ? "You can't change your own role. Ask another Admin."
+        : undefined;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -229,14 +230,19 @@ export function EditUserDialog({
           </DialogDescription>
         </DialogHeader>
         <UserForm
-          defaultValues={{ name: user.name, email: user.email, role: user.role }}
-          roleLocked={isSelf}
+          // The Owner role isn't one an Admin can pick; it is shown as locked instead.
+          defaultValues={{
+            name: user.name,
+            email: user.email,
+            role: user.role === "OWNER" ? "ADMIN" : user.role,
+          }}
+          roleLocked={roleLock}
           submitLabel="Save changes"
           onCancel={() => onOpenChange(false)}
           onSubmit={async (values) => {
             const result = await updateUserAction(
               user.id,
-              isSelf ? { name: values.name, email: values.email } : values,
+              roleLock ? { name: values.name, email: values.email } : values,
             );
             if (result.ok) {
               toast.success("Saved ✓");

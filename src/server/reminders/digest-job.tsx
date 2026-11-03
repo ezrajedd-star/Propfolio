@@ -5,7 +5,7 @@ import { CATCH_UP_DAYS, buildDigest, type DigestLease } from "@/domain/reminders
 import { addDays, fromDbDate, toDbDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { writeAudit } from "@/server/audit";
-import { db } from "@/server/db";
+import { currentAccountId, db } from "@/server/db";
 import { env } from "@/server/env";
 import { DigestEmail } from "@/server/mail/templates/digest-email";
 import { deliver, type OutgoingMail } from "@/server/mail/transport";
@@ -41,9 +41,11 @@ const liveLease = {
 };
 
 /**
- * The daily reminder email (run at 06:00 Asia/Manila by the worker).
+ * The daily reminder email for the current account (the worker runs it for every active
+ * account at 06:00 Asia/Manila, see `forEachActiveAccount`).
  *
- * - One digest per day, to every active Admin and Leasing Staff user (never Viewers).
+ * - One digest per account per day, to the account's active Owner, Admins and Leasing Staff
+ *   (never Viewers).
  * - Idempotent: once today's digest is SENT (or there was nothing to send), running again does
  *   nothing. A FAILED digest is attempted again; throwing lets the job runner retry later.
  * - Includes reminders due today and any missed in the last CATCH_UP_DAYS (e.g. failed sends).
@@ -56,7 +58,10 @@ export async function sendDailyDigest(
   const today = manilaToday(now);
   const digestDate = toDbDate(today);
 
-  const existing = await db.reminderDigest.findUnique({ where: { digestDate } });
+  const accountId = await currentAccountId();
+  const existing = await db.reminderDigest.findUnique({
+    where: { accountId_digestDate: { accountId, digestDate } },
+  });
   if (existing?.status === "SENT" || existing?.status === "EMPTY")
     return { status: "ALREADY_DONE", previous: existing.status };
   // Another run is sending right now (a stale claim older than 10 minutes is taken over).
@@ -149,11 +154,13 @@ export async function sendDailyDigest(
   }
 
   const recipients = (
-    await db.user.findMany({
+    await db.membership.findMany({
       where: { isActive: true },
-      select: { id: true, email: true, role: true },
+      select: { role: true, user: { select: { id: true, email: true } } },
     })
-  ).filter((u) => receivesReminders(u.role));
+  )
+    .filter((m) => receivesReminders(m.role))
+    .map((m) => m.user);
   const eventIds = due.map((e) => e.id);
 
   try {
@@ -181,8 +188,8 @@ export async function sendDailyDigest(
     );
   } catch (err) {
     const message = safeError(err);
-    await db.$transaction([
-      db.reminderDigest.update({
+    await db.$transaction(async (tx) => {
+      await tx.reminderDigest.update({
         where: { id: digest.id },
         data: {
           status: "FAILED",
@@ -190,12 +197,12 @@ export async function sendDailyDigest(
           leaseCount: content.items.length,
           recipientIds: recipients.map((r) => r.id),
         },
-      }),
-      db.reminderEvent.updateMany({
+      });
+      await tx.reminderEvent.updateMany({
         where: { id: { in: eventIds } },
         data: { status: "FAILED", digestId: digest.id },
-      }),
-    ]);
+      });
+    });
     await writeAudit({
       actor: null,
       action: "reminder.digest_failed",
@@ -212,8 +219,8 @@ export async function sendDailyDigest(
   }
 
   const sentAt = new Date();
-  await db.$transaction([
-    db.reminderDigest.update({
+  await db.$transaction(async (tx) => {
+    await tx.reminderDigest.update({
       where: { id: digest.id },
       data: {
         status: "SENT",
@@ -222,12 +229,12 @@ export async function sendDailyDigest(
         leaseCount: content.items.length,
         recipientIds: recipients.map((r) => r.id),
       },
-    }),
-    db.reminderEvent.updateMany({
+    });
+    await tx.reminderEvent.updateMany({
       where: { id: { in: eventIds } },
       data: { status: "SENT", sentAt, digestId: digest.id },
-    }),
-  ]);
+    });
+  });
   await writeAudit({
     actor: null,
     action: "reminder.digest_sent",

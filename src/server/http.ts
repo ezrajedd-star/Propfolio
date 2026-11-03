@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { withRequestScope } from "@/server/db";
 import { env } from "@/server/env";
 import { AppError, ForbiddenError } from "@/server/errors";
 
@@ -17,7 +18,7 @@ export function apiRoute<P = Record<string, never>>(
   return async (req: NextRequest, ctx: RouteContext<P>): Promise<Response> => {
     try {
       if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) assertSameOrigin(req);
-      const result = await handler(req, ctx);
+      const result = await withRequestScope(() => handler(req, ctx));
       if (result instanceof Response) return result;
       return NextResponse.json(result ?? { ok: true }, {
         headers: { "Cache-Control": "no-store" },

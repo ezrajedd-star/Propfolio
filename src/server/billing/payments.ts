@@ -17,7 +17,7 @@ import { manilaToday } from "@/domain/time/manila";
 import { isoDateSchema, moneySchema, optionalText, uuidSchema } from "@/schemas/common-fields";
 import { writeAudit, type AuditActor } from "@/server/audit";
 import { assertCan } from "@/server/auth/authorize";
-import { db, type Tx } from "@/server/db";
+import { db, type DbClient, type Tx } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import type { RequestMeta } from "@/server/request-meta";
@@ -68,13 +68,23 @@ function toOpen(c: {
   };
 }
 
+/** Payment numbers count up per account and year (the account comes from the transaction). */
 async function nextPaymentNo(tx: Tx, now: Date): Promise<string> {
   const year = Number(manilaToday(now).slice(0, 4));
   const [row] = await tx.$queryRaw<{ lastSeq: number }[]>`
     INSERT INTO "PaymentCounter" ("year", "lastSeq") VALUES (${year}, 1)
-    ON CONFLICT ("year") DO UPDATE SET "lastSeq" = "PaymentCounter"."lastSeq" + 1
+    ON CONFLICT ("accountId", "year") DO UPDATE SET "lastSeq" = "PaymentCounter"."lastSeq" + 1
     RETURNING "lastSeq"`;
   return `PAY-${year}-${String(row!.lastSeq).padStart(4, "0")}`;
+}
+
+/** "Not found" for unknown ids and for other accounts' leases (which this account can't see). */
+async function findLeaseOrThrow(client: DbClient, leaseId: string) {
+  const lease = isUuid(leaseId)
+    ? await client.lease.findUnique({ where: { id: leaseId }, select: { id: true } })
+    : null;
+  if (!lease) throw new NotFoundError("We couldn't find that lease.");
+  return lease;
 }
 
 /** Lock the lease row so two people can't allocate the same charge at the same moment. */
@@ -237,6 +247,7 @@ export async function applyCredit(actor: AuditActor, leaseId: string, meta: Requ
   assertCan(actor, "payment.record");
   if (!isUuid(leaseId)) throw new NotFoundError("We couldn't find that lease.");
   return db.$transaction(async (tx) => {
+    await findLeaseOrThrow(tx, leaseId);
     await lockLease(tx, leaseId);
     const credits = await creditOf(tx, leaseId);
     let open = (await activeChargesWithPaid(tx, leaseId)).map(toOpen);
@@ -432,7 +443,7 @@ export async function getLeaseLedger(
 /** Open charges for the record-payment form, oldest first. */
 export async function openChargesForPayment(actor: AuditActor, leaseId: string, now = new Date()) {
   assertCan(actor, "payment.record");
-  if (!isUuid(leaseId)) throw new NotFoundError("We couldn't find that lease.");
+  await findLeaseOrThrow(db, leaseId);
   const today = manilaToday(now);
   const rows = (await activeChargesWithPaid(db, leaseId)).map((c) => ({
     ...toOpen(c),

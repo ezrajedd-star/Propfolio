@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { ROLES } from "@/domain/auth/roles";
+import { ASSIGNABLE_ROLES } from "@/domain/auth/roles";
 import { emailSchema, nameSchema } from "./common";
 
-export const roleSchema = z.enum(ROLES, { error: "Choose a role." });
+export const roleSchema = z.enum(ASSIGNABLE_ROLES, { error: "Choose a role." });
 
 export const createUserSchema = z.object({
   name: nameSchema,

@@ -237,3 +237,45 @@ picker can be added in Phase 7 if users still find it confusing.
   friendly "We couldn't find that" page with HTTP 404, instead of an error (found by the QA robot).
 - The leases grid now saves a column change even if you leave the page within the 0.6-second
   save delay.
+
+## 24. Separate customer accounts (public launch, Phase 1)
+
+- **Two locks.** The Prisma client is extended (`src/server/db.ts`): every query on an
+  account-owned table gets `accountId = <current account>` added, and runs in a transaction that
+  sets `app.account_id` and switches to the role `propfolio_tenant` (`SET LOCAL ROLE`), so
+  Postgres row-level security also applies. The app keeps one database login (the tables'
+  owner, used by migrations and the worker's account loop); customer work never runs as it.
+- **Where the account comes from:** the session (server actions and API routes look it up once
+  per request; pages use the memoised session). Sign-in, password resets, the platform admin and
+  the worker's loop say so explicitly (`asSystem`, `runInAccount`). No account → error.
+- **New rows** take their account from the transaction (`DEFAULT current_account_id()`), and the
+  policies refuse rows for any other account. Inside `db.$transaction(async (tx) => …)` code must
+  use `tx`; the array form of `$transaction` is refused for customer data, because those queries
+  are built before the account can be set.
+- **New tables** get the tenant role's privileges by default but stay invisible until their
+  migration enables row-level security with a policy: add one for every account-owned table.
+- **People:** `User` is the sign-in (email, password, lockout); `Membership` holds the role and
+  "turned off" per account. One person can belong to several accounts (owner's answer, 2 Nov
+  2026); a session works in one account, the most recently used. Switching accounts in the app
+  comes with teams (launch Phase 6). An Admin can't change the name or email of someone who also
+  belongs to another account.
+- **Owner** role: one per account (database-enforced), all Admin permissions, can't be turned
+  off or have its role changed, and isn't a role Admins can hand out. The migration made the
+  longest-standing active Admin the Owner.
+- **Per account:** settings (company name now lives on the account; new company address appears
+  in the privacy notice, which names the lessor as personal information controller, never
+  Propfolio), lease/payment numbers, building codes and unit type names, drafts, saved layouts,
+  feedback and the daily reminder email.
+- **Migration** `20261102120000_accounts` moves existing data into Account #1
+  (`00000000-0000-7000-8000-000000000001`) and signs everyone out. It was rehearsed on a copy of
+  the demo data: forward, back (`prisma/rollback/20261102120000_accounts.down.sql`) and forward
+  again, with identical row counts and money totals each time.
+- **Suspended accounts:** nobody can sign in (with a "your company's account is paused"
+  message), open sessions end, and the worker skips them. Nothing is deleted.
+- **Platform admin:** separate people, sessions and cookie (`SameSite=Strict`), no membership in
+  any account. Password (12+ characters) plus a time-based code (RFC 6238, own implementation
+  with the RFC's test vectors; codes can't be reused); authenticator secrets are encrypted with
+  a key derived from `APP_SECRET`. Created from the command line with a one-time 24-hour link.
+  Its actions are audited with no account (customers don't see them in their own log).
+- **Plan fields** (`plan`, `trialEndsAt`, `paidUntil`) exist so the platform admin can work with
+  them; what each plan allows comes in launch Phase 3 (plans, limits and trial).

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { AuditActor } from "@/server/audit";
 import { assertCan } from "@/server/auth/authorize";
-import { db } from "@/server/db";
+import { asSystem, currentAccountId, db } from "@/server/db";
 import { ValidationError } from "@/server/errors";
 
 /**
@@ -23,7 +23,9 @@ export async function getLeaseDraft(
   actor: AuditActor,
 ): Promise<(LeaseDraftData & { updatedAt: Date }) | null> {
   assertCan(actor, "lease.edit");
-  const row = await db.leaseDraft.findUnique({ where: { userId: actor.id } });
+  const row = await db.leaseDraft.findUnique({
+    where: { accountId_userId: { accountId: await currentAccountId(), userId: actor.id } },
+  });
   if (!row) return null;
   const parsed = draftSchema.safeParse(row.data);
   return parsed.success ? { ...parsed.data, updatedAt: row.updatedAt } : null;
@@ -37,7 +39,7 @@ export async function saveLeaseDraft(actor: AuditActor, input: unknown): Promise
   }
   const data = parsed.data as unknown as Prisma.InputJsonValue;
   await db.leaseDraft.upsert({
-    where: { userId: actor.id },
+    where: { accountId_userId: { accountId: await currentAccountId(), userId: actor.id } },
     create: { userId: actor.id, data },
     update: { data },
   });
@@ -48,10 +50,12 @@ export async function discardLeaseDraft(actor: AuditActor): Promise<void> {
   await db.leaseDraft.deleteMany({ where: { userId: actor.id } });
 }
 
-/** Worker: drop drafts nobody has touched for 30 days. */
+/** Worker: drop drafts nobody has touched for 30 days, in every account. */
 export async function purgeOldDrafts(now = new Date()): Promise<number> {
-  const { count } = await db.leaseDraft.deleteMany({
-    where: { updatedAt: { lt: new Date(now.getTime() - DRAFT_MAX_AGE_DAYS * 86_400_000) } },
-  });
+  const { count } = await asSystem(() =>
+    db.leaseDraft.deleteMany({
+      where: { updatedAt: { lt: new Date(now.getTime() - DRAFT_MAX_AGE_DAYS * 86_400_000) } },
+    }),
+  );
   return count;
 }

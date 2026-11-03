@@ -3,9 +3,10 @@ import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
 
-import { E2E_DATABASE_URL } from "../playwright.config";
+import { E2E_APP_SECRET, E2E_DATABASE_URL } from "../playwright.config";
 import { TASK_TOUR_IDS } from "../src/domain/guide/content";
-import { PASSWORD, USERS } from "./fixtures";
+import { encryptSecret } from "../src/server/platform/secrets";
+import { E2E_ACCOUNT_ID, OTHER_ACCOUNT_ID, PASSWORD, PLATFORM_ADMIN, USERS } from "./fixtures";
 
 export default async function globalSetup() {
   execSync("pnpm prisma migrate deploy", {
@@ -13,8 +14,9 @@ export default async function globalSetup() {
     env: { ...process.env, DATABASE_URL: E2E_DATABASE_URL },
   });
 
-  const db = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
+  const base = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
   try {
+    const db = base;
     const tables = await db.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
     await db.$transaction([
@@ -24,23 +26,37 @@ export default async function globalSetup() {
       ),
       db.$executeRawUnsafe(`ALTER TABLE "AuditLog" ENABLE TRIGGER USER`),
     ]);
+    await db.account.createMany({
+      data: [
+        { id: E2E_ACCOUNT_ID, name: "E2E Leasing Co." },
+        { id: OTHER_ACCOUNT_ID, name: "Other Leasing Inc." },
+      ],
+    });
     const passwordHash = await hash(PASSWORD);
     const roles = {
-      admin: "ADMIN",
-      staff: "LEASING_STAFF",
-      viewer: "VIEWER",
-      lockme: "LEASING_STAFF",
+      admin: ["OWNER", E2E_ACCOUNT_ID],
+      staff: ["LEASING_STAFF", E2E_ACCOUNT_ID],
+      viewer: ["VIEWER", E2E_ACCOUNT_ID],
+      lockme: ["LEASING_STAFF", E2E_ACCOUNT_ID],
+      other: ["OWNER", OTHER_ACCOUNT_ID],
     } as const;
     for (const [key, u] of Object.entries(USERS) as [
       keyof typeof USERS,
       (typeof USERS)[keyof typeof USERS],
     ][]) {
+      const [role, accountId] = roles[key];
       const user = await db.user.create({
-        data: { ...u, role: roles[key], passwordHash, mustChangePassword: false },
+        data: {
+          ...u,
+          passwordHash,
+          mustChangePassword: false,
+          memberships: { create: { accountId, role } },
+        },
       });
       // These test users have seen all tours (e2e/phase6.spec.ts and tours.spec.ts test them on purpose).
       await db.userPreference.create({
         data: {
+          accountId,
           userId: user.id,
           key: "guide",
           value: { tourDone: true, on: false, toursDone: [...TASK_TOUR_IDS] },
@@ -48,6 +64,56 @@ export default async function globalSetup() {
       });
     }
 
+    // A platform admin who has finished set-up. The secret is encrypted with the e2e server's
+    // APP_SECRET, as the app does it.
+    process.env.APP_SECRET = E2E_APP_SECRET;
+    process.env.DATABASE_URL ??= E2E_DATABASE_URL;
+    await db.platformAdmin.create({
+      data: {
+        email: PLATFORM_ADMIN.email,
+        name: PLATFORM_ADMIN.name,
+        passwordHash: await hash(PLATFORM_ADMIN.password),
+        totpSecretEnc: encryptSecret(PLATFORM_ADMIN.totpSecret),
+        totpConfirmedAt: new Date(),
+      },
+    });
+
+    // The other account has a little data of its own, so its screens aren't empty.
+    await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.account_id', ${OTHER_ACCOUNT_ID}, true)`;
+      const type = await tx.unitType.create({ data: { name: "Office" } });
+      const tower = await tx.building.create({
+        data: { name: "Other Tower", code: "E2E", address: "2 Elsewhere St", type: "COMMERCIAL" },
+      });
+      await tx.unit.create({
+        data: { buildingId: tower.id, unitNumber: "501", unitTypeId: type.id },
+      });
+      await tx.tenant.create({
+        data: {
+          type: "COMPANY",
+          displayName: "Other Account Tenant",
+          searchText: "other account tenant",
+        },
+      });
+    });
+
+    // Everything below belongs to the main e2e account (rows take the account from this setting).
+    await db.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.account_id', ${E2E_ACCOUNT_ID}, true)`;
+        await seedMainAccount(tx);
+      },
+      { timeout: 60_000 },
+    );
+  } finally {
+    await base.$disconnect();
+  }
+}
+
+type Tx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
+
+async function seedMainAccount(db: Tx) {
+  {
     // A small synthetic property for the lease flows.
     const office = await db.unitType.create({
       data: {
@@ -163,7 +229,18 @@ export default async function globalSetup() {
         },
       });
     }
-  } finally {
-    await db.$disconnect();
+    // A document on the paying lease, for the separation checks (the file itself isn't needed).
+    await db.document.create({
+      data: {
+        tenantId: payTenant.id,
+        leaseId: payLease.id,
+        category: "SIGNED_CONTRACT",
+        fileName: "Overdue Trading contract.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 10,
+        sha256: "0".repeat(64),
+        storageKey: "e2e-separation-check",
+      },
+    });
   }
 }

@@ -2,14 +2,21 @@ import type { Role } from "@prisma/client";
 
 import type { Actor } from "@/server/auth/authorize";
 import { hashPassword } from "@/server/auth/password";
-import { db } from "@/server/db";
+import { asSystem, db, setTestScope } from "@/server/db";
 import { logOutbox } from "@/server/mail/transport";
 import type { RequestMeta } from "@/server/request-meta";
 
 export const meta: RequestMeta = { ipAddress: "203.0.113.10", userAgent: "vitest" };
 
-/** Wipe all data between tests. The audit log's append-only triggers are paused for this only. */
+/** The account tests work in unless they say otherwise. */
+export const TEST_ACCOUNT_ID = "00000000-0000-7000-8000-00000000aaaa";
+
+/**
+ * Wipe all data between tests and start with one empty account, which services called directly
+ * by tests work in. The audit log's append-only triggers are paused for the wipe only.
+ */
 export async function resetDb() {
+  setTestScope({ kind: "system" });
   const tables = await db.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   await db.$transaction([
@@ -19,11 +26,20 @@ export async function resetDb() {
     ),
     db.$executeRawUnsafe(`ALTER TABLE "AuditLog" ENABLE TRIGGER USER`),
   ]);
+  await db.account.create({ data: { id: TEST_ACCOUNT_ID, name: "Test Leasing Co." } });
   logOutbox.length = 0;
+  setTestScope({ kind: "account", accountId: TEST_ACCOUNT_ID });
+}
+
+/** Another customer account, for checking that accounts can't reach each other. */
+export async function makeAccount(name = "Other Leasing Inc."): Promise<string> {
+  const account = await asSystem(() => db.account.create({ data: { name } }));
+  return account.id;
 }
 
 export const DEFAULT_PASSWORD = "correct horse battery";
 
+/** A person with a role in an account (by default the test account). */
 export async function makeUser(
   role: Role,
   overrides: Partial<{
@@ -32,22 +48,28 @@ export async function makeUser(
     password: string;
     mustChangePassword: boolean;
     isActive: boolean;
+    accountId: string;
   }> = {},
 ): Promise<Actor> {
+  const accountId = overrides.accountId ?? TEST_ACCOUNT_ID;
   const email =
     overrides.email ??
     `${role.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-  const user = await db.user.create({
-    data: {
-      name: overrides.name ?? `Test ${role}`,
-      email,
-      role,
-      passwordHash: await hashPassword(overrides.password ?? DEFAULT_PASSWORD),
-      mustChangePassword: overrides.mustChangePassword ?? false,
-      isActive: overrides.isActive ?? true,
-    },
-  });
-  return { id: user.id, name: user.name, email: user.email, role: user.role };
+  const passwordHash = await hashPassword(overrides.password ?? DEFAULT_PASSWORD);
+  const user = await asSystem(() =>
+    db.user.create({
+      data: {
+        name: overrides.name ?? `Test ${role}`,
+        email,
+        passwordHash,
+        mustChangePassword: overrides.mustChangePassword ?? false,
+        memberships: {
+          create: { accountId, role, isActive: overrides.isActive ?? true },
+        },
+      },
+    }),
+  );
+  return { id: user.id, name: user.name, email: user.email, role, accountId };
 }
 
 export async function auditActions(entityId?: string): Promise<string[]> {

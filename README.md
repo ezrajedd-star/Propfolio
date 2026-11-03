@@ -5,7 +5,11 @@ A lease ledger for rental property companies in the Philippines. It replaces an 
 payments, documents, reminders and reports. It is designed first for **ease of use** by a busy,
 non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173)**.
 
-> **Status:** Phases 1–6 of 7 are complete: sign-in, roles, users, audit log, design system;
+> **Public launch:** Propfolio is becoming a self-serve subscription product for many lessors
+> (brief: [docs/brief-public-launch.md](docs/brief-public-launch.md)). **Launch phase 1 is done:**
+> separate customer accounts and the platform-admin area. See [Accounts](#accounts).
+>
+> **Original build:** Phases 1–6 of 7 are complete: sign-in, roles, users, audit log, design system;
 > buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; the
 > calendar plus a spreadsheet-style leases grid with in-line editing and Excel/CSV export; the
 > daily reminder email with "Mark as handled"; and payments: rent charges, recording payments,
@@ -239,6 +243,7 @@ button; notes appear in Settings → Tester feedback.
 
 | Role                             | Can do                                                                                                                                |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Owner**                        | Everything an Admin can. One per account; can't be turned off or have their role changed. (Will control billing.)                     |
 | **Admin**                        | Everything Leasing Staff can, plus users, buildings/units/unit types, settings, audit log, privacy actions, purging archived records. |
 | **Leasing Staff**                | Leases, tenants, payments, documents, reminders, reports, exports, archiving.                                                         |
 | **Property Management (Viewer)** | Read-only: buildings, units, occupancy, lease start/end dates, and the **tenant's display name only**.                                |
@@ -247,8 +252,44 @@ The permission matrix lives in `src/domain/auth/roles.ts`. **Every page, server 
 route checks it on the server.** Hiding a menu item is only a convenience. Integration and e2e
 tests prove that Leasing Staff and Viewers are refused by every admin service, page and API.
 
-Other rules: accounts are created by an Admin (no public sign-up), users cannot change their own
-role, there is always at least one active Admin, and accounts are turned off rather than deleted.
+Other rules: people are added by an Admin (no public sign-up yet), users cannot change their own
+role, there is always at least one active Owner or Admin, and people are turned off rather than
+deleted. Roles and "turned off" are per account.
+
+## Accounts
+
+Each customer (a company or person who leases out property) has an **account**. Every record
+belongs to exactly one account, and accounts never see or change each other's data:
+
+1. **In the app:** the database client (`src/server/db.ts`) adds "this account only" to every
+   query. The account comes from the signed-in person's session; background jobs name it
+   explicitly (`runInAccount`). A query with no account fails instead of reading everything.
+2. **In the database:** each transaction runs as the restricted role `propfolio_tenant` with the
+   account in `app.account_id`, and row-level security policies refuse other accounts' rows,
+   even for hand-written SQL.
+
+A person can belong to several accounts (e.g. an outside accountant); they work in the one they
+used last. Settings, lease and payment numbers, building codes, the daily reminder email and the
+privacy notice (which names the lessor and its address) are per account. Tests in
+`tests/integration/accounts.test.ts` and `e2e/accounts.spec.ts` try every service, page and API
+address with another account's ids.
+
+### Platform admin (Propfolio staff)
+
+`/platform` is Propfolio's back office: list accounts (plan, trial end, paid until, status,
+people and units — never tenant records), extend a trial, record a bank-transfer payment, and
+suspend or reactivate an account. It has its own sign-in with **two steps** (password + a code
+from an authenticator app), sessions of at most 8 hours, and every action is in the audit log.
+
+Add yourself (or start again after losing your phone) on the server:
+
+```bash
+pnpm platform:admin --email you@example.com --name "Your Name"
+# Docker: docker compose run --rm migrate pnpm platform:admin --email … --name "…"
+```
+
+It prints a one-time set-up link (24 hours) where you choose a password and scan a QR code.
+`APP_SECRET` must stay the same afterwards: it encrypts the authenticator secrets.
 
 ---
 
@@ -349,6 +390,20 @@ with the database (see below).
 | 5. Payments                    | Charges with escalation, payments and allocation, balances, aging, voids            | ✅ Done |
 | 6. Documents, reports, privacy | Uploads, six reports, privacy export/anonymise, retention, on-screen Guide, UAT kit | ✅ Done |
 | 7. Polish                      | Accessibility, responsive, empty states, end-to-end flows                           | Next    |
+
+Public launch ([brief](docs/brief-public-launch.md)):
+
+| Phase                         | Scope                                                                             | Status  |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------- |
+| 0. Inspect and plan           | Stack, data, plan, conflicts, questions                                           | ✅ Done |
+| 1. Separate customer accounts | Accounts, memberships, Owner, two-lock separation, per-account settings, platform | ✅ Done |
+| 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | Next    |
+| 3. Plans, limits, trial       | (moved before sign-up)                                                            |         |
+| 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  |         |
+| 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        |         |
+| 6. Teams                      | Invitations, seats, ownership transfer                                            |         |
+| 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    |         |
+| 8. Launch readiness           | Checklist                                                                         |         |
 
 Confirmed assumptions (brief §14): reminder lead times Residential [60, 30, 7], Office/Retail
 [90, 60, 30], Warehouse/Industrial [180, 120, 90, 60, 30]; digest at 06:00 Asia/Manila; repeats

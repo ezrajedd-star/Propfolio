@@ -319,7 +319,7 @@ export function tourSteps(role: Role, firstName: string, uat: boolean): TourStep
       title: "Reports",
       body: "Expiry pipeline, rent roll, collections and more, ready to download for Excel.",
     },
-    ...(role === "ADMIN"
+    ...(role === "ADMIN" || role === "OWNER"
       ? [
           {
             target: "nav-settings",

@@ -1,8 +1,11 @@
 /**
  * Synthetic seed data for development and demos. NEVER run against production.
  *
- * - One user per role. Passwords are freshly generated on every run (printed below) unless
- *   SEED_PASSWORD is set. Emails use the reserved `.test` domain.
+ * - Two customer accounts. "Sample Realty Corp." (Account #1) has one user per role and all the
+ *   data below; "Bayside Rentals" has its own Owner and one building, to show that accounts
+ *   can't see each other.
+ * - Passwords are freshly generated on every run (printed below) unless SEED_PASSWORD is set.
+ *   Emails use the reserved `.test` domain.
  * - 3 buildings (one industrial complex with standalone warehouses), 30 units, 20 tenants and
  *   about 25 leases in mixed states. Lease dates are relative to today, so the statuses stay
  *   realistic whenever you seed.
@@ -13,7 +16,7 @@
  */
 import { randomBytes } from "node:crypto";
 
-import { PrismaClient, type Role } from "@prisma/client";
+import type { Role } from "@prisma/client";
 
 import { UNIT_TYPE_REMINDER_DEFAULTS } from "../src/domain/reminders/config";
 import { addDays, addMonths } from "../src/domain/time/calendar-date";
@@ -22,37 +25,101 @@ import type { Actor } from "../src/server/auth/authorize";
 import { hashPassword } from "../src/server/auth/password";
 import { recordPayment } from "../src/server/billing/payments";
 import { createLease, renewLease, terminateLease } from "../src/server/leases/service";
+import { asSystem, db, runInAccount } from "../src/server/db";
 import { createBuilding } from "../src/server/property/buildings";
 import { createUnitType } from "../src/server/property/unit-types";
 import { createUnit, setUnitReminderOverride } from "../src/server/property/units";
 import { updateSettings } from "../src/server/settings/service";
 import { createTenant } from "../src/server/tenants/service";
 
-const db = new PrismaClient();
 const meta = { ipAddress: null, userAgent: "seed" };
 
-const SEED_USERS: { name: string; email: string; role: Role }[] = [
-  { name: "Andrea Admin", email: "admin@propfolio.test", role: "ADMIN" },
-  { name: "Lea Leasing", email: "leasing@propfolio.test", role: "LEASING_STAFF" },
-  { name: "Victor Viewer", email: "viewer@propfolio.test", role: "VIEWER" },
+/** Same id the accounts migration gives the first company, so a seeded database looks alike. */
+const SAMPLE_ACCOUNT_ID = "00000000-0000-7000-8000-000000000001";
+const BAYSIDE_ACCOUNT_ID = "00000000-0000-7000-8000-000000000002";
+
+const SEED_USERS: { name: string; email: string; role: Role; accountId: string }[] = [
+  {
+    name: "Andrea Admin",
+    email: "admin@propfolio.test",
+    role: "OWNER",
+    accountId: SAMPLE_ACCOUNT_ID,
+  },
+  {
+    name: "Lea Leasing",
+    email: "leasing@propfolio.test",
+    role: "LEASING_STAFF",
+    accountId: SAMPLE_ACCOUNT_ID,
+  },
+  {
+    name: "Victor Viewer",
+    email: "viewer@propfolio.test",
+    role: "VIEWER",
+    accountId: SAMPLE_ACCOUNT_ID,
+  },
+  {
+    name: "Bea Bayside",
+    email: "owner@bayside.test",
+    role: "OWNER",
+    accountId: BAYSIDE_ACCOUNT_ID,
+  },
 ];
 
-async function seedUsers() {
-  const credentials: { email: string; role: Role; password: string }[] = [];
-  let admin: Actor | null = null;
-  for (const u of SEED_USERS) {
-    const password = process.env.SEED_PASSWORD || randomBytes(12).toString("base64url");
-    const passwordHash = await hashPassword(password);
-    const row = await db.user.upsert({
-      where: { email: u.email },
-      create: { ...u, passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
-      update: { passwordHash, isActive: true, failedLoginCount: 0, lockedUntil: null },
-    });
-    if (u.role === "ADMIN")
-      admin = { id: row.id, name: row.name, email: row.email, role: row.role };
-    credentials.push({ email: u.email, role: u.role, password });
+/** Accounts and people are created outside any one account's data. */
+function seedUsers() {
+  return asSystem(async () => {
+    for (const [id, name] of [
+      [SAMPLE_ACCOUNT_ID, "Sample Realty Corp."],
+      [BAYSIDE_ACCOUNT_ID, "Bayside Rentals"],
+    ] as const) {
+      await db.account.upsert({
+        where: { id },
+        create: { id, name },
+        update: { status: "ACTIVE" },
+      });
+    }
+    const credentials: { email: string; role: Role; password: string }[] = [];
+    const owners: Record<string, Actor> = {};
+    for (const { accountId, role, ...u } of SEED_USERS) {
+      const password = process.env.SEED_PASSWORD || randomBytes(12).toString("base64url");
+      const passwordHash = await hashPassword(password);
+      const row = await db.user.upsert({
+        where: { email: u.email },
+        create: { ...u, passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
+        update: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+      });
+      await db.membership.upsert({
+        where: { accountId_userId: { accountId, userId: row.id } },
+        create: { accountId, userId: row.id, role },
+        update: { role, isActive: true },
+      });
+      if (role === "OWNER") {
+        owners[accountId] = { id: row.id, name: row.name, email: row.email, role, accountId };
+      }
+      credentials.push({ email: u.email, role, password });
+    }
+    return { owners, credentials };
+  });
+}
+
+/** The second demo account: a little data of its own, nothing shared with the first. */
+async function seedBayside(owner: Actor) {
+  if ((await db.building.count()) > 0) return;
+  await updateSettings(owner, { companyAddress: "88 Roxas Blvd, Pasay City" }, meta);
+  const type = await createUnitType(owner, { name: "Residential", reminderConfig: null }, meta);
+  const building = await createBuilding(
+    owner,
+    {
+      name: "Bayside Residences",
+      code: "BAY",
+      address: "88 Roxas Blvd, Pasay City",
+      type: "RESIDENTIAL",
+    },
+    meta,
+  );
+  for (const unitNumber of ["1A", "1B", "2A"]) {
+    await createUnit(owner, { buildingId: building.id, unitNumber, unitTypeId: type.id }, meta);
   }
-  return { admin: admin!, credentials };
 }
 
 const TENANTS = [
@@ -87,6 +154,7 @@ async function seedProperty(admin: Actor) {
     admin,
     {
       companyName: "Sample Realty Corp.",
+      companyAddress: "1 Ayala Avenue, Makati City",
       dpoName: "Data Protection Officer",
       dpoEmail: "privacy@samplerealty.test",
     },
@@ -374,21 +442,22 @@ async function main() {
   if (process.env.NODE_ENV === "production" && !process.argv.includes("--allow-production")) {
     throw new Error("Refusing to seed a production database.");
   }
-  const { admin, credentials } = await seedUsers();
-  await seedProperty(admin);
-  await seedPayments(admin);
+  const { owners, credentials } = await seedUsers();
+  const admin = owners[SAMPLE_ACCOUNT_ID]!;
+  await runInAccount(SAMPLE_ACCOUNT_ID, async () => {
+    await seedProperty(admin);
+    await seedPayments(admin);
+  });
+  await runInAccount(BAYSIDE_ACCOUNT_ID, () => seedBayside(owners[BAYSIDE_ACCOUNT_ID]!));
 
   console.log("\nSeed users (synthetic test accounts):");
   console.table(credentials);
   console.log("These passwords change every time you run the seed unless SEED_PASSWORD is set.\n");
-  const counts = await Promise.all([
-    db.building.count(),
-    db.unit.count(),
-    db.tenant.count(),
-    db.lease.count(),
-  ]);
+  const counts = await runInAccount(SAMPLE_ACCOUNT_ID, () =>
+    Promise.all([db.building.count(), db.unit.count(), db.tenant.count(), db.lease.count()]),
+  );
   console.log(
-    `Buildings: ${counts[0]}, units: ${counts[1]}, tenants: ${counts[2]}, leases: ${counts[3]}`,
+    `Sample Realty Corp. — buildings: ${counts[0]}, units: ${counts[1]}, tenants: ${counts[2]}, leases: ${counts[3]}`,
   );
 }
 

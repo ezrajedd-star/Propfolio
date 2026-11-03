@@ -42,10 +42,28 @@ export function GeneralSettingsForm({
     <form onSubmit={onSubmit} noValidate>
       <Card className="max-w-2xl">
         <CardContent className="space-y-6">
-          <Field id="companyName" label="Company name" required error={errors.companyName?.message}>
+          <Field
+            id="companyName"
+            label="Company name"
+            required
+            help="The name you lease under. Tenants see it in the privacy notice and on payment acknowledgements."
+            error={errors.companyName?.message}
+          >
             <Input
-              {...fieldAria("companyName", errors.companyName?.message)}
+              {...fieldAria("companyName", errors.companyName?.message, true)}
               {...form.register("companyName")}
+            />
+          </Field>
+          <Field
+            id="companyAddress"
+            label="Company address"
+            help="Shown in the tenant privacy notice, so tenants know who is responsible for their data."
+            error={errors.companyAddress?.message}
+          >
+            <Input
+              {...fieldAria("companyAddress", errors.companyAddress?.message, true)}
+              autoComplete="street-address"
+              {...form.register("companyAddress")}
             />
           </Field>
           <Field

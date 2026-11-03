@@ -60,9 +60,9 @@ export async function syncReminders(scope: LeaseScope, now = new Date()): Promis
           dates.endDate,
           unitReminderConfig(settings.reminderDefaults, l.unit).config,
         ).filter((r) => r.date >= earliest && !recorded.has(r.date));
-    await db.$transaction([
-      db.reminderEvent.deleteMany({ where: { leaseId: l.id, status: "PENDING" } }),
-      db.reminderEvent.createMany({
+    await db.$transaction(async (tx) => {
+      await tx.reminderEvent.deleteMany({ where: { leaseId: l.id, status: "PENDING" } });
+      await tx.reminderEvent.createMany({
         data: wanted.map((r) => ({
           leaseId: l.id,
           scheduledDate: toDbDate(r.date),
@@ -70,8 +70,8 @@ export async function syncReminders(scope: LeaseScope, now = new Date()): Promis
           daysBefore: r.daysBefore,
         })),
         skipDuplicates: true,
-      }),
-    ]);
+      });
+    });
     pending += wanted.length;
   }
   return pending;

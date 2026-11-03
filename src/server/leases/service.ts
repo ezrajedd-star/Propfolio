@@ -364,11 +364,12 @@ function termsAudit(t: LeaseTerms & { unitId?: string; tenantId?: string }) {
   return { ...t };
 }
 
+/** Lease numbers count up per account and year (the account comes from the transaction). */
 async function nextRefNo(tx: Tx, now: Date): Promise<string> {
   const year = Number(manilaToday(now).slice(0, 4));
   const [row] = await tx.$queryRaw<{ lastSeq: number }[]>`
     INSERT INTO "LeaseCounter" ("year", "lastSeq") VALUES (${year}, 1)
-    ON CONFLICT ("year") DO UPDATE SET "lastSeq" = "LeaseCounter"."lastSeq" + 1
+    ON CONFLICT ("accountId", "year") DO UPDATE SET "lastSeq" = "LeaseCounter"."lastSeq" + 1
     RETURNING "lastSeq"`;
   return formatLeaseRef(year, row!.lastSeq);
 }

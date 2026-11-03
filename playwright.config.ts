@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgresql://propfolio:propfolio@localhost:5432/propfolio_e2e";
+export const E2E_APP_SECRET = "e2e-only-signing-secret-0123456789abcdef";
 
 export default defineConfig({
   testDir: "e2e",
@@ -32,7 +33,7 @@ export default defineConfig({
       DATABASE_URL: E2E_DATABASE_URL,
       APP_URL: `http://localhost:${PORT}`,
       MAIL_TRANSPORT: "log",
-      APP_SECRET: "e2e-only-signing-secret-0123456789abcdef",
+      APP_SECRET: E2E_APP_SECRET,
       STORAGE_DIR: `${process.env.TMPDIR ?? "/tmp"}/propfolio-e2e-storage`,
       UAT_MODE: "true",
     },

@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { expect, test } from "@playwright/test";
 
 import { E2E_DATABASE_URL } from "../playwright.config";
-import { signInAs, USERS } from "./fixtures";
+import { E2E_ACCOUNT_ID, signInAs, USERS } from "./fixtures";
 
 test.describe.configure({ mode: "serial" });
 
@@ -10,7 +10,9 @@ async function forgetTaskTours(email: string) {
   const db = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
   const user = await db.user.findUniqueOrThrow({ where: { email } });
   await db.userPreference.update({
-    where: { userId_key: { userId: user.id, key: "guide" } },
+    where: {
+      accountId_userId_key: { accountId: E2E_ACCOUNT_ID, userId: user.id, key: "guide" },
+    },
     data: { value: { tourDone: true, on: false, toursDone: [] } },
   });
   await db.$disconnect();

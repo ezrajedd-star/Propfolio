@@ -43,6 +43,12 @@ export async function signInAction(input: unknown, next?: string): Promise<Actio
         };
       case "inactive":
         return { ok: false, message: "This account has been turned off. Please ask an Admin." };
+      case "suspended":
+        return {
+          ok: false,
+          message:
+            "Your company's Propfolio account is paused. Your account's Owner can contact Propfolio to restore it.",
+        };
       default:
         return {
           ok: false,
