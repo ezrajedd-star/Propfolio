@@ -13,7 +13,7 @@ import { env } from "@/server/env";
 import { ValidationError } from "@/server/errors";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
-import { decryptSecret, encryptSecret } from "./secrets";
+import { decryptSecret, encryptSecret } from "@/server/auth/secrets";
 
 /**
  * Sign-in for Propfolio's own staff (the platform admin). Separate from customer sign-in: its

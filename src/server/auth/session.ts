@@ -1,5 +1,6 @@
 import type { Role } from "@/domain/auth/roles";
 import { checkSession, sessionExpiry, shouldTouch } from "@/domain/auth/session-policy";
+import { twoStepState, type TwoStepState } from "@/domain/auth/two-step";
 import { asSystem, db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
 import { randomToken, sha256 } from "./tokens";
@@ -10,6 +11,8 @@ export interface SessionUser {
   email: string;
   role: Role;
   mustChangePassword: boolean;
+  /** "setup_required": an Owner or Admin who must set up two-step sign-in before anything else. */
+  twoStep: TwoStepState;
 }
 
 export interface ValidSession {
@@ -59,7 +62,16 @@ export function validateSessionToken(
     const session = await db.session.findUnique({
       where: { tokenHash: sha256(token) },
       include: {
-        user: { select: { id: true, name: true, email: true, mustChangePassword: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            mustChangePassword: true,
+            totpConfirmedAt: true,
+            twoStepGraceUntil: true,
+          },
+        },
         account: { select: { status: true } },
       },
     });
@@ -82,10 +94,22 @@ export function validateSessionToken(
       await db.session.update({ where: { id: session.id }, data: { lastSeenAt: now } });
     }
 
+    const { totpConfirmedAt, twoStepGraceUntil, ...user } = session.user;
     return {
       sessionId: session.id,
       accountId: session.accountId,
-      user: { ...session.user, role: membership.role },
+      user: {
+        ...user,
+        role: membership.role,
+        twoStep: twoStepState(
+          {
+            role: membership.role,
+            enrolled: totpConfirmedAt !== null,
+            graceUntil: twoStepGraceUntil,
+          },
+          now,
+        ),
+      },
     };
   });
 }

@@ -28,6 +28,8 @@ export interface UserView {
   role: Role;
   isActive: boolean;
   mustChangePassword: boolean;
+  /** Two-step sign-in is set up. */
+  twoStepOn: boolean;
   lastLoginAt: Date | null;
   lockedUntil: Date | null;
   status: UserStatus;
@@ -52,6 +54,7 @@ function toView(m: MemberWithUser, now: Date): UserView {
     role: m.role,
     isActive: m.isActive,
     mustChangePassword: u.mustChangePassword,
+    twoStepOn: u.totpConfirmedAt !== null,
     lastLoginAt: u.lastLoginAt,
     lockedUntil: isLocked(u, now) ? u.lockedUntil : null,
     status,

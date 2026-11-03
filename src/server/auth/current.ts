@@ -5,7 +5,12 @@ import { cache } from "react";
 import { can, type Permission } from "@/domain/auth/roles";
 import { setRequestAccountResolver } from "@/server/db";
 import { isSecureDeployment } from "@/server/env";
-import { ForbiddenError, PasswordChangeRequiredError, UnauthenticatedError } from "@/server/errors";
+import {
+  ForbiddenError,
+  PasswordChangeRequiredError,
+  TwoStepSetupRequiredError,
+  UnauthenticatedError,
+} from "@/server/errors";
 import type { Actor } from "./authorize";
 import { validateSessionToken, type ValidSession } from "./session";
 
@@ -33,6 +38,43 @@ export async function clearSessionCookie(): Promise<void> {
   (await cookies()).delete(sessionCookieName());
 }
 
+const secureName = (name: string) => (isSecureDeployment() ? `__Host-${name}` : name);
+
+/** Between the password and the two-step code (5 minutes). */
+export async function setPendingSignInCookie(token: string, expiresAt: Date): Promise<void> {
+  (await cookies()).set(secureName("propfolio_signin"), token, {
+    httpOnly: true,
+    secure: isSecureDeployment(),
+    sameSite: "strict",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function getPendingSignInToken(): Promise<string | undefined> {
+  const value = (await cookies()).get(secureName("propfolio_signin"))?.value;
+  return value && value.length <= 200 ? value : undefined;
+}
+
+export async function clearPendingSignInCookie(): Promise<void> {
+  (await cookies()).delete(secureName("propfolio_signin"));
+}
+
+/** "Don't ask for a code on this device for 30 days". */
+export async function setDeviceCookie(token: string, expiresAt: Date): Promise<void> {
+  (await cookies()).set(secureName("propfolio_device"), token, {
+    httpOnly: true,
+    secure: isSecureDeployment(),
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function getDeviceToken(): Promise<string | undefined> {
+  return (await cookies()).get(secureName("propfolio_device"))?.value;
+}
+
 /** The current session for this request (memoised per request). */
 export const getCurrentSession = cache(async (): Promise<ValidSession | null> => {
   const token = (await cookies()).get(sessionCookieName())?.value;
@@ -54,23 +96,43 @@ function toActor(s: ValidSession): Actor {
   return { ...s.user, accountId: s.accountId, sessionId: s.sessionId };
 }
 
+/** The two-step set-up page and its actions are the only things allowed before set-up. */
+export const TWO_STEP_SETUP_PATH = "/setup-two-step";
+
+interface Options {
+  /** Allow Owners and Admins who still have to set up two-step sign-in. */
+  duringTwoStepSetup?: boolean;
+}
+
 /**
  * For pages and layouts: returns the signed-in user, or redirects to sign-in, to the
- * password change screen, or to the "no access" page.
+ * password change screen, to two-step set-up, or to the "no access" page.
  */
-export async function requirePageUser(permission?: Permission): Promise<Actor> {
+export async function requirePageUser(
+  permission?: Permission,
+  options: Options = {},
+): Promise<Actor> {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
   if (session.user.mustChangePassword) redirect("/change-password");
+  if (session.user.twoStep === "setup_required" && !options.duringTwoStepSetup) {
+    redirect(TWO_STEP_SETUP_PATH);
+  }
   if (permission && !can(session.user.role, permission)) redirect("/no-access");
   return toActor(session);
 }
 
 /** For server actions and API routes: throws instead of redirecting. */
-export async function requireActor(permission?: Permission): Promise<Actor> {
+export async function requireActor(
+  permission?: Permission,
+  options: Options = {},
+): Promise<Actor> {
   const session = await getCurrentSession();
   if (!session) throw new UnauthenticatedError();
   if (session.user.mustChangePassword) throw new PasswordChangeRequiredError();
+  if (session.user.twoStep === "setup_required" && !options.duringTwoStepSetup) {
+    throw new TwoStepSetupRequiredError();
+  }
   if (permission && !can(session.user.role, permission)) throw new ForbiddenError();
   return toActor(session);
 }

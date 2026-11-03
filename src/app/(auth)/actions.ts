@@ -5,13 +5,22 @@ import { redirect } from "next/navigation";
 import { formatTime } from "@/domain/time/manila";
 import { forgotPasswordSchema, signInSchema } from "@/schemas/auth";
 import { runAction, type ActionResult } from "@/server/actions";
-import { clearSessionCookie, getCurrentSession, setSessionCookie } from "@/server/auth/current";
+import {
+  clearPendingSignInCookie,
+  clearSessionCookie,
+  getCurrentSession,
+  getDeviceToken,
+  getPendingSignInToken,
+  setDeviceCookie,
+  setPendingSignInCookie,
+  setSessionCookie,
+} from "@/server/auth/current";
 import {
   changeOwnPassword,
   requestPasswordReset,
   resetPasswordWithToken,
 } from "@/server/auth/passwords";
-import { signIn, signOut } from "@/server/auth/sign-in";
+import { completeSignInWithCode, signIn, signOut, type SignedIn } from "@/server/auth/sign-in";
 import { UnauthenticatedError } from "@/server/errors";
 import { requestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
@@ -29,13 +38,24 @@ function safeNext(next: unknown): string {
 export async function signInAction(input: unknown, next?: string): Promise<ActionResult> {
   const result = await runAction(async () => {
     const data = parseInput(signInSchema, input);
-    return signIn(data.email, data.password, await requestMeta());
+    return signIn(
+      data.email,
+      data.password,
+      await requestMeta(),
+      new Date(),
+      await getDeviceToken(),
+    );
   });
   if (!result.ok) return result;
 
   const r = result.data;
   if (!r.ok) {
     switch (r.reason) {
+      case "code_needed":
+        await setPendingSignInCookie(r.challengeToken, r.expiresAt);
+        redirect(
+          `/login/code${next && safeNext(next) !== "/" ? `?next=${encodeURIComponent(safeNext(next))}` : ""}`,
+        );
       case "locked":
         return {
           ok: false,
@@ -57,7 +77,54 @@ export async function signInAction(input: unknown, next?: string): Promise<Actio
         };
     }
   }
+  await startSession(r);
+  redirect(r.mustChangePassword ? "/change-password" : safeNext(next));
+}
+
+async function startSession(r: SignedIn) {
   await setSessionCookie(r.token, r.expiresAt);
+  if (r.deviceToken) await setDeviceCookie(r.deviceToken.token, r.deviceToken.expiresAt);
+}
+
+/** The second step of signing in: a code from the authenticator app, or a recovery code. */
+export async function signInCodeAction(
+  input: { code?: unknown; remember?: unknown },
+  next?: string,
+): Promise<ActionResult> {
+  const challenge = await getPendingSignInToken();
+  if (!challenge) redirect("/login?reason=code-expired");
+  const code = typeof input.code === "string" ? input.code.trim() : "";
+  if (!code) {
+    return { ok: false, message: "Enter the code.", fieldErrors: { code: "Enter the code." } };
+  }
+  const result = await runAction(async () =>
+    completeSignInWithCode(challenge, code, input.remember === true, await requestMeta()),
+  );
+  if (!result.ok) return result;
+  const r = result.data;
+  if (!r.ok) {
+    switch (r.reason) {
+      case "expired":
+        await clearPendingSignInCookie();
+        redirect("/login?reason=code-expired");
+      case "locked":
+        await clearPendingSignInCookie();
+        return {
+          ok: false,
+          message: `This account is locked for 15 minutes after too many wrong tries. Try again after ${formatTime(r.lockedUntil)}, or ask an Admin to unlock it.`,
+        };
+      default:
+        return {
+          ok: false,
+          message: "That code didn't work.",
+          fieldErrors: {
+            code: "Type the 6-digit code your app shows right now, or one of your recovery codes.",
+          },
+        };
+    }
+  }
+  await clearPendingSignInCookie();
+  await startSession(r);
   redirect(r.mustChangePassword ? "/change-password" : safeNext(next));
 }
 

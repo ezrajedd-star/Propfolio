@@ -12,6 +12,7 @@ import { signInTarget } from "./memberships";
 import { hashPassword, verifyPassword } from "./password";
 import { revokeUserSessions } from "./session";
 import { randomToken, sha256 } from "./tokens";
+import { forgetDevices } from "./two-step";
 
 export const RESET_TOKEN_MINUTES = 60;
 /** At most this many self-service reset emails per account per hour (stops inbox flooding). */
@@ -72,6 +73,8 @@ export async function changeOwnPassword(
     );
   });
   await revokeUserSessions(user.id, { exceptSessionId: actor.sessionId }, now);
+  // Remembered devices skip the two-step code; after a password change they ask again.
+  await forgetDevices(user.id, now);
   await sendPasswordChangedEmail(user, now);
 }
 
@@ -234,5 +237,6 @@ async function resetAsSystem(
     );
   });
   await revokeUserSessions(user.id, {}, now);
+  await forgetDevices(user.id, now);
   await runInAccount(target.accountId, () => sendPasswordChangedEmail(user, now));
 }

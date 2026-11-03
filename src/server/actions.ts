@@ -4,6 +4,7 @@ import { withRequestScope } from "@/server/db";
 import {
   AppError,
   PasswordChangeRequiredError,
+  TwoStepSetupRequiredError,
   UnauthenticatedError,
   ValidationError,
 } from "@/server/errors";
@@ -21,6 +22,7 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
   } catch (err) {
     if (err instanceof UnauthenticatedError) redirect("/login?reason=signed-out");
     if (err instanceof PasswordChangeRequiredError) redirect("/change-password");
+    if (err instanceof TwoStepSetupRequiredError) redirect("/setup-two-step");
     if (err instanceof ValidationError) {
       return { ok: false, message: err.message, fieldErrors: err.fieldErrors };
     }
