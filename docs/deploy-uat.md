@@ -146,7 +146,9 @@ one done when it's dealt with.
 - **Get the newest version** after we change something: open the droplet **Console** and run
   `sudo bash /opt/propfolio/deploy/update.sh`. It backs up first, then updates. Data is kept.
 - **Backups:** every night at 02:30 Manila time to `/var/backups/propfolio` on the server (kept 14
-  days), plus DigitalOcean's weekly off-site backup if you turned it on.
+  days), plus DigitalOcean's weekly off-site backup if you turned it on. For **encrypted
+  off-site backups kept 30 days** (Backblaze B2's free tier works), run
+  `sudo bash /opt/propfolio/deploy/backup-setup.sh` once. How to restore: `docs/restore.md`.
 - **Start again with fresh demo data:**
   `cd /opt/propfolio/deploy && docker compose down -v && rm .seeded && sudo bash ../deploy/setup.sh`.
   This **deletes everything** on the test server.
