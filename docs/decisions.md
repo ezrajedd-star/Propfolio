@@ -279,3 +279,35 @@ picker can be added in Phase 7 if users still find it confusing.
   Its actions are audited with no account (customers don't see them in their own log).
 - **Plan fields** (`plan`, `trialEndsAt`, `paidUntil`) exist so the platform admin can work with
   them; what each plan allows comes in launch Phase 3 (plans, limits and trial).
+
+## 25. Security hardening (public launch, Phase 2)
+
+- **Two-step sign-in (TOTP)** for customers: required for Owners and Admins, optional for
+  others. Required people are sent to `/setup-two-step` (outside the app layout, like the
+  password change) before anything else; `twoStepGraceUntil` lets new sign-ups wait (Phase 3).
+  Codes come after the password on a separate screen, within 5 minutes and 5 tries, and count
+  towards the lockout. Ten recovery codes, keyed with `APP_SECRET` (a stolen database alone
+  can't test guesses). "Don't ask again on this device for 30 days" is opt-in, and ends on a
+  password change/reset or an Admin reset. Admins can reset it only for people who belong to
+  their account alone; someone in several accounts asks Propfolio.
+- **Rate limits** in a database table (fixed windows, SHA-256 keys), so they survive restarts and
+  several app processes; limits sized for an office sharing one IP address. Requests with no
+  known IP (local development) aren't limited.
+- **Passwords:** new ones need 12+ characters; existing shorter ones keep working until changed.
+  The breached-password check sends only a 5-character hash prefix and **fails open** (a
+  service outage must not stop people changing a compromised password).
+- **Virus scanning** with ClamAV, **fails closed** (uploads are refused while the scanner is
+  down). Off on the test server, whose 2 GB of memory can't hold ClamAV; switch on with a 4 GB
+  server (owner's decision, ≈ US$12/month more).
+- **Error tracking:** Sentry's envelope format, built by hand instead of the SDK, so that exactly
+  the error type and stack frames leave the server. Optional (`SENTRY_DSN`).
+- **Backups** encrypted with `age` to a public key; the private key never touches the server.
+  Off-site storage is any S3-compatible provider (Backblaze B2's free tier suggested), 30 days.
+  Restore rehearsed end to end on 3 Nov 2026.
+- **Encryption at rest:** DigitalOcean states it for Volumes and Managed Databases, not for a
+  droplet's own disk, so the database and documents should move to an encrypted Volume
+  (≈ US$1/month) or a Managed Database before real data.
+- **Dependencies:** 30 audit findings fixed by upgrades and overrides; 2 accepted (see the
+  security summary). Next.js 16 is a separate upgrade.
+- **Staging:** the current test server is the staging environment; production will be a separate
+  server with its own secrets, set up before real data.
