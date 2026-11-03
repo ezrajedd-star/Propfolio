@@ -236,7 +236,8 @@ export function completeSignInWithCode(
     }
     const { user } = challenge;
     const target = await signInTarget(user.id);
-    if (!target || target.accountId !== challenge.accountId) return { ok: false, reason: "expired" };
+    if (!target || target.accountId !== challenge.accountId)
+      return { ok: false, reason: "expired" };
     const actor = { id: user.id, name: user.name, role: target.role };
     if (isLocked(user, now)) return { ok: false, reason: "locked", lockedUntil: user.lockedUntil! };
 

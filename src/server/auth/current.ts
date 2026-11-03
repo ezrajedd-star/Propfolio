@@ -123,10 +123,7 @@ export async function requirePageUser(
 }
 
 /** For server actions and API routes: throws instead of redirecting. */
-export async function requireActor(
-  permission?: Permission,
-  options: Options = {},
-): Promise<Actor> {
+export async function requireActor(permission?: Permission, options: Options = {}): Promise<Actor> {
   const session = await getCurrentSession();
   if (!session) throw new UnauthenticatedError();
   if (session.user.mustChangePassword) throw new PasswordChangeRequiredError();
