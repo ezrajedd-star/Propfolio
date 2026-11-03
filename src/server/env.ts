@@ -32,6 +32,16 @@ const schema = z.object({
   S3_ENDPOINT: z.url().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /**
+   * Scan uploads for viruses with ClamAV (`clamav`), or don't (`off`). ClamAV needs about 1.5 GB
+   * of memory; see deploy/docker-compose.yml (profile "virus-scan").
+   */
+  UPLOAD_VIRUS_SCAN: z.enum(["off", "clamav"]).default("off"),
+  CLAMAV_HOST: z.string().default("clamav"),
+  CLAMAV_PORT: z.coerce.number().int().default(3310),
+  /** Optional: report unexpected errors (type and code location only) to this Sentry project. */
+  SENTRY_DSN: z.preprocess((v) => (v === "" ? undefined : v), z.url().optional()),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   /** Check new passwords against breached passwords (Have I Been Pwned). `off` for tests. */
   PASSWORD_BREACH_CHECK: z.enum(["on", "off"]).default("on"),
   /** Test (UAT) version: shows the "Test version" banner and the "Send feedback" button. */

@@ -1,4 +1,5 @@
 import { asSystem, db, runInAccount } from "@/server/db";
+import { reportError } from "@/server/monitoring/report-error";
 
 export interface EachResult<T> {
   accountId: string;
@@ -28,7 +29,7 @@ export async function forEachActiveAccount<T>(
       results.push({ accountId: id, result: await runInAccount(id, () => job(id)) });
     } catch (err) {
       const type = err instanceof Error ? err.name : typeof err;
-      console.error(`[accounts] job failed for account ${id}: ${type}`);
+      reportError(err, `account-job:${id}`);
       results.push({ accountId: id, error: type });
     }
   }

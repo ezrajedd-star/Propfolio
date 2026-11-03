@@ -17,6 +17,7 @@ import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
+import { scanUpload } from "./virus-scan";
 import { storage } from "./storage";
 
 export const DOCUMENT_CATEGORIES = ["SIGNED_CONTRACT", "AMENDMENT", "ID", "OTHER"] as const;
@@ -63,6 +64,30 @@ export async function uploadDocument(
   if (!ext) {
     throw new ValidationError("Please check the highlighted fields.", {
       file: "Only PDF, JPG, PNG or Word (DOCX) files can be uploaded.",
+    });
+  }
+
+  let scan;
+  try {
+    scan = await scanUpload(file.bytes);
+  } catch (err) {
+    console.error("[documents] virus scan failed:", err instanceof Error ? err.name : typeof err);
+    throw new ValidationError(
+      "We couldn't check this file for viruses just now, so it wasn't saved. Please try again in a few minutes.",
+    );
+  }
+  if (!scan.clean) {
+    // The file name can contain personal data; the virus name and size are enough.
+    await writeAudit({
+      actor,
+      action: "document.virus_found",
+      entityType: data.leaseId ? "Lease" : "Tenant",
+      entityId: data.leaseId ?? data.tenantId ?? null,
+      metadata: { signature: scan.signature, sizeBytes: file.bytes.length },
+      meta,
+    });
+    throw new ValidationError("Please check the highlighted fields.", {
+      file: "This file contains a virus, so it wasn't saved. Please ask whoever sent it for a clean copy.",
     });
   }
 

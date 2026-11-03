@@ -5,7 +5,7 @@
  *
  *   pnpm platform:admin --email you@example.com --name "Your Name"
  *
- * In Docker: docker compose run --rm migrate pnpm platform:admin --email … --name "…"
+ * On the server: cd /opt/propfolio/deploy && docker compose run --rm platform-admin --email … --name "…"
  * Running it again for the same email clears their password and authenticator, signs them out,
  * and prints a fresh link.
  */

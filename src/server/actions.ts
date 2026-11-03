@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { withRequestScope } from "@/server/db";
+import { reportError } from "@/server/monitoring/report-error";
 import {
   AppError,
   PasswordChangeRequiredError,
@@ -29,7 +30,7 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
     if (err instanceof AppError) return { ok: false, message: err.message };
     // Let Next.js redirects/notFound propagate.
     if (err instanceof Error && "digest" in err) throw err;
-    console.error("[action] unexpected error:", err instanceof Error ? err.name : typeof err);
+    reportError(err, "action");
     if (process.env.NODE_ENV !== "production") console.error(err);
     return { ok: false, message: "Something went wrong on our side. Please try again." };
   }

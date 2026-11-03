@@ -285,7 +285,7 @@ Add yourself (or start again after losing your phone) on the server:
 
 ```bash
 pnpm platform:admin --email you@example.com --name "Your Name"
-# Docker: docker compose run --rm migrate pnpm platform:admin --email … --name "…"
+# On the server: cd /opt/propfolio/deploy && docker compose run --rm platform-admin --email … --name "…"
 ```
 
 It prints a one-time set-up link (24 hours) where you choose a password and scan a QR code.

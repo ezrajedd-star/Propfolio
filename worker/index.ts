@@ -10,6 +10,9 @@
  *   fails it is retried 3 times (10, 20, 40 minutes later); failures are shown to Admins in
  *   Settings → Reminder emails, and missed reminders go out with the next day's email.
  *
+ * - every 10 minutes failed-sign-in-alert: emails the platform admins about a burst of failed
+ *   sign-ins (counts only), at most once an hour.
+ *
  * Lease statuses and reminders run once per active account, inside that account (so its data
  * is all they can see). Suspended accounts are skipped. A retry only redoes accounts that still
  * need it: both jobs are idempotent.
@@ -20,6 +23,8 @@ import { BUSINESS_TIME_ZONE } from "../src/domain/time/manila";
 import { forEachActiveAccount } from "../src/server/accounts/each";
 import { purgeOldSessions } from "../src/server/auth/session";
 import { purgeOldTwoStepRows } from "../src/server/auth/two-step";
+import { reportError } from "../src/server/monitoring/report-error";
+import { checkFailedSignIns } from "../src/server/monitoring/sign-in-alert";
 import { purgeOldRateLimits } from "../src/server/rate-limit";
 import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
@@ -65,6 +70,14 @@ const JOBS: Job[] = [
       `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s)`,
   },
   dailyReminders,
+  {
+    name: "failed-sign-in-alert",
+    cron: "*/10 * * * *",
+    run: async () => {
+      const r = await checkFailedSignIns();
+      return `${r.failed} failed sign-in(s) in 15 minutes${r.alerted ? "; platform admins alerted" : ""}`;
+    },
+  },
 ];
 
 /** Current hour in Manila (0–23). */
@@ -96,10 +109,8 @@ async function main() {
         const summary = await job.run();
         console.info(`[worker] ${job.name}: ${summary} (${Date.now() - started} ms)`);
       } catch (err) {
-        // Log the error type only (no personal data); pg-boss retries the job.
-        console.error(
-          `[worker] ${job.name} failed: ${err instanceof Error ? err.name : typeof err}`,
-        );
+        // The error type only (no personal data); pg-boss retries the job.
+        reportError(err, `worker:${job.name}`);
         throw err;
       }
     });

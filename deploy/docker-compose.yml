@@ -21,6 +21,12 @@ x-app-env: &app-env
   STORAGE_DRIVER: local
   STORAGE_DIR: /app/storage
   UAT_MODE: ${UAT_MODE:-true}
+  # Virus scanning of uploads: "clamav" also needs the clamav service (profile virus-scan) and
+  # about 1.5 GB more memory (a 4 GB server).
+  UPLOAD_VIRUS_SCAN: ${UPLOAD_VIRUS_SCAN:-off}
+  CLAMAV_HOST: clamav
+  # Optional error tracking (see README → Monitoring).
+  SENTRY_DSN: ${SENTRY_DSN:-}
 
 services:
   postgres:
@@ -82,6 +88,34 @@ services:
       - web
     restart: unless-stopped
 
+  # Virus scanner for uploads. Start with `docker compose --profile virus-scan up -d` and set
+  # UPLOAD_VIRUS_SCAN=clamav in .env. It downloads virus definitions itself, several times a day.
+  clamav:
+    image: clamav/clamav:1.4.3
+    profiles: ["virus-scan"]
+    volumes:
+      - clamav_db:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+    restart: unless-stopped
+
+  # Add a platform admin (Propfolio staff), or start set-up again after a lost phone:
+  #   docker compose run --rm platform-admin --email you@example.com --name "Your Name"
+  platform-admin:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    profiles: ["tools"]
+    entrypoint:
+      ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "scripts/platform-admin.ts"]
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+
   # Demo data for testers: `docker compose run --rm seed` (refuses to run twice).
   seed:
     build: { context: .., target: worker }
@@ -99,5 +133,6 @@ services:
 volumes:
   pgdata:
   documents:
+  clamav_db:
   caddy_data:
   caddy_config:
