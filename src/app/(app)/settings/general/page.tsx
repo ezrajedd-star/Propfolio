@@ -9,7 +9,7 @@ import { GeneralSettingsForm } from "./general-settings-form";
 export const metadata: Metadata = { title: "General settings" };
 
 export default async function GeneralSettingsPage() {
-  await requirePageUser("settings.manage");
+  await requirePageUser("settings.manage", { duringReadOnly: true });
   const settings = await getSettings();
   const fromAddress = /<([^>]+)>/.exec(env().MAIL_FROM)?.[1] ?? env().MAIL_FROM;
 

@@ -1,6 +1,6 @@
 import { PASSWORD_PROBLEM_MESSAGES, checkPassword } from "@/domain/auth/password-policy";
 import { changePasswordSchema, resetPasswordSchema } from "@/schemas/auth";
-import { writeAudit, type AuditActor } from "@/server/audit";
+import { writeAudit } from "@/server/audit";
 import { asSystem, db, runInAccount } from "@/server/db";
 import { env } from "@/server/env";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -39,7 +39,7 @@ async function assertPolicy(password: string, email: string) {
  * Other sessions are signed out; the current one stays.
  */
 export async function changeOwnPassword(
-  actor: AuditActor & { sessionId?: string },
+  actor: Actor & { sessionId?: string },
   input: unknown,
   meta: RequestMeta,
   now = new Date(),
@@ -117,7 +117,7 @@ export async function requestPasswordReset(email: string, meta: RequestMeta, now
   const found = await asSystem(async () => {
     const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user) return null;
-    const target = await signInTarget(user.id);
+    const target = await signInTarget(user.id, now);
     if (!target) return null;
     const recent = await db.passwordResetToken.count({
       where: { userId: user.id, createdAt: { gt: new Date(now.getTime() - 3_600_000) } },

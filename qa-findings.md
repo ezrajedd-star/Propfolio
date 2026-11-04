@@ -6,12 +6,12 @@
 
 ## Update, 4 Nov 2026: all issues fixed
 
-| Issue | Status |
-| --- | --- |
-| 1. Uploaded documents can't be opened | **Fixed in the code.** The "open" link now uses the site's public address. A new automatic check fails on the old code and passes on the new. **The test site will only behave correctly once this version is deployed there.** |
-| Leftover test lease LSE-2026-0033 | **Archived** on the test site, along with its test tenant. Home no longer counts it. |
-| End-to-end check could leave a test lease behind | **Fixed.** It now archives its test lease and tenant even when a step fails. |
-| 2. Robot's role checks stuck on the welcome tour | **Fixed.** Confirmed: all 9 role checks pass against the test site. |
+| Issue                                            | Status                                                                                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Uploaded documents can't be opened            | **Fixed in the code.** The "open" link now uses the site's public address. A new automatic check fails on the old code and passes on the new. **The test site will only behave correctly once this version is deployed there.** |
+| Leftover test lease LSE-2026-0033                | **Archived** on the test site, along with its test tenant. Home no longer counts it.                                                                                                                                            |
+| End-to-end check could leave a test lease behind | **Fixed.** It now archives its test lease and tenant even when a step fails.                                                                                                                                                    |
+| 2. Robot's role checks stuck on the welcome tour | **Fixed.** Confirmed: all 9 role checks pass against the test site.                                                                                                                                                             |
 
 After deploying, run the checks again to confirm that opening a document works on the live test site.
 
@@ -21,15 +21,15 @@ Almost everything works and the security basics are solid, but **opening an uplo
 
 ## Scorecard
 
-| Area | Result |
-| --- | --- |
-| Site safety basics (secure connection, signed-out visitors blocked, cookies, protection against other websites) | ✅ All passed |
-| Every screen, report and settings page opens | ✅ All passed |
-| Excel downloads, the Guide, phone layout | ✅ All passed |
-| Each role sees only what it should (Viewer, Leasing Staff) | ✅ All passed (see note 2) |
-| Trying to break it (hostile text, impossible lease terms, bad payment amounts, double-clicks, odd uploads, Back/Refresh) | ✅ All passed |
-| Speed (time from a click to the next screen) | ✅ Passed |
-| A whole lease from start to finish | ❌ **Failed at "open the document"** |
+| Area                                                                                                                     | Result                               |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Site safety basics (secure connection, signed-out visitors blocked, cookies, protection against other websites)          | ✅ All passed                        |
+| Every screen, report and settings page opens                                                                             | ✅ All passed                        |
+| Excel downloads, the Guide, phone layout                                                                                 | ✅ All passed                        |
+| Each role sees only what it should (Viewer, Leasing Staff)                                                               | ✅ All passed (see note 2)           |
+| Trying to break it (hostile text, impossible lease terms, bad payment amounts, double-clicks, odd uploads, Back/Refresh) | ✅ All passed                        |
+| Speed (time from a click to the next screen)                                                                             | ✅ Passed                            |
+| A whole lease from start to finish                                                                                       | ❌ **Failed at "open the document"** |
 
 The first full run: 26 checks passed and 9 failed. One failure is a real problem in the app. The other 8 came from a mistake in the robot's own script, and they all passed once that was worked around.
 

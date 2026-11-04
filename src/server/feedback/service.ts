@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError } from "@/server/errors";
@@ -22,7 +22,7 @@ const feedbackSchema = z.object({
 });
 
 /** Anyone signed in can send feedback during the test (UAT). */
-export async function sendFeedback(actor: AuditActor, input: unknown, meta: RequestMeta) {
+export async function sendFeedback(actor: Actor, input: unknown, meta: RequestMeta) {
   const data = parseInput(feedbackSchema, input);
   return db.$transaction(async (tx) => {
     const f = await tx.feedback.create({
@@ -42,8 +42,8 @@ export async function sendFeedback(actor: AuditActor, input: unknown, meta: Requ
   });
 }
 
-export async function listFeedback(actor: AuditActor, opts: { includeDone?: boolean } = {}) {
-  assertCan(actor, "settings.manage");
+export async function listFeedback(actor: Actor, opts: { includeDone?: boolean } = {}) {
+  assertCan(actor, "settings.manage", { duringReadOnly: true }); // viewing is fine while read-only
   return db.feedback.findMany({
     where: opts.includeDone ? {} : { status: "NEW" },
     orderBy: { createdAt: "desc" },
@@ -52,7 +52,7 @@ export async function listFeedback(actor: AuditActor, opts: { includeDone?: bool
 }
 
 export async function setFeedbackDone(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   done: boolean,
   meta: RequestMeta,

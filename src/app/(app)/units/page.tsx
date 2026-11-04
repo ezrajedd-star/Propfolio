@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { Building2, DoorOpen, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { can } from "@/domain/auth/roles";
+
 import type { Occupancy } from "@/domain/leases/occupancy";
 import { timeLeftText } from "@/domain/leases/status";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
@@ -46,7 +47,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
     listBuildings(actor),
   ]);
   const today = manilaToday();
-  const staff = can(actor.role, "lease.view");
+  const staff = canDo(actor, "lease.view");
 
   const groups = new Map<string, { name: string; units: UnitSummary[] }>();
   for (const u of units) {
@@ -65,7 +66,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
             : "Every unit and whether it is occupied. Read-only."
         }
         actions={
-          can(actor.role, "property.manage") ? (
+          canDo(actor, "property.manage") ? (
             <Button asChild>
               <Link href="/settings/buildings">
                 <Plus aria-hidden /> Add a building or units
@@ -106,7 +107,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
       {units.length === 0 ? (
         buildings.length === 0 ? (
           <EmptyState icon={Building2} title="No buildings or units yet">
-            {can(actor.role, "property.manage") ? (
+            {canDo(actor, "property.manage") ? (
               <Link href="/settings/buildings" className="text-primary underline">
                 Add your first building →
               </Link>

@@ -6,10 +6,10 @@ import {
   updateSettingsSchema,
   type Settings,
 } from "@/schemas/settings";
-import { writeAudit, type AuditActor } from "@/server/audit";
+import { writeAudit } from "@/server/audit";
 import { currentAccountId, db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, assertFeature, type Actor } from "@/server/auth/authorize";
 import { parseInput } from "@/server/validation";
 import { syncReminders } from "@/server/reminders/sync";
 
@@ -32,7 +32,7 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function updateSettings(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
 ): Promise<Settings> {
@@ -46,6 +46,8 @@ export async function updateSettings(
     for (const [key, value] of Object.entries(data) as [keyof Settings, unknown][]) {
       if (value === undefined || JSON.stringify(value) === JSON.stringify(current[key])) continue;
       changes[key] = { before: current[key], after: value };
+      // Free uses the standard lead times; choosing your own is a Pro feature.
+      if (key === "reminderDefaults") assertFeature(actor, "customReminders");
       if (key === "companyName") {
         await tx.account.update({ where: { id: accountId }, data: { name: value as string } });
         continue;

@@ -54,6 +54,8 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /** Where customers write to upgrade until online payment exists, e.g. hello@propfolio.ph. */
+  SUPPORT_EMAIL: z.preprocess((v) => (v === "" ? undefined : v), z.email().optional()),
 });
 
 export type Env = z.infer<typeof schema>;

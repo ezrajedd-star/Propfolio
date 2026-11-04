@@ -32,7 +32,9 @@ export type SignInResult =
   | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
   | { ok: false; reason: "inactive" }
   /** Turned on in an account, but the platform admin suspended that account. */
-  | { ok: false; reason: "suspended" };
+  | { ok: false; reason: "suspended" }
+  /** Turned on, but the account's plan includes fewer users (e.g. after a trial ended). */
+  | { ok: false; reason: "user_limit" };
 
 /**
  * Check credentials and start a session.
@@ -91,7 +93,7 @@ async function signInAsSystem(
     return { ok: false, reason: "invalid" };
   }
 
-  const target = await signInTarget(user.id);
+  const target = await signInTarget(user.id, now);
   // Failed attempts are recorded in the account the person would have signed into.
   const accountId = target?.accountId ?? (await anyAccountOf(user.id));
   const actor = { id: user.id, name: user.name, role: target?.role ?? null };
@@ -152,7 +154,10 @@ async function signInAsSystem(
     const suspended = await db.membership.count({
       where: { userId: user.id, isActive: true, account: { status: "SUSPENDED" } },
     });
-    const reason = suspended > 0 ? "suspended" : "inactive";
+    const turnedOn = await db.membership.count({
+      where: { userId: user.id, isActive: true, account: { status: "ACTIVE" } },
+    });
+    const reason = suspended > 0 ? "suspended" : turnedOn > 0 ? "user_limit" : "inactive";
     await writeAudit({
       actor,
       action: "auth.login_failed",
@@ -253,7 +258,7 @@ export function completeSignInWithCode(
       return { ok: false, reason: "expired" };
     }
     const { user } = challenge;
-    const target = await signInTarget(user.id);
+    const target = await signInTarget(user.id, now);
     if (!target || target.accountId !== challenge.accountId)
       return { ok: false, reason: "expired" };
     const actor = { id: user.id, name: user.name, role: target.role };

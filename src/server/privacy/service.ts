@@ -3,8 +3,8 @@ import { z } from "zod";
 import { anonymisedName, isPastRetention, retentionDueDate } from "@/domain/privacy/retention";
 import { fromDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { storage } from "@/server/documents/storage";
@@ -40,7 +40,7 @@ async function loadTenant(tenantId: string) {
  * Admins only; audited.
  */
 export async function exportTenantData(
-  actor: AuditActor,
+  actor: Actor,
   tenantId: string,
   meta: RequestMeta,
   now = new Date(),
@@ -131,7 +131,7 @@ const anonymiseSchema = z.object({
  * Uploaded files are deleted. This cannot be undone.
  */
 export async function anonymiseTenant(
-  actor: AuditActor | null,
+  actor: Actor | null,
   tenantId: string,
   input: unknown,
   meta: RequestMeta | null,
@@ -218,7 +218,7 @@ export interface RetentionRow {
 
 /** Tenants whose retention period has passed (Settings → Privacy). */
 export async function recordsPastRetention(
-  actor: AuditActor,
+  actor: Actor,
   now = new Date(),
 ): Promise<{ years: number; rows: RetentionRow[] }> {
   assertCan(actor, "privacy.manage");
@@ -259,7 +259,7 @@ export async function recordsPastRetention(
 
 /** Anonymise every tenant past retention (Admin button). Returns how many were anonymised. */
 export async function purgePastRetention(
-  actor: AuditActor,
+  actor: Actor,
   meta: RequestMeta,
   now = new Date(),
 ): Promise<number> {

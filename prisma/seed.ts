@@ -28,6 +28,7 @@ import { createLease, renewLease, terminateLease } from "../src/server/leases/se
 import { asSystem, db, runInAccount } from "../src/server/db";
 import { createBuilding } from "../src/server/property/buildings";
 import { createUnitType } from "../src/server/property/unit-types";
+import { loadPlanAccess } from "../src/server/plans/access";
 import { createUnit, setUnitReminderOverride } from "../src/server/property/units";
 import { updateSettings } from "../src/server/settings/service";
 import { createTenant } from "../src/server/tenants/service";
@@ -94,7 +95,14 @@ function seedUsers() {
         update: { role, isActive: true },
       });
       if (role === "OWNER") {
-        owners[accountId] = { id: row.id, name: row.name, email: row.email, role, accountId };
+        owners[accountId] = {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          role,
+          accountId,
+          access: await loadPlanAccess(accountId, new Date(), db),
+        };
       }
       credentials.push({ email: u.email, role, password });
     }

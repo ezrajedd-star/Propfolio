@@ -12,6 +12,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role }}
+      plan={{
+        plan: user.access.plan,
+        readOnly: user.access.readOnly,
+        trialDaysLeft: user.access.trial?.daysLeft ?? null,
+      }}
       options={{ guide, uat: env().UAT_MODE }}
     >
       {children}

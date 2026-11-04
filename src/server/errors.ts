@@ -57,3 +57,10 @@ export class ConflictError extends AppError {
     super(message, 409, "CONFLICT");
   }
 }
+
+/** The account's plan doesn't include this, or the account is read-only (over its unit limit). */
+export class PlanLimitError extends AppError {
+  constructor(message: string) {
+    super(message, 403, "PLAN_LIMIT");
+  }
+}

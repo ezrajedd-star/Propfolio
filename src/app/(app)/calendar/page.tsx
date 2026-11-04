@@ -1,7 +1,8 @@
+import { canDo } from "@/server/auth/authorize";
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/app/page-header";
-import { can } from "@/domain/auth/roles";
+
 import { isIsoDate } from "@/domain/time/calendar-date";
 import { requirePageUser } from "@/server/auth/current";
 import { listBuildings } from "@/server/property/buildings";
@@ -18,7 +19,7 @@ export default async function CalendarPage({
   const actor = await requirePageUser("occupancy.view");
   const { date } = await searchParams;
   const [buildings, unitTypes] = await Promise.all([listBuildings(actor), listUnitTypes(actor)]);
-  const staff = can(actor.role, "lease.view");
+  const staff = canDo(actor, "lease.view");
   return (
     <>
       <PageHeader

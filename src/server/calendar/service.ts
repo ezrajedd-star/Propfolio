@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { can } from "@/domain/auth/roles";
 import {
   CALENDAR_EVENT_TYPES,
   EVENT_TYPE_LABELS,
@@ -17,8 +16,7 @@ import {
   type IsoDate,
 } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { ValidationError } from "@/server/errors";
@@ -72,7 +70,7 @@ export interface CalendarEvent {
 }
 
 export async function getCalendarEvents(
-  actor: AuditActor,
+  actor: Actor,
   query: unknown,
   now = new Date(),
 ): Promise<CalendarEvent[]> {
@@ -83,7 +81,7 @@ export async function getCalendarEvents(
   if (q.to < q.from || daysBetween(q.from, q.to) > MAX_RANGE_DAYS) {
     throw new ValidationError(`Choose a range of at most ${MAX_RANGE_DAYS} days.`);
   }
-  const staff = can(actor.role, "lease.view");
+  const staff = canDo(actor, "lease.view");
   const requested = (q.types ? q.types.split(",") : ["END", "START", "REMINDER"]).filter(
     (t): t is CalendarEventType => (CALENDAR_EVENT_TYPES as readonly string[]).includes(t),
   );
@@ -150,10 +148,10 @@ export async function getCalendarEvents(
                 refNo: l.refNo,
                 monthlyRent: l.monthlyRent.toFixed(2),
                 timeLeft: timeLeftText(dates, today),
-                canRenew: can(actor.role, "lease.edit") && !dates.terminationDate && !dates.renewed,
+                canRenew: canDo(actor, "lease.edit") && !dates.terminationDate && !dates.renewed,
                 reminderHandled:
                   dates.terminationDate || dates.renewed ? null : l.reminderHandledAt !== null,
-                canHandle: can(actor.role, "reminder.handle"),
+                canHandle: canDo(actor, "reminder.handle"),
               },
             }
           : {}),

@@ -18,7 +18,7 @@ import { UnitsManager } from "./units-manager";
 export const metadata: Metadata = { title: "Building" };
 
 export default async function BuildingPage({ params }: { params: Promise<{ id: string }> }) {
-  const actor = await requirePageUser("property.manage");
+  const actor = await requirePageUser("property.manage", { duringReadOnly: true });
   const { id } = await params;
   const building = (await listBuildings(actor, { includeArchived: true })).find((b) => b.id === id);
   if (!building) notFound();

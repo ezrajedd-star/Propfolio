@@ -6,7 +6,7 @@ import { requestPasswordReset } from "@/server/auth/passwords";
 import { signIn } from "@/server/auth/sign-in";
 import { asSystem, db } from "@/server/db";
 import { RATE_LIMITS, hitRateLimit } from "@/server/rate-limit";
-import { DEFAULT_PASSWORD, makeUser, meta, resetDb } from "./helpers";
+import { DEFAULT_PASSWORD, makeAccount, makeUser, meta, resetDb } from "./helpers";
 
 beforeEach(resetDb);
 
@@ -78,8 +78,12 @@ describe("rate limits", () => {
 
   it("quietly stop sending reset links to anyone from a flooding address", async () => {
     const users = await Promise.all(
-      Array.from({ length: RATE_LIMITS.resetRequestByIp.max + 2 }, (_, i) =>
-        makeUser("LEASING_STAFF", { email: `reset${i}@example.test` }),
+      // Each in their own account, so the plan's user limit doesn't come into it.
+      Array.from({ length: RATE_LIMITS.resetRequestByIp.max + 2 }, async (_, i) =>
+        makeUser("LEASING_STAFF", {
+          email: `reset${i}@example.test`,
+          accountId: await makeAccount(`Reset Co ${i}`),
+        }),
       ),
     );
     for (const u of users) await requestPasswordReset(u.email, meta, T0);

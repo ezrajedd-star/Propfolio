@@ -7,8 +7,7 @@ import {
 import { money, type Money } from "@/domain/money/money";
 import { fromDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 
 /**
@@ -93,7 +92,7 @@ export interface OverdueReport {
 }
 
 /** Every lease with overdue charges, oldest debt first, plus totals by aging bucket. */
-export async function overdueReport(actor: AuditActor, now = new Date()): Promise<OverdueReport> {
+export async function overdueReport(actor: Actor, now = new Date()): Promise<OverdueReport> {
   assertCan(actor, "payment.view");
   return computeOverdue(now);
 }

@@ -311,3 +311,50 @@ picker can be added in Phase 7 if users still find it confusing.
   security summary). Next.js 16 is a separate upgrade.
 - **Staging:** the current test server is the staging environment; production will be a separate
   server with its own secrets, set up before real data.
+
+## 26. Plans, limits and the trial (public launch, Phase 3)
+
+Confirmed by the owner on 4 Nov 2026: Premium ₱3,500 a month; Pro up to 50 units, Premium up to
+200 (above that, "contact us"); Premium includes 5 users; no extra seats for now.
+
+- **One configuration place:** `src/domain/plans/plans.ts` holds prices, unit and user limits,
+  the 30-day trial, the reminder days (7 and 1), which plan each feature needs, and the plan
+  comparison text. Nothing else hard-codes them.
+- **Which plan is in force** (`effectivePlan`): a running trial gives Premium; otherwise a paid
+  period (`paidUntil` today or later) gives the chosen plan; if a trial or paid period was set
+  and has ended, the account is on **Free**. With **neither date set**, the chosen plan applies
+  with no end date. That keeps the first customer (created by the accounts migration as Premium,
+  with no dates) on Premium, so nobody is downgraded by this change.
+- **Checked on the server like roles.** The session reads the account's plan and unit count on
+  every request; `requirePageUser`, `requireActor` and `assertCan` check role AND plan in one
+  place. A page the plan doesn't include sends people to `/plan/locked` ("Available on Pro", with
+  Upgrade); an action or API call answers 403 `PLAN_LIMIT` with a plain message. Buttons use
+  `canDo`, the same check. Locked menu items stay visible with a lock.
+- **Features by permission:** payments and reports → Pro; users (more than one), document
+  upload and the audit log screen → Premium. Viewing documents stays on every plan, so files
+  stay viewable after a downgrade. A record's own History tab stays on every plan.
+- **Custom reminder lead times (Pro):** Free can't save its own lead times; switching back to the
+  standard ones is always allowed. Lead times saved during a trial **keep working** after a
+  downgrade (nothing is deleted or silently changed); they just can't be edited.
+- **Read-only:** an account over its plan's unit limit (Free 3, Pro 50, Premium 200) can look,
+  export and use the privacy tools, and **archive units** to get back within the limit; anything
+  else that changes data is refused. Viewing pages under Settings stays open. Applies to every
+  plan, not only Free (e.g. a 120-unit trial account that then pays for Pro).
+- **Unit and user limits** are counted inside the transaction under a per-account advisory lock,
+  so two people adding the last unit at once can't both succeed. Restoring an archived unit and
+  turning a person back on count too.
+- **Extra users after a downgrade** are paused, not deleted: the Owner always signs in, plus the
+  longest-standing other active members up to the limit. The others see "Your company's plan
+  doesn't include your sign-in right now…" and their open sessions end. Upgrading restores them.
+  Password reset links aren't sent to paused people. The platform admin pages flag an account
+  that is over its user limit.
+- **Trial reminders:** a daily 09:00 Manila worker job emails the Owner and Admins 7 days and 1
+  day before the trial's last day. `TrialReminder` records each (trial end, lead time), so each is
+  sent once; a failed send is released and retried. A missed day catches up, and the 7-day email
+  is never sent late on top of the 1-day one. Propfolio's own table: not reachable from customer
+  work. Reversible: `prisma/rollback/20261104090000_trial_reminders.down.sql` (rehearsed:
+  forward, back, forward).
+- **Upgrading** until PayMongo (Phase 5): the Plan page shows the plans and, for the Owner, an
+  "Email us" button (`SUPPORT_EMAIL`); the platform admin then records the bank transfer or
+  **changes the plan** (new, audited, with a reason). Changing the plan replaces any trial; a
+  recorded paid-until day still governs.

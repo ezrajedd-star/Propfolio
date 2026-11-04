@@ -2,8 +2,8 @@ import { Prisma } from "@prisma/client";
 
 import { parseStoredReminderConfig, type ReminderConfig } from "@/domain/reminders/config";
 import { unitTypeSchema } from "@/schemas/property";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, assertFeature, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUniqueViolation, isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -21,7 +21,7 @@ export interface UnitTypeView {
 }
 
 export async function listUnitTypes(
-  actor: AuditActor,
+  actor: Actor,
   opts: { includeArchived?: boolean } = {},
 ): Promise<UnitTypeView[]> {
   assertCan(actor, "occupancy.view");
@@ -51,9 +51,11 @@ export function reminderJson(
   return c === null ? Prisma.DbNull : (c as unknown as Prisma.InputJsonValue);
 }
 
-export async function createUnitType(actor: AuditActor, input: unknown, meta: RequestMeta) {
+export async function createUnitType(actor: Actor, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   const data = parseInput(unitTypeSchema, input);
+  // Free uses the standard lead times; choosing your own is a Pro feature.
+  if (data.reminderConfig) assertFeature(actor, "customReminders");
   try {
     return await db.$transaction(async (tx) => {
       const max = await tx.unitType.aggregate({ _max: { sortOrder: true } });
@@ -85,12 +87,7 @@ export async function createUnitType(actor: AuditActor, input: unknown, meta: Re
   }
 }
 
-export async function updateUnitType(
-  actor: AuditActor,
-  id: string,
-  input: unknown,
-  meta: RequestMeta,
-) {
+export async function updateUnitType(actor: Actor, id: string, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   const data = parseInput(unitTypeSchema, input);
   if (!isUuid(id)) throw new NotFoundError();
@@ -101,6 +98,8 @@ export async function updateUnitType(
   if (before.name !== data.name) changes.name = { before: before.name, after: data.name };
   if (JSON.stringify(beforeConfig) !== JSON.stringify(data.reminderConfig)) {
     changes.reminderConfig = { before: beforeConfig, after: data.reminderConfig };
+    // Going back to the standard lead times (null) is allowed on every plan.
+    if (data.reminderConfig) assertFeature(actor, "customReminders");
   }
   if (Object.keys(changes).length === 0) return before;
   try {
@@ -128,7 +127,7 @@ export async function updateUnitType(
 }
 
 export async function setUnitTypeArchived(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   archived: boolean,
   meta: RequestMeta,

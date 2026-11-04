@@ -12,8 +12,7 @@ import {
 } from "@/domain/reports/definitions";
 import { fromDbDate, isIsoDate, toDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { computeOverdue } from "@/server/billing/balances";
 import { PAYMENT_METHOD_LABELS } from "@/server/billing/payments";
 import { db } from "@/server/db";
@@ -64,7 +63,7 @@ const unitWhere = (f: ReportFilters) => ({
 const sum = (rows: Record<string, ReportValue>[], key: string) =>
   rows.reduce((s, r) => s.plus(r[key] === null ? 0 : String(r[key])), money(0)).toFixed(2);
 
-async function expiry(actor: AuditActor, f: ReportFilters, now: Date): Promise<ReportResult> {
+async function expiry(actor: Actor, f: ReportFilters, now: Date): Promise<ReportResult> {
   const days = f.days ?? 90;
   const rows = await listLeases(
     actor,
@@ -183,7 +182,7 @@ async function occupancy(f: ReportFilters, now: Date): Promise<ReportResult> {
   };
 }
 
-async function rentRoll(actor: AuditActor, f: ReportFilters, now: Date): Promise<ReportResult> {
+async function rentRoll(actor: Actor, f: ReportFilters, now: Date): Promise<ReportResult> {
   const current = (
     await listLeases(actor, { buildingId: f.buildingId, unitTypeId: f.unitTypeId }, now)
   ).filter((r) => r.status === "ACTIVE" || r.status === "EXPIRING");
@@ -344,7 +343,7 @@ const OUTCOME = {
   TERMINATED: "Ended early",
 } as const;
 
-async function renewals(actor: AuditActor, f: ReportFilters, now: Date): Promise<ReportResult> {
+async function renewals(actor: Actor, f: ReportFilters, now: Date): Promise<ReportResult> {
   const all = await listLeases(actor, { buildingId: f.buildingId, unitTypeId: f.unitTypeId }, now);
   const ended = all.filter((r) => {
     const last = r.terminationDate ?? r.endDate;
@@ -394,7 +393,7 @@ async function renewals(actor: AuditActor, f: ReportFilters, now: Date): Promise
 
 /** Run a report. Leasing Staff and Admins only; Property Management can't see reports. */
 export async function runReport(
-  actor: AuditActor,
+  actor: Actor,
   id: ReportId,
   filters: ReportFilters,
   now = new Date(),

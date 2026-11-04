@@ -10,6 +10,9 @@
  *   fails it is retried 3 times (10, 20, 40 minutes later); failures are shown to Admins in
  *   Settings → Reminder emails, and missed reminders go out with the next day's email.
  *
+ * - 09:00 trial-reminders: "your free Premium trial ends soon" to each account's Owner and
+ *   Admins, 7 days and 1 day before. Retried 3 times; each email is sent once per trial end.
+ *
  * - every 10 minutes failed-sign-in-alert: emails the platform admins about a burst of failed
  *   sign-ins (counts only), at most once an hour.
  *
@@ -29,6 +32,7 @@ import { purgeOldRateLimits } from "../src/server/rate-limit";
 import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
+import { sendTrialReminders } from "../src/server/plans/trial-reminders";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
 
 type Job = {
@@ -70,6 +74,15 @@ const JOBS: Job[] = [
       `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s)`,
   },
   dailyReminders,
+  {
+    name: "trial-reminders",
+    cron: "0 9 * * *",
+    retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
+    run: async () => {
+      const r = await sendTrialReminders();
+      return `${r.sent} trial reminder(s) sent`;
+    },
+  },
   {
     name: "failed-sign-in-alert",
     cron: "*/10 * * * *",

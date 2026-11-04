@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { FilePlus2, FileSpreadsheet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { FilterChips, withParams } from "@/components/app/filter-chips";
 import { PageHeader } from "@/components/app/page-header";
 import { SearchBox } from "@/components/app/search-box";
 import { Button } from "@/components/ui/button";
-import { can } from "@/domain/auth/roles";
+
 import { LEASE_STATUSES, LEASE_STATUS_LABELS, type LeaseStatus } from "@/domain/leases/status";
 import { requirePageUser } from "@/server/auth/current";
 import { listLeases } from "@/server/leases/service";
@@ -72,7 +73,7 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
         title="Leases"
         description="Search by tenant, unit, building or reference number. Spelling doesn't need to be exact."
         actions={
-          can(actor.role, "lease.edit") ? (
+          canDo(actor, "lease.edit") ? (
             <Button asChild>
               <Link href="/leases/new" data-guide="new-lease">
                 <FilePlus2 aria-hidden /> New lease
@@ -143,7 +144,7 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
           icon={FileSpreadsheet}
           title={filtered ? "No leases match" : "No leases yet"}
           action={
-            !filtered && can(actor.role, "lease.edit") ? (
+            !filtered && canDo(actor, "lease.edit") ? (
               <Button asChild>
                 <Link href="/leases/new">Add your first lease →</Link>
               </Button>
@@ -166,11 +167,11 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
           layout={layout}
           exportQuery={exportQuery}
           can={{
-            edit: can(actor.role, "lease.edit"),
-            editTenant: can(actor.role, "tenant.edit"),
-            archive: can(actor.role, "record.archive"),
-            export: can(actor.role, "data.export"),
-            record: can(actor.role, "payment.record"),
+            edit: canDo(actor, "lease.edit"),
+            editTenant: canDo(actor, "tenant.edit"),
+            archive: canDo(actor, "record.archive"),
+            export: canDo(actor, "data.export"),
+            record: canDo(actor, "payment.record"),
           }}
         />
       )}

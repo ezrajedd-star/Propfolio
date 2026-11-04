@@ -1,7 +1,9 @@
 import type { Role } from "@/domain/auth/roles";
+import type { PlanAccess } from "@/domain/plans/plans";
 import { checkSession, sessionExpiry, shouldTouch } from "@/domain/auth/session-policy";
 import { twoStepState, type TwoStepState } from "@/domain/auth/two-step";
 import { asSystem, db } from "@/server/db";
+import { loadPlanAccess, memberWithinUserLimit } from "@/server/plans/access";
 import type { RequestMeta } from "@/server/request-meta";
 import { randomToken, sha256 } from "./tokens";
 
@@ -21,6 +23,8 @@ export interface ValidSession {
   accountId: string;
   /** `role` is the person's role in that account. */
   user: SessionUser;
+  /** What the account's plan allows right now. */
+  access: PlanAccess;
 }
 
 /** Create a session in an account and return the raw token for the cookie. Only its hash is stored. */
@@ -79,11 +83,21 @@ export function validateSessionToken(
 
     const membership = await db.membership.findUnique({
       where: { accountId_userId: { accountId: session.accountId, userId: session.userId } },
-      select: { role: true, isActive: true },
+      select: { role: true, isActive: true, createdAt: true },
     });
-    const allowed = membership?.isActive === true && session.account.status === "ACTIVE";
+    let allowed = membership?.isActive === true && session.account.status === "ACTIVE";
+    // Read here, inside the same system scope, so every request sees the plan as it is now.
+    const access = allowed ? await loadPlanAccess(session.accountId, now, db) : null;
+    if (allowed && membership && access) {
+      // Members beyond the plan's user limit are suspended (not deleted) until it upgrades.
+      allowed = await memberWithinUserLimit(
+        db,
+        { accountId: session.accountId, role: membership.role, createdAt: membership.createdAt },
+        access.plan,
+      );
+    }
 
-    if (checkSession(session, now) !== "valid" || !allowed) {
+    if (checkSession(session, now) !== "valid" || !allowed || !membership || !access) {
       if (!session.revokedAt) {
         await db.session.update({ where: { id: session.id }, data: { revokedAt: now } });
       }
@@ -98,6 +112,7 @@ export function validateSessionToken(
     return {
       sessionId: session.id,
       accountId: session.accountId,
+      access,
       user: {
         ...user,
         role: membership.role,

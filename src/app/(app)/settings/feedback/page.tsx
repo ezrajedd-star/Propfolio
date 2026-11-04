@@ -21,7 +21,7 @@ export default async function FeedbackPage({
 }: {
   searchParams: Promise<{ all?: string }>;
 }) {
-  const actor = await requirePageUser("settings.manage");
+  const actor = await requirePageUser("settings.manage", { duringReadOnly: true });
   const all = (await searchParams).all === "1";
   const rows = await listFeedback(actor, { includeDone: all });
   return (

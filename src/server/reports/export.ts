@@ -3,8 +3,8 @@ import ExcelJS from "exceljs";
 import { toCsv } from "@/domain/export/csv";
 import type { ReportColumn, ReportId, ReportValue } from "@/domain/reports/definitions";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import type { ExportFormat, ExportResult } from "@/server/leases/export";
 import type { RequestMeta } from "@/server/request-meta";
 import { runReport, type ReportFilters } from "./service";
@@ -32,7 +32,7 @@ const NUM_FMT: Partial<Record<ReportColumn["kind"], string>> = {
 
 /** Download a report with the same filters as on screen. Every export is audited. */
 export async function exportReport(
-  actor: AuditActor,
+  actor: Actor,
   id: ReportId,
   filters: ReportFilters,
   format: ExportFormat,

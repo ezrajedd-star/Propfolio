@@ -69,6 +69,12 @@ export async function signInAction(input: unknown, next?: string): Promise<Actio
         };
       case "inactive":
         return { ok: false, message: "This account has been turned off. Please ask an Admin." };
+      case "user_limit":
+        return {
+          ok: false,
+          message:
+            "Your company's plan doesn't include your sign-in right now. Ask your account's Owner to upgrade, then try again.",
+        };
       case "suspended":
         return {
           ok: false,
@@ -151,7 +157,12 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
     const session = await getCurrentSession();
     if (!session) throw new UnauthenticatedError();
     await changeOwnPassword(
-      { ...session.user, sessionId: session.sessionId },
+      {
+        ...session.user,
+        accountId: session.accountId,
+        access: session.access,
+        sessionId: session.sessionId,
+      },
       input,
       await requestMeta(),
     );

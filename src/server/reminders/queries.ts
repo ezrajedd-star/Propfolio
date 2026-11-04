@@ -1,8 +1,8 @@
-import { can, receivesReminders } from "@/domain/auth/roles";
+import { receivesReminders } from "@/domain/auth/roles";
 import { fromDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError } from "@/server/errors";
@@ -26,7 +26,7 @@ export interface LeaseReminderView {
 }
 
 export async function getLeaseReminderView(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
 ): Promise<LeaseReminderView> {
   assertCan(actor, "lease.view");
@@ -59,7 +59,7 @@ export async function getLeaseReminderView(
         }
       : null,
     stoppedReason,
-    canHandle: can(actor.role, "reminder.handle") && !lease.archivedAt,
+    canHandle: canDo(actor, "reminder.handle") && !lease.archivedAt,
     events: lease.reminderEvents.map((e) => ({
       id: e.id,
       date: fromDbDate(e.scheduledDate),
@@ -73,8 +73,8 @@ export async function getLeaseReminderView(
 }
 
 /** Settings → Reminder emails: recent digests and who receives them. */
-export async function listDigests(actor: AuditActor, limit = 30) {
-  assertCan(actor, "settings.manage");
+export async function listDigests(actor: Actor, limit = 30) {
+  assertCan(actor, "settings.manage", { duringReadOnly: true }); // viewing is fine while read-only
   const [digests, users] = await Promise.all([
     db.reminderDigest.findMany({ orderBy: { digestDate: "desc" }, take: limit }),
     db.membership.findMany({
@@ -101,7 +101,7 @@ export async function listDigests(actor: AuditActor, limit = 30) {
 }
 
 /** Admin "Try again now" for today's reminder email. */
-export async function retryTodaysDigest(actor: AuditActor, meta: RequestMeta, now = new Date()) {
+export async function retryTodaysDigest(actor: Actor, meta: RequestMeta, now = new Date()) {
   assertCan(actor, "settings.manage");
   await writeAudit({
     actor,

@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { FilePlus2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -18,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { can } from "@/domain/auth/roles";
+
 import { formatPeso, money } from "@/domain/money/money";
 import { formatDateTime, formatIsoDate } from "@/domain/time/manila";
 import { PRIVACY_ACK_METHOD_LABELS, TENANT_TYPE_LABELS } from "@/schemas/tenant";
@@ -59,8 +60,8 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
           <TenantActionsBar
             tenantId={t.id}
             archived={archived}
-            canEdit={can(actor.role, "tenant.edit") && !t.anonymizedAt}
-            canArchive={can(actor.role, "record.archive")}
+            canEdit={canDo(actor, "tenant.edit") && !t.anonymizedAt}
+            canArchive={canDo(actor, "record.archive")}
             values={{
               type: t.type,
               displayName: t.displayName,
@@ -136,7 +137,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
                 This tenant was anonymised on {formatDateTime(t.anonymizedAt)}. Their personal data
                 has been removed; money records are kept.
               </p>
-            ) : can(actor.role, "privacy.manage") ? (
+            ) : canDo(actor, "privacy.manage") ? (
               <PrivacyActions
                 tenantId={t.id}
                 tenantName={t.displayName}
@@ -168,7 +169,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
                 ) : null}
               </p>
             </div>
-            {can(actor.role, "lease.edit") && !archived ? (
+            {canDo(actor, "lease.edit") && !archived ? (
               <Button asChild variant="outline">
                 <Link href={`/leases/new?tenant=${t.id}`}>
                   <FilePlus2 aria-hidden /> New lease for this tenant
@@ -224,6 +225,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
           <DocumentsPanel
             target={{ tenantId: t.id }}
             canUpload={documents.canUpload && !archived && !t.anonymizedAt}
+            uploadLocked={documents.uploadLocked}
             documents={documents.rows.map((d) => ({
               ...d,
               uploadedAt: d.uploadedAt.toISOString(),

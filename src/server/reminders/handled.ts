@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -22,7 +22,7 @@ async function loadLease(leaseId: string) {
 
 /** "Mark as handled": stops all further expiry reminders for this lease (brief §6). */
 export async function markReminderHandled(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   input: unknown,
   meta: RequestMeta,
@@ -56,7 +56,7 @@ export async function markReminderHandled(
 
 /** Undo "Mark as handled": reminders resume from today. */
 export async function unmarkReminderHandled(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   meta: RequestMeta,
   now = new Date(),

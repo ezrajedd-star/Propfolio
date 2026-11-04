@@ -1,9 +1,7 @@
-import { can } from "@/domain/auth/roles";
 import type { LeaseStatus } from "@/domain/leases/status";
 import { addDays } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { overdueReport } from "@/server/billing/balances";
 import { listLeases, type LeaseRow } from "@/server/leases/service";
 import { listBuildings, type BuildingSummary } from "@/server/property/buildings";
@@ -15,8 +13,8 @@ export interface Dashboard {
     active: number;
     expiringIn90: number;
     expiredNotRenewed: number;
-    /** Total overdue (₱), from the same calculation as the overdue list. */
-    overdueTotal: string;
+    /** Total overdue (₱), from the same calculation as the overdue list. Null without Payments (Free). */
+    overdueTotal: string | null;
     overdueLeases: number;
     upcomingExpiries: LeaseRow[];
     expiringSoon: LeaseRow[];
@@ -32,16 +30,16 @@ export interface Dashboard {
 
 const LIVE: LeaseStatus[] = ["ACTIVE", "EXPIRING"];
 
-export async function getDashboard(actor: AuditActor, now = new Date()): Promise<Dashboard> {
+export async function getDashboard(actor: Actor, now = new Date()): Promise<Dashboard> {
   assertCan(actor, "occupancy.view");
   const buildings = await listBuildings(actor, {}, now);
-  if (!can(actor.role, "lease.view")) return { buildings };
+  if (!canDo(actor, "lease.view")) return { buildings };
 
   const today = manilaToday(now);
   const in90 = addDays(today, 90);
   const [leases, overdue] = await Promise.all([
     listLeases(actor, {}, now),
-    overdueReport(actor, now),
+    canDo(actor, "payment.view") ? overdueReport(actor, now) : null,
   ]);
   const live = leases.filter((l) => LIVE.includes(l.status));
   const upcoming = live
@@ -53,8 +51,8 @@ export async function getDashboard(actor: AuditActor, now = new Date()): Promise
       active: live.length,
       expiringIn90: upcoming.length,
       expiredNotRenewed: leases.filter((l) => l.status === "EXPIRED").length,
-      overdueTotal: overdue.total,
-      overdueLeases: overdue.rows.length,
+      overdueTotal: overdue?.total ?? null,
+      overdueLeases: overdue?.rows.length ?? 0,
       upcomingExpiries: upcoming.slice(0, 8),
       expiringSoon: upcoming.filter((l) => l.daysLeft <= 30),
       attention: leases

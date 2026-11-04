@@ -83,7 +83,7 @@ export async function addUnitsAction(input: unknown) {
 
 export async function archiveUnitAction(id: string, archived: boolean) {
   return runAction(async () => {
-    const actor = await requireActor("property.manage");
+    const actor = await requireActor("property.manage", { duringReadOnly: archived });
     await setUnitArchived(actor, id, archived, await requestMeta());
     refresh();
     return null;

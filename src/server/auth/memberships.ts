@@ -1,5 +1,6 @@
 import type { Role } from "@/domain/auth/roles";
 import { asSystem, db } from "@/server/db";
+import { loadPlanAccess, memberWithinUserLimit } from "@/server/plans/access";
 
 export interface SignInTarget {
   accountId: string;
@@ -7,17 +8,22 @@ export interface SignInTarget {
 }
 
 /**
- * The account a person works in after signing in: of the accounts where they are turned on and
- * that aren't suspended, the one they used most recently. Null when there is none.
+ * The account a person works in after signing in: of the accounts where they are turned on, that
+ * aren't suspended, and whose plan has room for them (user limit), the one they used most
+ * recently. Null when there is none.
  */
-export function signInTarget(userId: string): Promise<SignInTarget | null> {
+export function signInTarget(userId: string, now = new Date()): Promise<SignInTarget | null> {
   return asSystem(async () => {
-    const m = await db.membership.findFirst({
+    const candidates = await db.membership.findMany({
       where: { userId, isActive: true, account: { status: "ACTIVE" } },
       orderBy: [{ lastUsedAt: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
-      select: { accountId: true, role: true },
+      select: { accountId: true, role: true, createdAt: true },
     });
-    return m;
+    for (const m of candidates) {
+      const { plan } = await loadPlanAccess(m.accountId, now, db);
+      if (await memberWithinUserLimit(db, m, plan)) return { accountId: m.accountId, role: m.role };
+    }
+    return null;
   });
 }
 

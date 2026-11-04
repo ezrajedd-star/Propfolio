@@ -4,8 +4,8 @@ import { GRID_COLUMNS, GRID_COLUMN_IDS, type GridColumnId } from "@/domain/lease
 import { LEASE_STATUS_LABELS } from "@/domain/leases/status";
 import { toCsv } from "@/domain/export/csv";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import type { RequestMeta } from "@/server/request-meta";
 import { listLeases, type LeaseFilters, type LeaseRow } from "./service";
 
@@ -67,7 +67,7 @@ export interface ExportResult {
  * or just the selected rows). Every export is recorded in the audit log.
  */
 export async function exportLeases(
-  actor: AuditActor,
+  actor: Actor,
   opts: { filters: LeaseFilters; columns: string[]; format: ExportFormat },
   meta: RequestMeta,
   now = new Date(),

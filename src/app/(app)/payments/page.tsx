@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { Download, Plus, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { can } from "@/domain/auth/roles";
+
 import { AGING_BUCKETS } from "@/domain/billing/ledger";
 import { formatPeso } from "@/domain/money/money";
 import { addDays } from "@/domain/time/calendar-date";
@@ -40,8 +41,8 @@ export default async function PaymentsPage() {
     overdueReport(actor),
     listPayments(actor, { from: addDays(today, -60), includeVoid: true }),
   ]);
-  const canRecord = can(actor.role, "payment.record");
-  const canExport = can(actor.role, "data.export");
+  const canRecord = canDo(actor, "payment.record");
+  const canExport = canDo(actor, "data.export");
 
   return (
     <>

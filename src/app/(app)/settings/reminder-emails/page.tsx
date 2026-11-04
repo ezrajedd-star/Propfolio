@@ -37,7 +37,7 @@ function DigestBadge({ status }: { status: "SENDING" | "SENT" | "FAILED" | "EMPT
 }
 
 export default async function ReminderEmailsPage() {
-  const actor = await requirePageUser("settings.manage");
+  const actor = await requirePageUser("settings.manage", { duringReadOnly: true });
   const [{ digests, recipients }, settings] = await Promise.all([
     listDigests(actor),
     getSettings(),

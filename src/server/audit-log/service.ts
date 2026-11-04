@@ -2,8 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import type { Role } from "@/domain/auth/roles";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { parseInput } from "@/server/validation";
 
@@ -38,7 +37,7 @@ function manilaDayStart(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00+08:00`);
 }
 
-export async function listAuditLog(actor: AuditActor, query: unknown) {
+export async function listAuditLog(actor: Actor, query: unknown) {
   assertCan(actor, "audit.view");
   const f = parseInput(auditLogQuerySchema, query);
 
@@ -96,7 +95,7 @@ export async function listAuditLog(actor: AuditActor, query: unknown) {
 }
 
 /** Distinct action names, for the filter dropdown. */
-export async function listAuditActions(actor: AuditActor): Promise<string[]> {
+export async function listAuditActions(actor: Actor): Promise<string[]> {
   assertCan(actor, "audit.view");
   const rows = await db.auditLog.findMany({
     distinct: ["action"],

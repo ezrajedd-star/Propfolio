@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { can } from "@/domain/auth/roles";
 import {
   allocateOldestFirst,
   balanceDue,
@@ -15,8 +14,8 @@ import { formatPeso, money, roundMoney } from "@/domain/money/money";
 import { fromDbDate, toDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { isoDateSchema, moneySchema, optionalText, uuidSchema } from "@/schemas/common-fields";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db, type DbClient, type Tx } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -105,7 +104,7 @@ const ALLOCATION_MESSAGES = {
  * how it is split. Anything left over is kept as unapplied credit on the lease.
  */
 export async function recordPayment(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
   now = new Date(),
@@ -186,7 +185,7 @@ export async function recordPayment(
 
 /** Void a payment (wrong amount, bounced cheque…). The record stays, marked void, with the reason. */
 export async function voidPayment(
-  actor: AuditActor,
+  actor: Actor,
   paymentId: string,
   input: unknown,
   meta: RequestMeta,
@@ -243,7 +242,7 @@ async function creditOf(tx: Tx | typeof db, leaseId: string) {
 }
 
 /** Use unapplied credit (over-payments) to pay the oldest unpaid charges. */
-export async function applyCredit(actor: AuditActor, leaseId: string, meta: RequestMeta) {
+export async function applyCredit(actor: Actor, leaseId: string, meta: RequestMeta) {
   assertCan(actor, "payment.record");
   if (!isUuid(leaseId)) throw new NotFoundError("We couldn't find that lease.");
   return db.$transaction(async (tx) => {
@@ -331,7 +330,7 @@ export interface LeaseLedger {
 }
 
 export async function getLeaseLedger(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   now = new Date(),
 ): Promise<LeaseLedger> {
@@ -436,12 +435,12 @@ export async function getLeaseLedger(
       overdueCount: overdue.count,
       credit: credit.toFixed(2),
     },
-    canRecord: can(actor.role, "payment.record") && !lease.archivedAt,
+    canRecord: canDo(actor, "payment.record") && !lease.archivedAt,
   };
 }
 
 /** Open charges for the record-payment form, oldest first. */
-export async function openChargesForPayment(actor: AuditActor, leaseId: string, now = new Date()) {
+export async function openChargesForPayment(actor: Actor, leaseId: string, now = new Date()) {
   assertCan(actor, "payment.record");
   await findLeaseOrThrow(db, leaseId);
   const today = manilaToday(now);
@@ -480,7 +479,7 @@ export interface PaymentListItem {
 
 /** Payments received in a date range (Payments page, Collections report). */
 export async function listPayments(
-  actor: AuditActor,
+  actor: Actor,
   opts: { from?: IsoDate; to?: IsoDate; includeVoid?: boolean } = {},
 ): Promise<PaymentListItem[]> {
   assertCan(actor, "payment.view");
@@ -525,7 +524,7 @@ export async function listPayments(
 }
 
 /** Data for the printable acknowledgement (not an official receipt). */
-export async function getPaymentAcknowledgement(actor: AuditActor, paymentId: string) {
+export async function getPaymentAcknowledgement(actor: Actor, paymentId: string) {
   assertCan(actor, "payment.view");
   if (!isUuid(paymentId)) throw new NotFoundError("We couldn't find that payment.");
   const p = await db.payment.findUnique({

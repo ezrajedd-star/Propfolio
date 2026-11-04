@@ -3,13 +3,20 @@ import type { AccountStatus, Plan } from "@prisma/client";
 import { moneyString } from "@/domain/money/money";
 import { fromDbDate, toDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
-import { extendTrialSchema, manualPaymentSchema, suspendAccountSchema } from "@/schemas/platform";
+import { planAccess } from "@/domain/plans/plans";
+import {
+  changePlanSchema,
+  extendTrialSchema,
+  manualPaymentSchema,
+  suspendAccountSchema,
+} from "@/schemas/platform";
 import { writeAudit } from "@/server/audit";
 import { asSystem, db, type Tx } from "@/server/db";
 import { NotFoundError, ValidationError } from "@/server/errors";
 import { isUuid } from "@/server/db-errors";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
+import { planFacts } from "@/server/plans/access";
 import type { PlatformActor } from "./auth";
 
 /**
@@ -30,6 +37,13 @@ export interface AccountSummary {
   createdAt: Date;
   activeUsers: number;
   units: number;
+  /** The plan in force now (after trials and paid periods), and whether it is over its limit. */
+  effectivePlan: Plan;
+  onTrial: boolean;
+  lapsed: boolean;
+  readOnly: boolean;
+  /** People the plan includes; active people beyond it (the newest) can't sign in. */
+  userLimit: number;
 }
 
 /** The Manila day a trial end moment falls on, and the moment for "end of that day". */
@@ -66,7 +80,13 @@ async function counts(accountIds: string[]) {
 type AccountRow = Awaited<ReturnType<typeof db.account.findMany>>[number];
 
 function summary(a: AccountRow, c: Awaited<ReturnType<typeof counts>>, now: Date): AccountSummary {
+  const access = planAccess(planFacts(a), c.units.get(a.id) ?? 0, now);
   return {
+    effectivePlan: access.plan,
+    onTrial: access.trial !== null,
+    lapsed: access.lapsed,
+    readOnly: access.readOnly,
+    userLimit: access.users.limit,
     id: a.id,
     name: a.name,
     plan: a.plan,
@@ -282,6 +302,45 @@ export async function setAccountSuspended(
         meta,
         { status: { before: before.status, after: status } },
         reason ? { reason } : {},
+      );
+    }),
+  );
+}
+
+/**
+ * Put an account on a plan by hand (corporate deals, comps, testing). The chosen plan replaces
+ * any trial (running or ended), so it applies straight away. If a paid period (`paidUntil`) was
+ * recorded, it still governs: once it has ended the account is on Free until a payment is recorded.
+ */
+export async function changePlan(
+  admin: PlatformActor,
+  accountId: string,
+  input: unknown,
+  meta: RequestMeta,
+) {
+  const data = parseInput(changePlanSchema, input);
+  return asSystem(() =>
+    db.$transaction(async (tx) => {
+      const before = await lockAccount(tx, accountId);
+      const clearTrial = before.trialEndsAt !== null;
+      if (before.plan === data.plan && !clearTrial) return;
+      await tx.account.update({
+        where: { id: accountId },
+        data: { plan: data.plan, ...(clearTrial ? { trialEndsAt: null } : {}) },
+      });
+      await auditAccount(
+        tx,
+        admin,
+        "platform.plan_changed",
+        accountId,
+        meta,
+        {
+          plan: { before: before.plan, after: data.plan },
+          ...(clearTrial
+            ? { trialEndsOn: { before: trialEndDay(before.trialEndsAt), after: null } }
+            : {}),
+        },
+        { reason: data.reason },
       );
     }),
   );

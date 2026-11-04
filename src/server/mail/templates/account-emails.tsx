@@ -62,3 +62,33 @@ export function EmailChangedEmail({
     </EmailLayout>
   );
 }
+
+export function TrialEndingEmail({
+  companyName,
+  name,
+  lastDay,
+  daysLeftText,
+  planUrl,
+  freeUnits,
+}: Base & { lastDay: string; daysLeftText: string; planUrl: string; freeUnits: number }) {
+  return (
+    <EmailLayout preview={`Your free Premium trial ends ${daysLeftText}`} companyName={companyName}>
+      <Text style={textStyle}>Hi {name},</Text>
+      <Text style={textStyle}>
+        Your free Premium trial of Propfolio ends {daysLeftText}, on {lastDay}.
+      </Text>
+      <Text style={textStyle}>
+        When it ends, nothing is deleted. Your account moves to the Free plan: everything stays
+        visible, and exports and the privacy tools keep working. If you have more than {freeUnits}{" "}
+        units, the account becomes read-only until you upgrade. Your team&apos;s sign-ins are
+        paused; you keep yours.
+      </Text>
+      <Button href={planUrl} style={buttonStyle}>
+        See plans
+      </Button>
+      <Text style={{ ...textStyle, marginTop: 16 }}>
+        Upgrading at any time gives you everything back straight away.
+      </Text>
+    </EmailLayout>
+  );
+}

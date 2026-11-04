@@ -14,9 +14,12 @@ import { MoneyInput } from "@/components/form/money-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { extendTrialSchema, manualPaymentSchema } from "@/schemas/platform";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PLANS, PLAN_CONFIG } from "@/domain/plans/plans";
+import { changePlanSchema, extendTrialSchema, manualPaymentSchema } from "@/schemas/platform";
 import type { ActionResult } from "@/server/actions";
 import {
+  changePlanAction,
   extendTrialAction,
   recordManualPaymentAction,
   setAccountSuspendedAction,
@@ -200,5 +203,56 @@ export function SuspendButton({
         onConfirm={(reason) => setAccountSuspendedAction(accountId, true, { reason })}
       />
     </>
+  );
+}
+
+type PlanValues = z.input<typeof changePlanSchema>;
+
+export function ChangePlanForm({
+  accountId,
+  current,
+}: {
+  accountId: string;
+  current: PlanValues["plan"];
+}) {
+  const blank: PlanValues = { plan: current, reason: "" };
+  const form = useForm<PlanValues>({
+    resolver: zodResolver(changePlanSchema),
+    defaultValues: blank,
+  });
+  const { errors } = form.formState;
+  const { pending, onSubmit } = useActionForm(
+    form,
+    (v) => changePlanAction(accountId, v),
+    "Plan changed ✓",
+    blank,
+  );
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <p className="text-muted-foreground">
+        Applies straight away and replaces any trial. If a bank transfer was recorded, the plan
+        lasts until the paid-until day.
+      </p>
+      <Field id="plan" label="Plan" required error={errors.plan?.message}>
+        <NativeSelect {...fieldAria("plan", errors.plan?.message)} {...form.register("plan")}>
+          {PLANS.map((p) => (
+            <option key={p} value={p}>
+              {PLAN_CONFIG[p].label}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <Field id="planReason" label="Reason for the change" required error={errors.reason?.message}>
+        <Input
+          {...fieldAria("planReason", errors.reason?.message)}
+          placeholder="e.g. Corporate agreement"
+          {...form.register("reason")}
+        />
+      </Field>
+      <Button type="submit" disabled={pending}>
+        {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+        Change plan
+      </Button>
+    </form>
   );
 }

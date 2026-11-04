@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { FilePlus2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { LeaseStatusBadge, OccupancyBadge } from "@/components/app/lease-badges"
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { can } from "@/domain/auth/roles";
+
 import { formatDuration } from "@/domain/time/calendar-date";
 import { timeLeftText } from "@/domain/leases/status";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
@@ -24,7 +25,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   assertIdOrNotFound(id);
   const unit = await orNotFound(getUnit(actor, id));
-  const staff = can(actor.role, "lease.edit");
+  const staff = canDo(actor, "lease.edit");
   const today = manilaToday();
   const current = unit.currentLease;
 
@@ -158,7 +159,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
               effective={unit.reminders.effective}
               source={unit.reminders.source}
               inherited={unit.reminders.unitTypeConfig ?? unit.reminders.systemDefault}
-              canEdit={can(actor.role, "property.manage")}
+              canEdit={canDo(actor, "property.manage")}
             />
           </div>
         ) : null}

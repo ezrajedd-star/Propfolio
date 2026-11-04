@@ -2,6 +2,8 @@ import {
   Building2,
   BellRing,
   ChevronRight,
+  Gem,
+  Lock,
   MailCheck,
   MessageSquareText,
   ScrollText,
@@ -13,16 +15,31 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/app/page-header";
+import { availableOnMessage, planIncludes, type Feature } from "@/domain/plans/plans";
 import { requirePageUser } from "@/server/auth/current";
 
 export const metadata: Metadata = { title: "Settings" };
 
-const SECTIONS = [
+const SECTIONS: {
+  href: string;
+  icon: typeof Gem;
+  title: string;
+  text: string;
+  /** Needs a paid plan: shown with a lock, and opens the "Available on …" screen. */
+  feature?: Feature;
+}[] = [
+  {
+    href: "/plan",
+    icon: Gem,
+    title: "Plan",
+    text: "Your plan, what it includes, and how to upgrade.",
+  },
   {
     href: "/settings/users",
     icon: UsersRound,
     title: "Users",
     text: "Add people, change roles, reset passwords.",
+    feature: "team",
   },
   {
     href: "/settings/general",
@@ -35,6 +52,7 @@ const SECTIONS = [
     icon: ScrollText,
     title: "Audit log",
     text: "Who did what, and when.",
+    feature: "auditLog",
   },
   {
     href: "/settings/buildings",
@@ -69,12 +87,16 @@ const SECTIONS = [
 ];
 
 export default async function SettingsPage() {
-  await requirePageUser("settings.manage");
+  const actor = await requirePageUser("settings.manage", { duringReadOnly: true });
   return (
     <>
       <PageHeader title="Settings" description="Only Admins can see and change these." />
       <ul className="grid gap-4 sm:grid-cols-2">
         {SECTIONS.map((s) => {
+          const locked =
+            s.feature && !planIncludes(actor.access.plan, s.feature)
+              ? availableOnMessage(s.feature)
+              : null;
           const inner = (
             <>
               <span className="bg-primary-soft text-primary flex size-11 shrink-0 items-center justify-center rounded-lg">
@@ -83,26 +105,23 @@ export default async function SettingsPage() {
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{s.title}</span>
                 <span className="text-muted-foreground block">{s.text}</span>
+                {locked ? (
+                  <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm font-medium">
+                    <Lock className="size-4" aria-hidden /> {locked}
+                  </span>
+                ) : null}
               </span>
-              {s.href ? (
-                <ChevronRight className="text-muted-foreground size-5" aria-hidden />
-              ) : null}
+              <ChevronRight className="text-muted-foreground size-5" aria-hidden />
             </>
           );
           return (
             <li key={s.title}>
-              {s.href ? (
-                <Link
-                  href={s.href}
-                  className="bg-card hover:bg-muted/50 flex items-center gap-4 rounded-xl border p-5 shadow-sm transition-colors"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div className="flex items-center gap-4 rounded-xl border border-dashed p-5 opacity-75">
-                  {inner}
-                </div>
-              )}
+              <Link
+                href={s.href}
+                className="bg-card hover:bg-muted/50 flex items-center gap-4 rounded-xl border p-5 shadow-sm transition-colors"
+              >
+                {inner}
+              </Link>
             </li>
           );
         })}

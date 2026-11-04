@@ -1,9 +1,10 @@
+import { canDo } from "@/server/auth/authorize";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BackLink } from "@/components/app/back-link";
 import { Badge } from "@/components/ui/badge";
-import { can } from "@/domain/auth/roles";
+
 import { formatPeso } from "@/domain/money/money";
 import { formatDateTime, formatIsoDate } from "@/domain/time/manila";
 import { requirePageUser } from "@/server/auth/current";
@@ -33,7 +34,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ id: st
         <AcknowledgementActions
           paymentId={id}
           paymentNo={p.paymentNo}
-          canVoid={!voided && can(actor.role, "payment.record")}
+          canVoid={!voided && canDo(actor, "payment.record")}
           leaseId={p.lease.id}
         />
       </div>

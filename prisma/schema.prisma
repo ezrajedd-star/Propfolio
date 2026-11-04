@@ -60,6 +60,7 @@ model Account {
   memberships        Membership[]
   sessions           Session[]
   manualPayments     ManualPayment[]
+  trialReminders     TrialReminder[]
   auditLogs          AuditLog[]
   settings           Setting[]
   buildings          Building[]
@@ -99,6 +100,22 @@ model Membership {
 
   @@unique([accountId, userId])
   @@index([userId])
+}
+
+/// A "your trial ends soon" email (7 days and 1 day before). One row per trial end and lead
+/// time makes the daily job idempotent; extending a trial gives a new end, so it is reminded again.
+/// Propfolio's own record: never reachable from customer work.
+model TrialReminder {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  accountId   String   @db.Uuid
+  account     Account  @relation(fields: [accountId], references: [id])
+  trialEndsAt DateTime @db.Timestamptz(3)
+  daysBefore  Int
+  /// How many people it went to (the Owner and Admins). No addresses are stored.
+  recipients  Int
+  sentAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([accountId, trialEndsAt, daysBefore])
 }
 
 /// A payment recorded by hand by the platform admin (bank transfer for annual or corporate

@@ -12,9 +12,19 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
   );
 }
 
-/** "Premium trial, 12 days left", "Trial ended", or the plan. */
-export function planLabel(a: { plan: Plan; trialDaysLeft: number | null }): string {
-  if (a.trialDaysLeft === null) return PLAN_LABELS[a.plan];
-  if (a.trialDaysLeft === 0) return `${PLAN_LABELS[a.plan]} (trial ended)`;
-  return `${PLAN_LABELS[a.plan]} trial, ${a.trialDaysLeft} day${a.trialDaysLeft === 1 ? "" : "s"} left`;
+/** The plan in force now: "Premium trial, 12 days left", "Free (trial or payment ended)", "Pro". */
+export function planLabel(a: {
+  effectivePlan: Plan;
+  onTrial: boolean;
+  lapsed: boolean;
+  readOnly: boolean;
+  trialDaysLeft: number | null;
+}): string {
+  let label = PLAN_LABELS[a.effectivePlan];
+  if (a.onTrial && a.trialDaysLeft !== null) {
+    label = `Premium trial, ${a.trialDaysLeft} day${a.trialDaysLeft === 1 ? "" : "s"} left`;
+  } else if (a.lapsed) {
+    label = "Free (trial or payment ended)";
+  }
+  return a.readOnly ? `${label}, read-only (over unit limit)` : label;
 }

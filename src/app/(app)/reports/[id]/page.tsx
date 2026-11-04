@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { Download, FileBarChart } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -19,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { can } from "@/domain/auth/roles";
+
 import {
   EXPIRY_WINDOWS,
   isReportId,
@@ -89,7 +90,7 @@ export default async function ReportPage({
         title={info.title}
         description={report.subtitle}
         actions={
-          can(actor.role, "data.export") ? (
+          canDo(actor, "data.export") ? (
             <>
               <TaskTourButton id="report-page" />
               <Button variant="outline" asChild>

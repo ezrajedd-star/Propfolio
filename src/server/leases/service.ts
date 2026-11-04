@@ -1,6 +1,5 @@
 import { Prisma, type Lease } from "@prisma/client";
 
-import { can } from "@/domain/auth/roles";
 import {
   daysLeft,
   findOverlap,
@@ -21,8 +20,8 @@ import {
   updateLeaseSchema,
   type LeaseTerms,
 } from "@/schemas/lease";
-import { diffFields, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { diffFields, writeAudit } from "@/server/audit";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db, type Tx } from "@/server/db";
 import { isLeaseOverlapViolation, isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -193,7 +192,7 @@ export interface LeaseFilters {
 }
 
 export async function listLeases(
-  actor: AuditActor,
+  actor: Actor,
   filters: LeaseFilters = {},
   now = new Date(),
 ): Promise<LeaseRow[]> {
@@ -271,11 +270,7 @@ async function loadLease(id: string): Promise<LeaseWithRow> {
   return l;
 }
 
-export async function getLease(
-  actor: AuditActor,
-  id: string,
-  now = new Date(),
-): Promise<LeaseDetail> {
+export async function getLease(actor: Actor, id: string, now = new Date()): Promise<LeaseDetail> {
   assertCan(actor, "lease.view");
   const today = manilaToday(now);
   const [l, settings] = await Promise.all([loadLease(id), getSettings()]);
@@ -306,7 +301,7 @@ export async function getLease(
     cursor = next;
   }
 
-  const editable = can(actor.role, "lease.edit") && !row.archived;
+  const editable = canDo(actor, "lease.edit") && !row.archived;
   const terminated = l.terminationDate !== null;
   const renewed = l.nextLease !== null && l.nextLease.archivedAt === null;
   return {
@@ -331,8 +326,8 @@ export async function getLease(
       canEdit: editable && !terminated,
       canRenew: editable && !terminated && !renewed,
       canTerminate: editable && !terminated && !renewed,
-      canArchive: can(actor.role, "record.archive") && !row.archived,
-      canRestore: can(actor.role, "record.archive") && row.archived,
+      canArchive: canDo(actor, "record.archive") && !row.archived,
+      canRestore: canDo(actor, "record.archive") && row.archived,
     },
   };
 }
@@ -470,7 +465,7 @@ async function withOverlapGuard<T>(unitNumber: string, fn: () => Promise<T>): Pr
 }
 
 export async function createLease(
-  actor: AuditActor & { id: string },
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
   now = new Date(),
@@ -546,7 +541,7 @@ function comparable(l: Lease) {
 
 /** Change the important terms of a lease (dates, rent, unit, tenant…). Used after a confirmation step. */
 export async function updateLease(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   input: unknown,
   meta: RequestMeta,
@@ -610,7 +605,7 @@ export async function updateLease(
  * old one RENEWED.
  */
 export async function renewLease(
-  actor: AuditActor,
+  actor: Actor,
   previousId: string,
   input: unknown,
   meta: RequestMeta,
@@ -698,7 +693,7 @@ export async function renewLease(
 
 /** End a lease early. Requires the last day and a reason. */
 export async function terminateLease(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   input: unknown,
   meta: RequestMeta,
@@ -755,7 +750,7 @@ export async function terminateLease(
 
 /** Archive (hide) or restore a lease. Nothing is deleted. */
 export async function setLeaseArchived(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   archived: boolean,
   meta: RequestMeta,

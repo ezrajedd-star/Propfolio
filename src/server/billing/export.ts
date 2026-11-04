@@ -2,8 +2,8 @@ import ExcelJS from "exceljs";
 
 import { toCsv } from "@/domain/export/csv";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import type { ExportFormat, ExportResult } from "@/server/leases/export";
 import type { RequestMeta } from "@/server/request-meta";
 import { overdueReport } from "./balances";
@@ -20,7 +20,7 @@ const HEADERS = [
 
 /** Download the overdue list (Payments page). Every export is recorded in the audit log. */
 export async function exportOverdue(
-  actor: AuditActor,
+  actor: Actor,
   format: ExportFormat,
   meta: RequestMeta,
   now = new Date(),

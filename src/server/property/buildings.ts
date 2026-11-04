@@ -4,8 +4,8 @@ import { countOccupancy, unitOccupancy, type OccupancyCounts } from "@/domain/le
 import { fromDbDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { buildingSchema } from "@/schemas/property";
-import { diffFields, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { diffFields, writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUniqueViolation, isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -30,7 +30,7 @@ const codeTaken = () =>
 
 /** Buildings with occupancy counts. Everyone (including Viewers) can see these. */
 export async function listBuildings(
-  actor: AuditActor,
+  actor: Actor,
   opts: { includeArchived?: boolean } = {},
   now = new Date(),
 ): Promise<BuildingSummary[]> {
@@ -87,7 +87,7 @@ async function findBuilding(id: string) {
   return b;
 }
 
-export async function createBuilding(actor: AuditActor, input: unknown, meta: RequestMeta) {
+export async function createBuilding(actor: Actor, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   const data = parseInput(buildingSchema, input);
   try {
@@ -114,12 +114,7 @@ export async function createBuilding(actor: AuditActor, input: unknown, meta: Re
   }
 }
 
-export async function updateBuilding(
-  actor: AuditActor,
-  id: string,
-  input: unknown,
-  meta: RequestMeta,
-) {
+export async function updateBuilding(actor: Actor, id: string, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   const data = parseInput(buildingSchema, input);
   const before = await findBuilding(id);
@@ -145,7 +140,7 @@ export async function updateBuilding(
 
 /** Archive (never delete). Only possible once all its units are archived. */
 export async function setBuildingArchived(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   archived: boolean,
   meta: RequestMeta,

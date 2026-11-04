@@ -15,7 +15,7 @@ export default async function BuildingsPage({
 }: {
   searchParams: Promise<{ archived?: string }>;
 }) {
-  const actor = await requirePageUser("property.manage");
+  const actor = await requirePageUser("property.manage", { duringReadOnly: true });
   const { archived } = await searchParams;
   const buildings = await listBuildings(actor, { includeArchived: archived === "1" });
   return (

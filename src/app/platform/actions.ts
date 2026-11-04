@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 
 import { formatTime } from "@/domain/time/manila";
 import { runAction, type ActionResult } from "@/server/actions";
-import { extendTrial, recordManualPayment, setAccountSuspended } from "@/server/platform/accounts";
+import {
+  changePlan,
+  extendTrial,
+  recordManualPayment,
+  setAccountSuspended,
+} from "@/server/platform/accounts";
 import { completePlatformSetup, platformSignIn, platformSignOut } from "@/server/platform/auth";
 import type { PlatformActor } from "@/server/platform/auth";
 import {
@@ -82,6 +87,15 @@ export async function setAccountSuspendedAction(
   const result = await asPlatformAdmin(async (admin) =>
     setAccountSuspended(admin, accountId, suspended, input, await requestMeta()),
   );
+  revalidatePath(`/platform/accounts/${accountId}`);
+  return result;
+}
+
+export async function changePlanAction(accountId: string, input: unknown) {
+  const result = await asPlatformAdmin(async (admin) => {
+    await changePlan(admin, accountId, input, await requestMeta());
+    return null;
+  });
   revalidatePath(`/platform/accounts/${accountId}`);
   return result;
 }

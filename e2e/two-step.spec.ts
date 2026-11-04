@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { E2E_DATABASE_URL } from "../playwright.config";
 import { base32Decode, totpCode, totpStep } from "../src/domain/auth/totp";
-import { E2E_ACCOUNT_ID, PASSWORD, signIn, signInAs } from "./fixtures";
+import { E2E_ACCOUNT_ID, PASSWORD, USERS, signIn, signInAs } from "./fixtures";
 
 /** Two-step sign-in, as an Admin who hasn't set it up yet experiences it. */
 test.describe.configure({ mode: "serial" });
@@ -31,6 +31,15 @@ async function typeCode(page: Page, code: string, remember = false) {
 test.beforeAll(async () => {
   const db = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
   await db.user.deleteMany({ where: { email: EMAIL } });
+  // Premium includes 5 people: turn off anyone earlier specs added (e.g. "Nina New"), so Tina is
+  // within the limit alongside the four fixture users.
+  await db.membership.updateMany({
+    where: {
+      accountId: E2E_ACCOUNT_ID,
+      user: { email: { notIn: Object.values(USERS).map((u) => u.email) } },
+    },
+    data: { isActive: false },
+  });
   await db.user.create({
     data: {
       name: "Tina Twostep",

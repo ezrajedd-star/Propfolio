@@ -5,8 +5,8 @@ import { buildSearchText, searchTokens } from "@/domain/search/search";
 import { fromDbDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { createTenantSchema, updateTenantSchema } from "@/schemas/tenant";
-import { diffFields, maskPersonal, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { diffFields, maskPersonal, writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -55,7 +55,7 @@ export interface TenantListItem {
 
 /** Leasing staff only: contact details are personal data that Viewers never receive. */
 export async function listTenants(
-  actor: AuditActor,
+  actor: Actor,
   opts: { q?: string; includeArchived?: boolean } = {},
   now = new Date(),
 ): Promise<TenantListItem[]> {
@@ -115,11 +115,7 @@ export interface TenantDetail extends Omit<Tenant, "searchText" | "privacyAckDat
   leases: TenantLeaseRow[];
 }
 
-export async function getTenant(
-  actor: AuditActor,
-  id: string,
-  now = new Date(),
-): Promise<TenantDetail> {
+export async function getTenant(actor: Actor, id: string, now = new Date()): Promise<TenantDetail> {
   assertCan(actor, "tenant.view");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that tenant.");
   const [t, settings] = await Promise.all([
@@ -159,7 +155,7 @@ export async function getTenant(
 }
 
 /** Small list for pickers (wizard step 2). */
-export async function searchTenantsForPicker(actor: AuditActor, q: string) {
+export async function searchTenantsForPicker(actor: Actor, q: string) {
   assertCan(actor, "tenant.view");
   const tokens = searchTokens(q);
   const rows = await db.tenant.findMany({
@@ -176,7 +172,7 @@ export async function searchTenantsForPicker(actor: AuditActor, q: string) {
 }
 
 export async function createTenant(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
   now = new Date(),
@@ -219,12 +215,7 @@ export async function createTenant(
   });
 }
 
-export async function updateTenant(
-  actor: AuditActor,
-  id: string,
-  input: unknown,
-  meta: RequestMeta,
-) {
+export async function updateTenant(actor: Actor, id: string, input: unknown, meta: RequestMeta) {
   assertCan(actor, "tenant.edit");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that tenant.");
   const data = parseInput(updateTenantSchema, input);
@@ -260,7 +251,7 @@ export async function updateTenant(
 
 /** Archive a tenant. Blocked while they have a current or upcoming lease. */
 export async function setTenantArchived(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   archived: boolean,
   meta: RequestMeta,

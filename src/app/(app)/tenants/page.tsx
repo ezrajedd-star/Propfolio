@@ -1,3 +1,4 @@
+import { canDo } from "@/server/auth/authorize";
 import { UserPlus, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { can } from "@/domain/auth/roles";
+
 import { TENANT_TYPE_LABELS } from "@/schemas/tenant";
 import { requirePageUser } from "@/server/auth/current";
 import { listTenants } from "@/server/tenants/service";
@@ -38,7 +39,7 @@ export default async function TenantsPage({
         title="Tenants"
         description="Companies and people who lease from us."
         actions={
-          can(actor.role, "tenant.edit") ? (
+          canDo(actor, "tenant.edit") ? (
             <Button asChild>
               <Link href="/tenants/new">
                 <UserPlus aria-hidden /> Add tenant

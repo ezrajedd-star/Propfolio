@@ -1,7 +1,6 @@
 import type { Prisma, UnitStatusOverride } from "@prisma/client";
 import { z } from "zod";
 
-import { can } from "@/domain/auth/roles";
 import { unitOccupancy, type Occupancy } from "@/domain/leases/occupancy";
 import { effectiveEndDate, type LeaseStatus } from "@/domain/leases/status";
 import type { ReminderConfig, ReminderSource } from "@/domain/reminders/config";
@@ -12,8 +11,9 @@ import { searchTokens } from "@/domain/search/search";
 import { expandUnitNumbers } from "@/domain/property/unit-numbers";
 import { optionalText, uuidSchema } from "@/schemas/common-fields";
 import { unitReminderSchema, unitSchema } from "@/schemas/property";
-import { diffFields, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { diffFields, writeAudit } from "@/server/audit";
+import { canDo, assertCan, assertFeature, type Actor } from "@/server/auth/authorize";
+import { assertUnitRoom } from "@/server/plans/access";
 import { db } from "@/server/db";
 import { isUniqueViolation, isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -83,13 +83,8 @@ const unitInclude = (today: IsoDate) =>
 
 type UnitRow = Prisma.UnitGetPayload<{ include: ReturnType<typeof unitInclude> }>;
 
-function toSummary(
-  u: UnitRow,
-  actor: AuditActor,
-  system: ReminderConfig,
-  today: IsoDate,
-): UnitSummary {
-  const staff = can(actor.role, "lease.view");
+function toSummary(u: UnitRow, actor: Actor, system: ReminderConfig, today: IsoDate): UnitSummary {
+  const staff = canDo(actor, "lease.view");
   const leases = u.leases.map((l) => ({ row: l, dates: leaseDatesOf(l) }));
   const info = (l: (typeof leases)[number]): UnitLeaseInfo => ({
     tenantName: l.row.tenant.displayName,
@@ -127,7 +122,7 @@ function toSummary(
 }
 
 export async function listUnits(
-  actor: AuditActor,
+  actor: Actor,
   filters: UnitFilters = {},
   now = new Date(),
 ): Promise<UnitSummary[]> {
@@ -190,11 +185,7 @@ export interface UnitDetail extends UnitSummary {
   };
 }
 
-export async function getUnit(
-  actor: AuditActor,
-  id: string,
-  now = new Date(),
-): Promise<UnitDetail> {
+export async function getUnit(actor: Actor, id: string, now = new Date()): Promise<UnitDetail> {
   assertCan(actor, "occupancy.view");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that unit.");
   const today = manilaToday(now);
@@ -203,7 +194,7 @@ export async function getUnit(
     getSettings(),
   ]);
   if (!u) throw new NotFoundError("We couldn't find that unit.");
-  const staff = can(actor.role, "lease.view");
+  const staff = canDo(actor, "lease.view");
   const all = await db.lease.findMany({
     where: { unitId: id, archivedAt: null },
     orderBy: { startDate: "desc" },
@@ -252,12 +243,13 @@ async function assertRefsUsable(buildingId: string, unitTypeId: string) {
     throw new ValidationError("Please check the highlighted fields.", errors);
 }
 
-export async function createUnit(actor: AuditActor, input: unknown, meta: RequestMeta) {
+export async function createUnit(actor: Actor, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   const data = parseInput(unitSchema, input);
   await assertRefsUsable(data.buildingId, data.unitTypeId);
   try {
     return await db.$transaction(async (tx) => {
+      await assertUnitRoom(tx, actor);
       const u = await tx.unit.create({
         data: { ...data, createdById: actor.id, updatedById: actor.id },
       });
@@ -285,7 +277,7 @@ const bulkUnitsSchema = z.object({
  * Numbers the building already has are skipped and reported, not duplicated.
  */
 export async function createUnits(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   meta: RequestMeta,
 ): Promise<{ created: string[]; skipped: string[] }> {
@@ -305,6 +297,7 @@ export async function createUnits(
     const created = list.numbers.filter((n) => !taken.has(n.toLowerCase()));
     const skipped = list.numbers.filter((n) => taken.has(n.toLowerCase()));
     if (created.length) {
+      await assertUnitRoom(tx, actor, created.length);
       await tx.unit.createMany({
         data: created.map((unitNumber) => ({
           buildingId: data.buildingId,
@@ -336,7 +329,7 @@ export async function createUnits(
   });
 }
 
-export async function updateUnit(actor: AuditActor, id: string, input: unknown, meta: RequestMeta) {
+export async function updateUnit(actor: Actor, id: string, input: unknown, meta: RequestMeta) {
   assertCan(actor, "property.manage");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that unit.");
   const data = parseInput(unitSchema, input);
@@ -375,7 +368,7 @@ export async function updateUnit(actor: AuditActor, id: string, input: unknown, 
 
 /** Set or clear (null) the unit's reminder override. */
 export async function setUnitReminderOverride(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   input: unknown,
   meta: RequestMeta,
@@ -383,6 +376,8 @@ export async function setUnitReminderOverride(
   assertCan(actor, "property.manage");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that unit.");
   const { reminderConfig } = parseInput(unitReminderSchema, input);
+  // Going back to the standard lead times (null) is allowed on every plan.
+  if (reminderConfig) assertFeature(actor, "customReminders");
   const before = await db.unit.findUnique({ where: { id } });
   if (!before) throw new NotFoundError("We couldn't find that unit.");
   const result = await db.$transaction(async (tx) => {
@@ -415,13 +410,14 @@ export async function setUnitReminderOverride(
 
 /** Archive a unit. Blocked while it has a current or upcoming lease. */
 export async function setUnitArchived(
-  actor: AuditActor,
+  actor: Actor,
   id: string,
   archived: boolean,
   meta: RequestMeta,
   now = new Date(),
 ) {
-  assertCan(actor, "property.manage");
+  // Archiving stays possible while read-only: it is how an account gets back within its limit.
+  assertCan(actor, "property.manage", { duringReadOnly: archived });
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that unit.");
   const before = await db.unit.findUnique({
     where: { id },
@@ -453,6 +449,7 @@ export async function setUnitArchived(
   }
   try {
     return await db.$transaction(async (tx) => {
+      if (!archived) await assertUnitRoom(tx, actor);
       const u = await tx.unit.update({
         where: { id },
         data: { archivedAt: archived ? new Date() : null, updatedById: actor.id },

@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/app/empty-state";
+import { LockedFeature } from "@/components/app/locked-feature";
 import { ReasonDialog } from "@/components/app/reason-dialog";
 import { FormAlert } from "@/components/form/form-alert";
 import { Badge } from "@/components/ui/badge";
@@ -40,11 +41,14 @@ export function DocumentsPanel({
   target,
   documents,
   canUpload,
+  uploadLocked = false,
   showLease = false,
 }: {
   target: { leaseId: string } | { tenantId: string };
   documents: DocumentItem[];
   canUpload: boolean;
+  /** Shown instead of the upload form when the plan doesn't include document storage. */
+  uploadLocked?: boolean;
   showLease?: boolean;
 }) {
   const router = useRouter();
@@ -165,6 +169,8 @@ export function DocumentsPanel({
             </Button>
           </CardContent>
         </Card>
+      ) : uploadLocked ? (
+        <LockedFeature feature="documents" />
       ) : null}
 
       {documents.length ? (

@@ -1,8 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import type { Permission } from "@/domain/auth/roles";
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 
@@ -24,7 +23,7 @@ export interface HistoryEntry {
 
 /** The audit trail for one record, for its History tab. IP addresses are left out here. */
 export async function getEntityHistory(
-  actor: AuditActor,
+  actor: Actor,
   entityType: string,
   entityId: string,
 ): Promise<HistoryEntry[]> {

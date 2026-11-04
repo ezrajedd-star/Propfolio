@@ -53,3 +53,8 @@ export const manualPaymentSchema = z.object({
 export const suspendAccountSchema = z.object({
   reason: requiredText(500, "Say why the account is being suspended."),
 });
+
+export const changePlanSchema = z.object({
+  plan: z.enum(["FREE", "PRO", "PREMIUM"], { error: "Choose a plan." }),
+  reason: requiredText(500, "Say why the plan is being changed."),
+});

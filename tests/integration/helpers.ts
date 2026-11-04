@@ -4,6 +4,7 @@ import type { Actor } from "@/server/auth/authorize";
 import { hashPassword } from "@/server/auth/password";
 import { asSystem, db, setTestScope } from "@/server/db";
 import { logOutbox } from "@/server/mail/transport";
+import { loadPlanAccess } from "@/server/plans/access";
 import type { RequestMeta } from "@/server/request-meta";
 
 export const meta: RequestMeta = { ipAddress: "203.0.113.10", userAgent: "vitest" };
@@ -69,7 +70,19 @@ export async function makeUser(
       },
     }),
   );
-  return { id: user.id, name: user.name, email: user.email, role, accountId };
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role,
+    accountId,
+    access: await loadPlanAccess(accountId),
+  };
+}
+
+/** The same person with their account's plan read again (after a test changes the plan or units). */
+export async function refreshAccess(actor: Actor): Promise<Actor> {
+  return { ...actor, access: await loadPlanAccess(actor.accountId) };
 }
 
 export async function auditActions(entityId?: string): Promise<string[]> {

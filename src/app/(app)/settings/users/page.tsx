@@ -9,7 +9,7 @@ import { UsersTable } from "./users-table";
 export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
-  const actor = await requirePageUser("user.manage");
+  const actor = await requirePageUser("user.manage", { duringReadOnly: true });
   const users = await listUsers(actor);
 
   return (

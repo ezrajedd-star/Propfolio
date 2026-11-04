@@ -7,7 +7,9 @@ non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173
 
 > **Public launch:** Propfolio is becoming a self-serve subscription product for many lessors
 > (brief: [docs/brief-public-launch.md](docs/brief-public-launch.md)). **Launch phase 1 is done:**
-> separate customer accounts and the platform-admin area. See [Accounts](#accounts).
+> separate customer accounts and the platform-admin area. See [Accounts](#accounts). **Launch
+> phases 2 and 3 are done:** security hardening, and plans, limits and the trial (see
+> [Plans](#plans)).
 >
 > **Original build:** Phases 1–6 of 7 are complete: sign-in, roles, users, audit log, design system;
 > buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; the
@@ -129,7 +131,7 @@ database** on every run, so never point them at real data.
 - **argon2id** password hashing; server-side sessions (see [decisions](docs/decisions.md))
 - **Nodemailer + React Email** for email templates
 - **pg-boss** worker for scheduled jobs (no Redis needed): lease status sync at 00:05,
-  housekeeping at 03:15 and the reminder email at 06:00 Manila time
+  housekeeping at 03:15, the reminder email at 06:00 and trial reminders at 09:00 Manila time
 - **Vitest** (unit + integration) and **Playwright** (end-to-end)
 - Docker Compose: web, worker, Postgres, Mailpit
 
@@ -277,11 +279,23 @@ privacy notice (which names the lessor and its address) are per account. Tests i
 `tests/integration/accounts.test.ts` and `e2e/accounts.spec.ts` try every service, page and API
 address with another account's ids.
 
+### Plans
+
+Free (₱0, 3 units, 1 user), Pro (₱1,500 a month, 50 units, 1 user) and Premium (₱3,500 a month,
+200 units, 5 users). Prices, limits and the 30-day trial live in one place,
+`src/domain/plans/plans.ts`. The server checks the plan together with the role on every page,
+action and API route. Locked features stay in the menu with a lock and "Available on Pro/Premium".
+When a trial or paid period ends nothing is deleted: the account moves to Free, becomes
+read-only if it has more than 3 units (looking, exporting and privacy tools still work), and
+extra people's sign-ins are paused. Each person sees their plan at **Plan** (user menu). The
+worker emails the Owner and Admins 7 days and 1 day before a trial ends. Details:
+[decisions §26](docs/decisions.md#26-plans-limits-and-the-trial-public-launch-phase-3).
+
 ### Platform admin (Propfolio staff)
 
 `/platform` is Propfolio's back office: list accounts (plan, trial end, paid until, status,
-people and units — never tenant records), extend a trial, record a bank-transfer payment, and
-suspend or reactivate an account. It has its own sign-in with **two steps** (password + a code
+people and units — never tenant records), change an account's plan, extend a trial, record a
+bank-transfer payment, and suspend or reactivate an account. It has its own sign-in with **two steps** (password + a code
 from an authenticator app), sessions of at most 8 hours, and every action is in the audit log.
 
 Add yourself (or start again after losing your phone) on the server:
@@ -414,8 +428,8 @@ Public launch ([brief](docs/brief-public-launch.md)):
 | 0. Inspect and plan           | Stack, data, plan, conflicts, questions                                           | ✅ Done |
 | 1. Separate customer accounts | Accounts, memberships, Owner, two-lock separation, per-account settings, platform | ✅ Done |
 | 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | ✅ Done |
-| 3. Plans, limits, trial       | (moved before sign-up)                                                            | Next    |
-| 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  |         |
+| 3. Plans, limits, trial       | Free/Pro/Premium limits, locked features, read-only, 30-day trial and reminders   | ✅ Done |
+| 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  | Next    |
 | 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        |         |
 | 6. Teams                      | Invitations, seats, ownership transfer                                            |         |
 | 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    |         |

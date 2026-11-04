@@ -18,8 +18,8 @@ import { formatDate, formatDateTime, formatIsoDate } from "@/domain/time/manila"
 import { NotFoundError } from "@/server/errors";
 import { getAccountDetail } from "@/server/platform/accounts";
 import { requirePlatformPage } from "@/server/platform/current";
-import { AccountStatusBadge, planLabel } from "../../account-badges";
-import { ExtendTrialForm, ManualPaymentForm, SuspendButton } from "./account-forms";
+import { AccountStatusBadge, PLAN_LABELS, planLabel } from "../../account-badges";
+import { ChangePlanForm, ExtendTrialForm, ManualPaymentForm, SuspendButton } from "./account-forms";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -28,6 +28,7 @@ const ACTION_LABELS: Record<string, string> = {
   "platform.manual_payment": "Payment recorded",
   "platform.account_suspended": "Account suspended",
   "platform.account_reactivated": "Account reactivated",
+  "platform.plan_changed": "Plan changed",
 };
 
 export default async function PlatformAccountPage({ params }: { params: Promise<{ id: string }> }) {
@@ -64,7 +65,8 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
                       },
                     ]
                   : []),
-                { label: "Plan", value: planLabel(account) },
+                { label: "Plan now", value: planLabel(account) },
+                { label: "Plan chosen", value: PLAN_LABELS[account.plan] },
                 {
                   label: "Trial ends",
                   value: account.trialEndsOn ? formatIsoDate(account.trialEndsOn) : "No trial",
@@ -79,13 +81,27 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
                   label: "Owner",
                   value: account.owner ? `${account.owner.name} (${account.owner.email})` : "—",
                 },
-                { label: "People", value: `${account.activeUsers} active` },
+                {
+                  label: "People",
+                  value:
+                    account.activeUsers > account.userLimit
+                      ? `${account.activeUsers} active: over the plan's ${account.userLimit}, so the ${account.activeUsers - account.userLimit} newest can't sign in`
+                      : `${account.activeUsers} active of ${account.userLimit}`,
+                },
                 { label: "Units", value: String(account.units) },
               ]}
             />
           </CardContent>
         </Card>
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change plan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChangePlanForm accountId={account.id} current={account.plan} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Extend the free trial</CardTitle>

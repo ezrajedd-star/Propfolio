@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BackLink } from "@/components/app/back-link";
 import { DetailList } from "@/components/app/detail-list";
 import { DocumentsPanel } from "@/components/app/documents-panel";
+import { LockedFeature } from "@/components/app/locked-feature";
 import { LeaseStatusBadge } from "@/components/app/lease-badges";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { formatPeso } from "@/domain/money/money";
 import { formatDateTime, formatIsoDate, manilaToday } from "@/domain/time/manila";
 import { cn } from "@/lib/utils";
 import { getEntityHistory } from "@/server/audit-log/entity-history";
+import { canDo } from "@/server/auth/authorize";
 import { requirePageUser } from "@/server/auth/current";
 import { assertIdOrNotFound, orNotFound } from "@/server/pages";
 import { getLeaseLedger } from "@/server/billing/payments";
@@ -55,7 +57,8 @@ export default async function LeasePage({
       getLease(actor, id),
       getEntityHistory(actor, "Lease", id),
       getLeaseReminderView(actor, id),
-      getLeaseLedger(actor, id),
+      // Payments are a Pro feature: on Free the tab explains what upgrading adds.
+      canDo(actor, "payment.view") ? getLeaseLedger(actor, id) : null,
       listDocuments(actor, { leaseId: id }),
     ]),
   );
@@ -272,7 +275,11 @@ export default async function LeasePage({
           {
             value: "payments",
             label: "Payments",
-            content: <PaymentsTab leaseId={lease.id} ledger={ledger} today={today} />,
+            content: ledger ? (
+              <PaymentsTab leaseId={lease.id} ledger={ledger} today={today} />
+            ) : (
+              <LockedFeature feature="payments" />
+            ),
           },
           {
             value: "documents",
@@ -281,6 +288,7 @@ export default async function LeasePage({
               <DocumentsPanel
                 target={{ leaseId: lease.id }}
                 canUpload={documents.canUpload && !lease.archived}
+                uploadLocked={documents.uploadLocked}
                 documents={documents.rows.map((d) => ({
                   ...d,
                   uploadedAt: d.uploadedAt.toISOString(),

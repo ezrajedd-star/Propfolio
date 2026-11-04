@@ -21,6 +21,7 @@ x-app-env: &app-env
   STORAGE_DRIVER: local
   STORAGE_DIR: /app/storage
   UAT_MODE: ${UAT_MODE:-true}
+  SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
   # Virus scanning of uploads: "clamav" also needs the clamav service (profile virus-scan) and
   # about 1.5 GB more memory (a 4 GB server).
   UPLOAD_VIRUS_SCAN: ${UPLOAD_VIRUS_SCAN:-off}

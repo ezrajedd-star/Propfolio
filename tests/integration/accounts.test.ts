@@ -1,3 +1,4 @@
+import { loadPlanAccess } from "@/server/plans/access";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { REPORT_IDS } from "@/domain/reports/definitions";
@@ -681,7 +682,14 @@ describe("background jobs run per account", () => {
         const unit = await db.unit.findFirstOrThrow({ where: { unitNumber: "102" } });
         const tenant = await db.tenant.findFirstOrThrow();
         await createLease(
-          { id: staff.userId, name: "x", role: "LEASING_STAFF" },
+          {
+            id: staff.userId,
+            name: "x",
+            email: "x@example.test",
+            role: "LEASING_STAFF",
+            accountId: acc,
+            access: await loadPlanAccess(acc),
+          },
           {
             unitId: unit.id,
             tenantId: tenant.id,

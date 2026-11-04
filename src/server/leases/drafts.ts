@@ -1,8 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import type { AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { asSystem, currentAccountId, db } from "@/server/db";
 import { ValidationError } from "@/server/errors";
 
@@ -20,7 +19,7 @@ const MAX_DRAFT_BYTES = 20_000;
 export const DRAFT_MAX_AGE_DAYS = 30;
 
 export async function getLeaseDraft(
-  actor: AuditActor,
+  actor: Actor,
 ): Promise<(LeaseDraftData & { updatedAt: Date }) | null> {
   assertCan(actor, "lease.edit");
   const row = await db.leaseDraft.findUnique({
@@ -31,7 +30,7 @@ export async function getLeaseDraft(
   return parsed.success ? { ...parsed.data, updatedAt: row.updatedAt } : null;
 }
 
-export async function saveLeaseDraft(actor: AuditActor, input: unknown): Promise<void> {
+export async function saveLeaseDraft(actor: Actor, input: unknown): Promise<void> {
   assertCan(actor, "lease.edit");
   const parsed = draftSchema.safeParse(input);
   if (!parsed.success || JSON.stringify(parsed.data).length > MAX_DRAFT_BYTES) {
@@ -45,7 +44,7 @@ export async function saveLeaseDraft(actor: AuditActor, input: unknown): Promise
   });
 }
 
-export async function discardLeaseDraft(actor: AuditActor): Promise<void> {
+export async function discardLeaseDraft(actor: Actor): Promise<void> {
   assertCan(actor, "lease.edit");
   await db.leaseDraft.deleteMany({ where: { userId: actor.id } });
 }

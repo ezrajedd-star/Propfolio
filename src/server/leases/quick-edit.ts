@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { maskPersonal, writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { maskPersonal, writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -36,7 +36,7 @@ export type QuickEditValue = string | number | null;
  * another quick edit back to the previous value, and is audited like any change).
  */
 export async function quickEditLease(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   input: unknown,
   meta: RequestMeta,

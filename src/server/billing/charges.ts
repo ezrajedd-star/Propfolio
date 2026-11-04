@@ -13,8 +13,8 @@ import { fromDbDate, toDbDate, type IsoDate } from "@/domain/time/calendar-date"
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
 import { isoDateSchema, moneySchema, requiredText } from "@/schemas/common-fields";
 import { updateLeaseSchema } from "@/schemas/lease";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { assertCan, type Actor } from "@/server/auth/authorize";
 import { db, type DbClient } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -89,7 +89,7 @@ export function rentTermsOf(l: LeaseTermsRow): RentTerms {
  */
 export async function syncLeaseCharges(
   leaseId: string,
-  actor: AuditActor | null,
+  actor: Actor | null,
   now = new Date(),
   reason = "Lease terms changed",
 ) {
@@ -176,7 +176,7 @@ export interface ChargeChangePreview {
 
 /** What would happen to the charges if the lease were saved with these terms (edit confirmation). */
 export async function previewChargeChanges(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   input: unknown,
   now = new Date(),
@@ -222,7 +222,7 @@ const otherChargeSchema = z.object({
 
 /** Add a one-off charge (parking, utilities, repairs…). */
 export async function addOtherCharge(
-  actor: AuditActor,
+  actor: Actor,
   leaseId: string,
   input: unknown,
   meta: RequestMeta,
@@ -261,7 +261,7 @@ export async function addOtherCharge(
 
 /** Void a charge (with a reason). Charges with payments against them must have those payments voided first. */
 export async function voidCharge(
-  actor: AuditActor,
+  actor: Actor,
   chargeId: string,
   input: unknown,
   meta: RequestMeta,

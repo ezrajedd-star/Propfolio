@@ -5,6 +5,7 @@ import { isAdminRole, type Role } from "@/domain/auth/roles";
 import { createUserSchema, updateUserSchema } from "@/schemas/user";
 import { diffFields, writeAudit } from "@/server/audit";
 import { assertCan, type Actor } from "@/server/auth/authorize";
+import { assertUserRoom } from "@/server/plans/access";
 import { hashPassword } from "@/server/auth/password";
 import { revokeUserSessions } from "@/server/auth/session";
 import { temporaryPassword } from "@/server/auth/tokens";
@@ -64,7 +65,7 @@ function toView(m: MemberWithUser, now: Date): UserView {
 
 /** People in the current account (only memberships of this account are visible). */
 export async function listUsers(actor: Actor, now = new Date()): Promise<UserView[]> {
-  assertCan(actor, "user.manage");
+  assertCan(actor, "user.manage", { duringReadOnly: true }); // viewing is fine while read-only
   const members = await db.membership.findMany({
     include: { user: true },
     orderBy: [{ isActive: "desc" }, { user: { name: "asc" } }],
@@ -73,7 +74,7 @@ export async function listUsers(actor: Actor, now = new Date()): Promise<UserVie
 }
 
 export async function getUser(actor: Actor, id: string, now = new Date()): Promise<UserView> {
-  assertCan(actor, "user.manage");
+  assertCan(actor, "user.manage", { duringReadOnly: true }); // viewing is fine while read-only
   return toView(await findMember(db, id), now);
 }
 
@@ -111,6 +112,7 @@ export async function createUser(
   try {
     const member = await asSystem(() =>
       db.$transaction(async (tx) => {
+        await assertUserRoom(tx, actor);
         const user = await tx.user.create({
           data: {
             name: data.name,
@@ -267,6 +269,7 @@ export async function setUserActive(
   const member = await db.$transaction(async (tx) => {
     const before = await findMember(tx, id);
     if (before.isActive === active) return before;
+    if (active) await assertUserRoom(tx, actor);
     if (!active) {
       if (before.userId === actor.id) {
         throw new ValidationError("You can't turn off your own account.");

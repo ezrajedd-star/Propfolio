@@ -11,7 +11,8 @@ import {
   TwoStepSetupRequiredError,
   UnauthenticatedError,
 } from "@/server/errors";
-import type { Actor } from "./authorize";
+import { planDenial } from "@/domain/plans/plans";
+import { planLimitError, type Actor, type CanOptions } from "./authorize";
 import { validateSessionToken, type ValidSession } from "./session";
 
 /**
@@ -93,13 +94,13 @@ setRequestAccountResolver(async () => {
 });
 
 function toActor(s: ValidSession): Actor {
-  return { ...s.user, accountId: s.accountId, sessionId: s.sessionId };
+  return { ...s.user, accountId: s.accountId, access: s.access, sessionId: s.sessionId };
 }
 
 /** The two-step set-up page and its actions are the only things allowed before set-up. */
 export const TWO_STEP_SETUP_PATH = "/setup-two-step";
 
-interface Options {
+interface Options extends CanOptions {
   /** Allow Owners and Admins who still have to set up two-step sign-in. */
   duringTwoStepSetup?: boolean;
 }
@@ -119,6 +120,12 @@ export async function requirePageUser(
     redirect(TWO_STEP_SETUP_PATH);
   }
   if (permission && !can(session.user.role, permission)) redirect("/no-access");
+  if (permission) {
+    // The role allows it but the plan doesn't: show what upgrading would unlock.
+    const denial = planDenial(session.access, permission, options);
+    if (denial?.reason === "feature") redirect(`/plan/locked?feature=${denial.feature}`);
+    if (denial?.reason === "readOnly") redirect("/plan/locked?reason=read-only");
+  }
   return toActor(session);
 }
 
@@ -131,5 +138,9 @@ export async function requireActor(permission?: Permission, options: Options = {
     throw new TwoStepSetupRequiredError();
   }
   if (permission && !can(session.user.role, permission)) throw new ForbiddenError();
+  if (permission) {
+    const planError = planLimitError(session.access, permission, options);
+    if (planError) throw planError;
+  }
   return toActor(session);
 }

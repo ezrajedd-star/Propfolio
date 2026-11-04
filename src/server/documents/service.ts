@@ -3,15 +3,16 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DocumentCategory } from "@prisma/client";
 import { z } from "zod";
 
-import { can } from "@/domain/auth/roles";
 import {
   cleanFileName,
   detectDocumentType,
   DOCUMENT_TYPES,
   MAX_DOCUMENT_BYTES,
 } from "@/domain/documents/file-type";
-import { writeAudit, type AuditActor } from "@/server/audit";
-import { assertCan } from "@/server/auth/authorize";
+import { writeAudit } from "@/server/audit";
+import { can } from "@/domain/auth/roles";
+import { planIncludes } from "@/domain/plans/plans";
+import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db } from "@/server/db";
 import { isUuid } from "@/server/db-errors";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -43,7 +44,7 @@ export interface UploadedFile {
 
 /** Upload a document to a lease (it also shows on the tenant) or to a tenant only. */
 export async function uploadDocument(
-  actor: AuditActor,
+  actor: Actor,
   input: unknown,
   file: UploadedFile | null,
   meta: RequestMeta,
@@ -170,10 +171,10 @@ export interface DocumentRow {
 
 /** Documents of a lease, or all documents of a tenant (including those on their leases). */
 export async function listDocuments(
-  actor: AuditActor,
+  actor: Actor,
   where: { leaseId: string } | { tenantId: string },
   opts: { includeArchived?: boolean } = {},
-): Promise<{ rows: DocumentRow[]; canUpload: boolean }> {
+): Promise<{ rows: DocumentRow[]; canUpload: boolean; uploadLocked: boolean }> {
   assertCan(actor, "document.view");
   const id = "leaseId" in where ? where.leaseId : where.tenantId;
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that record.");
@@ -190,7 +191,10 @@ export async function listDocuments(
   const userName = new Map(users.map((u) => [u.id, u.name]));
   const refNo = new Map(leases.map((l) => [l.id, l.refNo]));
   return {
-    canUpload: can(actor.role, "document.upload"),
+    canUpload: canDo(actor, "document.upload"),
+    // The role may upload but the plan doesn't include document storage (Premium).
+    uploadLocked:
+      can(actor.role, "document.upload") && !planIncludes(actor.access.plan, "documents"),
     rows: docs.map((d) => ({
       id: d.id,
       category: d.category,
@@ -213,7 +217,7 @@ export async function listDocuments(
  * download goes through here.
  */
 export async function documentLink(
-  actor: AuditActor,
+  actor: Actor,
   documentId: string,
   meta: RequestMeta,
   now = new Date(),
@@ -246,7 +250,7 @@ export async function fileByKey(key: string) {
 
 /** Archive a document uploaded by mistake (it stays on record; Admins can still see it). */
 export async function archiveDocument(
-  actor: AuditActor,
+  actor: Actor,
   documentId: string,
   input: unknown,
   meta: RequestMeta,

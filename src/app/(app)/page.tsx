@@ -191,17 +191,19 @@ export default async function HomePage() {
               value={String(dash.leases.expiredNotRenewed)}
               tone="danger"
             />
-            <SummaryCard
-              href="/payments#overdue"
-              icon={Wallet}
-              label={
-                dash.leases.overdueLeases
-                  ? `Total overdue (${dash.leases.overdueLeases} lease${dash.leases.overdueLeases === 1 ? "" : "s"})`
-                  : "Total overdue"
-              }
-              value={formatPeso(dash.leases.overdueTotal)}
-              tone={Number(dash.leases.overdueTotal) > 0 ? "danger" : "success"}
-            />
+            {dash.leases.overdueTotal !== null ? (
+              <SummaryCard
+                href="/payments#overdue"
+                icon={Wallet}
+                label={
+                  dash.leases.overdueLeases
+                    ? `Total overdue (${dash.leases.overdueLeases} lease${dash.leases.overdueLeases === 1 ? "" : "s"})`
+                    : "Total overdue"
+                }
+                value={formatPeso(dash.leases.overdueTotal)}
+                tone={Number(dash.leases.overdueTotal) > 0 ? "danger" : "success"}
+              />
+            ) : null}
           </section>
         </>
       ) : null}

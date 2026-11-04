@@ -1,3 +1,4 @@
+import { loadPlanAccess } from "@/server/plans/access";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { fromDbDate } from "@/domain/time/calendar-date";
@@ -10,7 +11,15 @@ import { sendDailyDigest } from "@/server/reminders/digest-job";
 import { markReminderHandled, unmarkReminderHandled } from "@/server/reminders/handled";
 import { syncReminders } from "@/server/reminders/sync";
 import { updateSettings } from "@/server/settings/service";
-import { makeProperty, makeTenant, makeUser, meta, resetDb, terms } from "./helpers";
+import {
+  TEST_ACCOUNT_ID,
+  makeProperty,
+  makeTenant,
+  makeUser,
+  meta,
+  resetDb,
+  terms,
+} from "./helpers";
 
 beforeEach(resetDb);
 
@@ -181,7 +190,14 @@ describe("reminder schedule records", () => {
     });
     await expect(
       markReminderHandled(
-        { id: viewer.userId, name: viewer.user.name, role: "VIEWER" },
+        {
+          id: viewer.userId,
+          name: viewer.user.name,
+          email: viewer.user.email,
+          role: "VIEWER",
+          accountId: TEST_ACCOUNT_ID,
+          access: await loadPlanAccess(TEST_ACCOUNT_ID),
+        },
         lease.id,
         {},
         meta,

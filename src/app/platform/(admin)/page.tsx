@@ -80,7 +80,12 @@ export default async function PlatformAccountsPage({
                     <AccountStatusBadge status={a.status} />
                   </TableCell>
                   <TableCell>{a.paidUntil ? formatIsoDate(a.paidUntil) : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.activeUsers}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {a.activeUsers}
+                    {a.activeUsers > a.userLimit ? (
+                      <span className="text-danger block text-sm">over limit of {a.userLimit}</span>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{a.units}</TableCell>
                   <TableCell>{formatDate(a.createdAt)}</TableCell>
                 </TableRow>
