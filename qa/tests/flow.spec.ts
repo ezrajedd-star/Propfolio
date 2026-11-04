@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 
-import { hasCredentials, manilaToday, QA_LABEL, signIn, watchForErrors } from "./helpers";
+import {
+  archiveQaLease,
+  hasCredentials,
+  manilaToday,
+  QA_LABEL,
+  signIn,
+  watchForErrors,
+} from "./helpers";
 
 /**
  * One full working day, end to end. It CREATES data, all labelled "QA Robot":
@@ -63,50 +70,46 @@ test.describe("@flow a lease from start to finish", () => {
     await expect(page.getByRole("heading", { level: 1, name: tenantName })).toBeVisible();
     const leaseUrl = page.url();
 
-    // Charges were made; the lease is overdue.
-    await page.getByRole("tab", { name: "Payments" }).click();
-    await expect(page.getByText("Overdue").first()).toBeVisible();
+    // From here on, archive the lease and tenant even if a step fails, so nothing is left behind.
+    try {
+      // Charges were made; the lease is overdue.
+      await page.getByRole("tab", { name: "Payments" }).click();
+      await expect(page.getByText("Overdue").first()).toBeVisible();
 
-    // Record a payment.
-    await page.getByRole("link", { name: "Record payment" }).first().click();
-    await page.getByLabel("Amount received", { exact: true }).fill("12,345");
-    await page.getByLabel("Reference", { exact: true }).fill(`QA-${stamp}`);
-    await page.getByRole("button", { name: "Record payment" }).click();
-    await expect(page.getByText("Acknowledgement — not an official receipt")).toBeVisible();
+      // Record a payment.
+      await page.getByRole("link", { name: "Record payment" }).first().click();
+      await page.getByLabel("Amount received", { exact: true }).fill("12,345");
+      await page.getByLabel("Reference", { exact: true }).fill(`QA-${stamp}`);
+      await page.getByRole("button", { name: "Record payment" }).click();
+      await expect(page.getByText("Acknowledgement — not an official receipt")).toBeVisible();
 
-    // Void it.
-    await page.getByRole("button", { name: "Void payment" }).click();
-    await page.getByRole("dialog").getByLabel("Reason").fill("Automated QA check");
-    await page.getByRole("dialog").getByRole("button", { name: "Void payment" }).click();
-    await expect(page.getByText(/voided/i).first()).toBeVisible();
+      // Void it.
+      await page.getByRole("button", { name: "Void payment" }).click();
+      await page.getByRole("dialog").getByLabel("Reason").fill("Automated QA check");
+      await page.getByRole("dialog").getByRole("button", { name: "Void payment" }).click();
+      await expect(page.getByText(/voided/i).first()).toBeVisible();
 
-    // Upload, open and remove a document.
-    await page.goto(leaseUrl);
-    await page.getByRole("tab", { name: "Documents" }).click();
-    await page.locator("#doc-file").setInputFiles({
-      name: "QA check.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.7\n1 0 obj << >> endobj\n%%EOF"),
-    });
-    await page.getByRole("button", { name: "Upload document" }).click();
-    await expect(page.getByText("Document uploaded ✓")).toBeVisible();
-    const href = await page.getByRole("link", { name: "Open QA check.pdf" }).getAttribute("href");
-    const file = await page.request.get(href!);
-    expect(file.status()).toBe(200);
-    expect(file.headers()["content-type"]).toBe("application/pdf");
-    await page.getByRole("button", { name: "Remove QA check.pdf" }).click();
-    await page.getByRole("dialog").getByLabel("Reason").fill("Automated QA check");
-    await page.getByRole("dialog").getByRole("button", { name: "Remove document" }).click();
-    await expect(page.getByText("Document removed")).toBeVisible();
-
-    // Clean up: archive the lease, then the tenant.
-    await page.goto(leaseUrl);
-    await page.getByRole("button", { name: "More" }).click();
-    await page.getByRole("menuitem", { name: "Archive" }).click();
-    await expect(page.getByText("Archived").first()).toBeVisible();
-    await page.getByRole("link", { name: tenantName }).first().click();
-    await page.getByRole("button", { name: "Archive" }).click();
-    await expect(page.getByText("Tenant archived")).toBeVisible();
+      // Upload, open and remove a document.
+      await page.goto(leaseUrl);
+      await page.getByRole("tab", { name: "Documents" }).click();
+      await page.locator("#doc-file").setInputFiles({
+        name: "QA check.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.7\n1 0 obj << >> endobj\n%%EOF"),
+      });
+      await page.getByRole("button", { name: "Upload document" }).click();
+      await expect(page.getByText("Document uploaded ✓")).toBeVisible();
+      const href = await page.getByRole("link", { name: "Open QA check.pdf" }).getAttribute("href");
+      const file = await page.request.get(href!);
+      expect(file.status()).toBe(200);
+      expect(file.headers()["content-type"]).toBe("application/pdf");
+      await page.getByRole("button", { name: "Remove QA check.pdf" }).click();
+      await page.getByRole("dialog").getByLabel("Reason").fill("Automated QA check");
+      await page.getByRole("dialog").getByRole("button", { name: "Remove document" }).click();
+      await expect(page.getByText("Document removed")).toBeVisible();
+    } finally {
+      await archiveQaLease(page, leaseUrl, tenantName);
+    }
 
     expect(problems).toEqual([]);
   });

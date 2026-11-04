@@ -103,7 +103,9 @@ export async function signIn(page: Page) {
   }
   // The welcome tour may appear for a new QA account; finish it so it doesn't cover the page.
   const skip = page.getByRole("button", { name: "Skip tour" });
-  if (await skip.isVisible({ timeout: 1500 }).catch(() => false)) await skip.click();
+  // The auto-skip handler (skipToursAutomatically) may already have closed it; don't wait for it.
+  if (await skip.isVisible({ timeout: 1500 }).catch(() => false))
+    await skip.click({ timeout: 3000 }).catch(() => undefined);
 }
 
 /** Fail on server errors and on uncaught errors in the browser. */
@@ -186,7 +188,9 @@ export async function signInWith(page: Page, account: { email: string; password:
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20_000 });
   const skip = page.getByRole("button", { name: "Skip tour" });
-  if (await skip.isVisible({ timeout: 1500 }).catch(() => false)) await skip.click();
+  // The auto-skip handler (skipToursAutomatically) may already have closed it; don't wait for it.
+  if (await skip.isVisible({ timeout: 1500 }).catch(() => false))
+    await skip.click({ timeout: 3000 }).catch(() => undefined);
 }
 
 export async function turnOffAccounts(admin: Page, accounts: QaAccount[]) {

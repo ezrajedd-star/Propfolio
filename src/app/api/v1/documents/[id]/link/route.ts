@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireActor } from "@/server/auth/current";
+import { env } from "@/server/env";
 import { documentLink } from "@/server/documents/service";
 import { apiRoute } from "@/server/http";
 import { metaFromHeaders } from "@/server/request-meta";
@@ -12,7 +13,9 @@ export const GET = apiRoute<{ id: string }>(async (req, { params }) => {
   const actor = await requireActor("document.view");
   const { id } = await params;
   const url = await documentLink(actor, id, metaFromHeaders(req.headers));
-  return NextResponse.redirect(new URL(url, req.nextUrl.origin), {
+  // Behind the reverse proxy the request's own origin is the internal address (0.0.0.0:3000),
+  // so the redirect is built from the public APP_URL.
+  return NextResponse.redirect(new URL(url, env().APP_URL), {
     status: 303,
     headers: { "Cache-Control": "no-store" },
   });
