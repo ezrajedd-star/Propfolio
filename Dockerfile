@@ -4,7 +4,10 @@
 
 FROM node:26.13.0-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1 CHECKPOINT_DISABLE=1
-RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+# Node 25+ no longer ships Corepack, so pnpm is installed with npm, pinned to package.json's
+# "packageManager" version.
+RUN npm install -g pnpm@10.28.0 && apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
