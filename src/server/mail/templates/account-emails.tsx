@@ -92,3 +92,27 @@ export function TrialEndingEmail({
     </EmailLayout>
   );
 }
+
+export function SignUpCodeEmail({
+  name,
+  code,
+  validMinutes,
+}: {
+  name: string;
+  code: string;
+  validMinutes: number;
+}) {
+  return (
+    <EmailLayout preview={`Your Propfolio code is ${code}`} companyName="Propfolio">
+      <Text style={textStyle}>Hi {name},</Text>
+      <Text style={textStyle}>Type this code on the sign-up screen to confirm your email:</Text>
+      <Text style={{ ...textStyle, fontSize: 32, letterSpacing: 6, fontWeight: 700 }}>
+        {code.slice(0, 3)} {code.slice(3)}
+      </Text>
+      <Text style={textStyle}>
+        It works for {validMinutes} minutes. If you didn&apos;t try to sign up for Propfolio, you
+        can ignore this email.
+      </Text>
+    </EmailLayout>
+  );
+}

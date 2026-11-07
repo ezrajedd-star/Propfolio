@@ -8,8 +8,9 @@ non-technical Leasing team, and to meet the **Data Privacy Act of 2012 (RA 10173
 > **Public launch:** Propfolio is becoming a self-serve subscription product for many lessors
 > (brief: [docs/brief-public-launch.md](docs/brief-public-launch.md)). **Launch phase 1 is done:**
 > separate customer accounts and the platform-admin area. See [Accounts](#accounts). **Launch
-> phases 2 and 3 are done:** security hardening, and plans, limits and the trial (see
-> [Plans](#plans)).
+> phases 2 to 4 are done:** security hardening; plans, limits and the trial (see
+> [Plans](#plans)); and self-serve sign-up with Google, onboarding and Excel import (see
+> [Sign-up](#sign-up)).
 >
 > **Original build:** Phases 1–6 of 7 are complete: sign-in, roles, users, audit log, design system;
 > buildings, units, tenants, the lease wizard, renewal, termination and calculated statuses; the
@@ -291,6 +292,20 @@ extra people's sign-ins are paused. Each person sees their plan at **Plan** (use
 worker emails the Owner and Admins 7 days and 1 day before a trial ends. Details:
 [decisions §26](docs/decisions.md#26-plans-limits-and-the-trial-public-launch-phase-3).
 
+### Sign-up
+
+Anyone can **Start free** at `/signup`: name, email, password, the name they lease under and one
+checkbox (Terms, Privacy Policy, DPA), then a 6-digit code from their email on the same screen.
+They land in the app as the account's **Owner**, with the 30-day Premium trial running and a
+"Getting started" list (first building, Excel import or units, a lease, its first reminder,
+two-step sign-in). **Continue with Google** appears once `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are set (Google Cloud Console → Credentials → OAuth client ID, type Web
+application, redirect URI `<APP_URL>/api/auth/google/callback`). The **bot check** (Cloudflare
+Turnstile) switches on with `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. Settings → **Import
+from Excel** adds buildings, units, tenants and leases from a template, all or nothing. The
+platform admin's Accounts page shows the sign-up funnel. Details:
+[decisions §27](docs/decisions.md#27-self-serve-sign-up-and-onboarding-public-launch-phase-4).
+
 ### Platform admin (Propfolio staff)
 
 `/platform` is Propfolio's back office: list accounts (plan, trial end, paid until, status,
@@ -429,8 +444,8 @@ Public launch ([brief](docs/brief-public-launch.md)):
 | 1. Separate customer accounts | Accounts, memberships, Owner, two-lock separation, per-account settings, platform | ✅ Done |
 | 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | ✅ Done |
 | 3. Plans, limits, trial       | Free/Pro/Premium limits, locked features, read-only, 30-day trial and reminders   | ✅ Done |
-| 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  | Next    |
-| 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        |         |
+| 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  | ✅ Done |
+| 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        | Next    |
 | 6. Teams                      | Invitations, seats, ownership transfer                                            |         |
 | 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    |         |
 | 8. Launch readiness           | Checklist                                                                         |         |

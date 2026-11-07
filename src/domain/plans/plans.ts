@@ -278,3 +278,13 @@ export function trialReminderDue(daysLeft: number, alreadySent: readonly number[
   if (due === undefined || alreadySent.some((s) => s < due)) return null;
   return due;
 }
+
+/** A trial started now ends at the end of the Manila day TRIAL_DAYS from today (that day included). */
+export function trialEndsAtFor(now: Date): Date {
+  const lastDay = new Date(
+    new Date(`${manilaToday(now)}T00:00:00Z`).getTime() + TRIAL_DAYS * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  return new Date(`${lastDay}T23:59:59.999+08:00`);
+}

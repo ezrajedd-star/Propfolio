@@ -54,6 +54,16 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /**
+   * "Continue with Google" (OpenID Connect). Both set: the button appears. Create them in Google
+   * Cloud Console → APIs & Services → Credentials → OAuth client ID (Web application), with
+   * `${APP_URL}/api/auth/google/callback` as the authorised redirect URI.
+   */
+  GOOGLE_CLIENT_ID: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  GOOGLE_CLIENT_SECRET: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  /** Cloudflare Turnstile bot check on the sign-up form. Both set: it is on. */
+  TURNSTILE_SITE_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  TURNSTILE_SECRET_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   /** Where customers write to upgrade until online payment exists, e.g. hello@propfolio.ph. */
   SUPPORT_EMAIL: z.preprocess((v) => (v === "" ? undefined : v), z.email().optional()),
 });

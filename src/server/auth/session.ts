@@ -1,6 +1,13 @@
 import type { Role } from "@/domain/auth/roles";
 import type { PlanAccess } from "@/domain/plans/plans";
-import { checkSession, sessionExpiry, shouldTouch } from "@/domain/auth/session-policy";
+import { isAdminRole } from "@/domain/auth/roles";
+import {
+  checkSession,
+  idleTimeoutApplies,
+  sessionExpiry,
+  shouldTouch,
+} from "@/domain/auth/session-policy";
+import { documentsToAccept, type LegalDocumentName } from "@/domain/legal/documents";
 import { twoStepState, type TwoStepState } from "@/domain/auth/two-step";
 import { asSystem, db } from "@/server/db";
 import { loadPlanAccess, memberWithinUserLimit } from "@/server/plans/access";
@@ -15,6 +22,8 @@ export interface SessionUser {
   mustChangePassword: boolean;
   /** "setup_required": an Owner or Admin who must set up two-step sign-in before anything else. */
   twoStep: TwoStepState;
+  /** Legal documents whose current version they haven't accepted (asked at the next page). */
+  legalToAccept: LegalDocumentName[];
 }
 
 export interface ValidSession {
@@ -33,9 +42,10 @@ export async function createSession(
   accountId: string,
   meta: RequestMeta,
   now = new Date(),
+  persistent = false,
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = randomToken();
-  const expiresAt = sessionExpiry(now);
+  const expiresAt = sessionExpiry(now, persistent);
   await asSystem(() =>
     db.session.create({
       data: {
@@ -45,6 +55,7 @@ export async function createSession(
         createdAt: now,
         lastSeenAt: now,
         expiresAt,
+        persistent,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       },
@@ -97,7 +108,23 @@ export function validateSessionToken(
       );
     }
 
-    if (checkSession(session, now) !== "valid" || !allowed || !membership || !access) {
+    // "Keep me signed in": no idle timeout, except for Owners and Admins while the account's
+    // setting (on by default, for shared computers) says so.
+    const idleTimeout =
+      membership !== null &&
+      idleTimeoutApplies({
+        persistent: session.persistent,
+        isAdmin: isAdminRole(membership.role),
+        adminIdleTimeoutSetting: session.persistent
+          ? await adminIdleTimeoutSetting(session.accountId)
+          : true,
+      });
+    if (
+      checkSession(session, now, { idleTimeout }) !== "valid" ||
+      !allowed ||
+      !membership ||
+      !access
+    ) {
       if (!session.revokedAt) {
         await db.session.update({ where: { id: session.id }, data: { revokedAt: now } });
       }
@@ -109,6 +136,10 @@ export function validateSessionToken(
     }
 
     const { totpConfirmedAt, twoStepGraceUntil, ...user } = session.user;
+    const accepted = await db.legalAcceptance.findMany({
+      where: { userId: session.userId },
+      select: { document: true, version: true },
+    });
     return {
       sessionId: session.id,
       accountId: session.accountId,
@@ -116,6 +147,7 @@ export function validateSessionToken(
       user: {
         ...user,
         role: membership.role,
+        legalToAccept: documentsToAccept(accepted),
         twoStep: twoStepState(
           {
             role: membership.role,
@@ -176,4 +208,13 @@ export async function purgeOldSessions(now = new Date()): Promise<number> {
     }),
   );
   return count;
+}
+
+/** The account's "sign Owners and Admins out after 30 idle minutes" setting (default on). */
+async function adminIdleTimeoutSetting(accountId: string): Promise<boolean> {
+  const row = await db.setting.findUnique({
+    where: { accountId_key: { accountId, key: "adminIdleTimeout" } },
+    select: { value: true },
+  });
+  return row?.value !== false;
 }

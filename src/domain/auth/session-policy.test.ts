@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checkSession, sessionExpiry, shouldTouch } from "./session-policy";
+import { checkSession, idleTimeoutApplies, sessionExpiry, shouldTouch } from "./session-policy";
 
 const now = new Date("2026-10-23T02:00:00Z");
 const ago = (min: number) => new Date(now.getTime() - min * 60_000);
@@ -41,4 +41,32 @@ describe("checkSession", () => {
     expect(shouldTouch(s, now)).toBe(false);
     expect(shouldTouch({ ...s, lastSeenAt: ago(1) }, now)).toBe(true);
   });
+});
+
+describe("keep me signed in", () => {
+  it("lasts 30 days instead of 12 hours", () => {
+    expect(sessionExpiry(now, true).getTime() - now.getTime()).toBe(30 * 86_400_000);
+    expect(sessionExpiry(now).getTime() - now.getTime()).toBe(12 * 3_600_000);
+  });
+
+  it("an idle hour is fine when the idle timeout doesn't apply", () => {
+    const s = { lastSeenAt: ago(60), expiresAt: sessionExpiry(ago(60), true), revokedAt: null };
+    expect(checkSession(s, now, { idleTimeout: false })).toBe("valid");
+    expect(checkSession(s, now, { idleTimeout: true })).toBe("idle");
+  });
+
+  it.each([
+    [false, false, true, true],
+    [false, true, false, true],
+    [true, false, true, false],
+    [true, true, true, true],
+    [true, true, false, false],
+  ])(
+    "persistent %s, admin %s, setting %s → idle timeout %s",
+    (persistent, isAdmin, setting, applies) => {
+      expect(idleTimeoutApplies({ persistent, isAdmin, adminIdleTimeoutSetting: setting })).toBe(
+        applies,
+      );
+    },
+  );
 });

@@ -25,16 +25,8 @@ import { UnauthenticatedError } from "@/server/errors";
 import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
-
-/** Only allow redirects to paths inside this app. */
-function safeNext(next: unknown): string {
-  return typeof next === "string" &&
-    next.startsWith("/") &&
-    !next.startsWith("//") &&
-    !next.startsWith("/\\")
-    ? next
-    : "/";
-}
+import { safeNext } from "@/lib/safe-next";
+import { signInFailureMessage } from "./sign-in-messages";
 
 export async function signInAction(input: unknown, next?: string): Promise<ActionResult> {
   const result = await runAction(async () => {
@@ -45,49 +37,22 @@ export async function signInAction(input: unknown, next?: string): Promise<Actio
       await requestMeta(),
       new Date(),
       await getDeviceToken(),
+      {
+        persistent: data.persistent === true,
+      },
     );
   });
   if (!result.ok) return result;
 
   const r = result.data;
   if (!r.ok) {
-    switch (r.reason) {
-      case "code_needed":
-        await setPendingSignInCookie(r.challengeToken, r.expiresAt);
-        redirect(
-          `/login/code${next && safeNext(next) !== "/" ? `?next=${encodeURIComponent(safeNext(next))}` : ""}`,
-        );
-      case "locked":
-        return {
-          ok: false,
-          message: `This account is locked for 15 minutes after too many wrong passwords. Try again after ${formatTime(r.lockedUntil)}, or ask an Admin to unlock it.`,
-        };
-      case "rate_limited":
-        return {
-          ok: false,
-          message: `Too many sign-in attempts. For your security, please wait ${waitText(r.retryAfterSeconds)} and try again.`,
-        };
-      case "inactive":
-        return { ok: false, message: "This account has been turned off. Please ask an Admin." };
-      case "user_limit":
-        return {
-          ok: false,
-          message:
-            "Your company's plan doesn't include your sign-in right now. Ask your account's Owner to upgrade, then try again.",
-        };
-      case "suspended":
-        return {
-          ok: false,
-          message:
-            "Your company's Propfolio account is paused. Your account's Owner can contact Propfolio to restore it.",
-        };
-      default:
-        return {
-          ok: false,
-          message:
-            "That email and password don't match. Check for typos, or use “Forgot your password?”.",
-        };
+    if (r.reason === "code_needed") {
+      await setPendingSignInCookie(r.challengeToken, r.expiresAt);
+      redirect(
+        `/login/code${next && safeNext(next) !== "/" ? `?next=${encodeURIComponent(safeNext(next))}` : ""}`,
+      );
     }
+    return { ok: false, message: signInFailureMessage(r) };
   }
   await startSession(r);
   redirect(r.mustChangePassword ? "/change-password" : safeNext(next));
@@ -169,7 +134,9 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
     return null;
   });
   if (!result.ok) return result;
-  redirect("/?welcome=password-changed");
+  // New people accept the Terms next; the confirmation goes with them.
+  const pending = (await getCurrentSession())?.user.legalToAccept.length ?? 0;
+  redirect(pending > 0 ? "/accept-terms?welcome=password-changed" : "/?welcome=password-changed");
 }
 
 export async function forgotPasswordAction(input: unknown): Promise<ActionResult> {

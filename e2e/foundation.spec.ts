@@ -54,8 +54,12 @@ test.describe("Phase 1 acceptance", () => {
     await newUser.getByLabel("New password", { exact: true }).fill("my own long password");
     await newUser.getByLabel("Type the new password again").fill("my own long password");
     await newUser.getByRole("button", { name: "Save new password" }).click();
-    await expect(newUser).toHaveURL("/");
+    // Everyone accepts the Terms, Privacy Policy and DPA before using Propfolio.
+    await expect(newUser).toHaveURL(/\/accept-terms/);
     await expect(newUser.getByText("Your new password is saved ✓")).toBeVisible();
+    await newUser.getByLabel(/I accept the/).check();
+    await newUser.getByRole("button", { name: "Accept and continue" }).click();
+    await expect(newUser).toHaveURL("/");
     await context.close();
   });
 

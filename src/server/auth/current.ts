@@ -61,6 +61,48 @@ export async function clearPendingSignInCookie(): Promise<void> {
   (await cookies()).delete(secureName("propfolio_signin"));
 }
 
+/** A sign-up waiting for its code (or a new Google sign-up waiting for its details). */
+export async function setSignUpCookie(token: string, expiresAt: Date): Promise<void> {
+  (await cookies()).set(secureName("propfolio_signup"), token, {
+    httpOnly: true,
+    secure: isSecureDeployment(),
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function getSignUpToken(): Promise<string | undefined> {
+  const value = (await cookies()).get(secureName("propfolio_signup"))?.value;
+  return value && value.length <= 200 ? value : undefined;
+}
+
+export async function clearSignUpCookie(): Promise<void> {
+  (await cookies()).delete(secureName("propfolio_signup"));
+}
+
+/**
+ * While the browser is away at Google: state, nonce and PKCE verifier. SameSite=Lax so it comes
+ * back with Google's top-level redirect; 10 minutes; httpOnly.
+ */
+export async function setGoogleStateCookie(value: string, expiresAt: Date): Promise<void> {
+  (await cookies()).set(secureName("propfolio_google"), value, {
+    httpOnly: true,
+    secure: isSecureDeployment(),
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+/** Read once: the cookie is removed as it is read. */
+export async function takeGoogleStateCookie(): Promise<string | undefined> {
+  const jar = await cookies();
+  const value = jar.get(secureName("propfolio_google"))?.value;
+  jar.delete(secureName("propfolio_google"));
+  return value && value.length <= 2000 ? value : undefined;
+}
+
 /** "Don't ask for a code on this device for 30 days". */
 export async function setDeviceCookie(token: string, expiresAt: Date): Promise<void> {
   (await cookies()).set(secureName("propfolio_device"), token, {
@@ -103,6 +145,8 @@ export const TWO_STEP_SETUP_PATH = "/setup-two-step";
 interface Options extends CanOptions {
   /** Allow Owners and Admins who still have to set up two-step sign-in. */
   duringTwoStepSetup?: boolean;
+  /** The "accept the new version" page itself. */
+  duringLegalAcceptance?: boolean;
 }
 
 /**
@@ -116,6 +160,10 @@ export async function requirePageUser(
   const session = await getCurrentSession();
   if (!session) redirect("/login");
   if (session.user.mustChangePassword) redirect("/change-password");
+  // A new version of the Terms, Privacy Policy or DPA: accept it before anything else.
+  if (session.user.legalToAccept.length > 0 && !options.duringLegalAcceptance) {
+    redirect("/accept-terms");
+  }
   if (session.user.twoStep === "setup_required" && !options.duringTwoStepSetup) {
     redirect(TWO_STEP_SETUP_PATH);
   }

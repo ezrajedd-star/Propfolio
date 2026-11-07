@@ -5,6 +5,7 @@ import { hash } from "@node-rs/argon2";
 
 import { E2E_APP_SECRET, E2E_DATABASE_URL } from "../playwright.config";
 import { TASK_TOUR_IDS } from "../src/domain/guide/content";
+import { currentVersions } from "../src/domain/legal/documents";
 import { encryptSecret } from "../src/server/auth/secrets";
 import { E2E_ACCOUNT_ID, OTHER_ACCOUNT_ID, PASSWORD, PLATFORM_ADMIN, USERS } from "./fixtures";
 
@@ -63,6 +64,11 @@ export default async function globalSetup() {
           key: "guide",
           value: { tourDone: true, on: false, toursDone: [...TASK_TOUR_IDS] },
         },
+      });
+      // They have accepted the current Terms, Privacy Policy and DPA (e2e/signup.spec.ts checks
+      // the "accept the new version" screen on purpose).
+      await db.legalAcceptance.createMany({
+        data: currentVersions().map((v) => ({ userId: user.id, ...v })),
       });
     }
 

@@ -345,3 +345,38 @@ export async function changePlan(
     }),
   );
 }
+
+export interface FunnelCounts {
+  days: number;
+  started: number;
+  verified: number;
+  firstUnit: number;
+  firstLease: number;
+}
+
+/**
+ * The sign-up journey over the last `days` days: how many started, verified their email, added a
+ * unit and added a lease. Counts only: no names or emails.
+ */
+export async function getSignUpFunnel(
+  _admin: PlatformActor,
+  days = 30,
+  now = new Date(),
+): Promise<FunnelCounts> {
+  const since = new Date(now.getTime() - days * 86_400_000);
+  const rows = await asSystem(() =>
+    db.funnelEvent.groupBy({
+      by: ["step"],
+      where: { createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+  );
+  const n = (step: string) => rows.find((r) => r.step === step)?._count._all ?? 0;
+  return {
+    days,
+    started: n("SIGNUP_STARTED"),
+    verified: n("EMAIL_VERIFIED"),
+    firstUnit: n("FIRST_UNIT"),
+    firstLease: n("FIRST_LEASE"),
+  };
+}

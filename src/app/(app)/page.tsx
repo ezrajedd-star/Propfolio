@@ -7,7 +7,6 @@ import {
   FileSpreadsheet,
   RefreshCw,
   Settings2,
-  UsersRound,
   Wallet,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -30,7 +29,6 @@ import { cn } from "@/lib/utils";
 import { requirePageUser } from "@/server/auth/current";
 import { getDashboard } from "@/server/dashboard";
 import { db } from "@/server/db";
-import { getSettings } from "@/server/settings/service";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -95,7 +93,7 @@ export default async function HomePage() {
         title={`${greeting()}, ${firstName}`}
         description={`Today is ${formatDate(new Date())}.`}
       />
-      {isAdminRole(user.role) ? <GettingStarted /> : null}
+      {isAdminRole(user.role) ? <GettingStarted userId={user.id} /> : null}
 
       {dash.leases ? (
         <>
@@ -301,43 +299,57 @@ export default async function HomePage() {
   );
 }
 
-async function GettingStarted() {
-  const [userCount, buildingCount, leaseCount, settings] = await Promise.all([
-    db.user.count(),
+/**
+ * First-run onboarding: building → units (Excel import or by hand) → a lease → its first
+ * reminder → two-step sign-in. Shown to Owners and Admins until every step is done.
+ */
+async function GettingStarted({ userId }: { userId: string }) {
+  const [buildingCount, unitCount, firstLease, reminderCount, me] = await Promise.all([
     db.building.count({ where: { archivedAt: null } }),
-    db.lease.count({ where: { archivedAt: null } }),
-    getSettings(),
+    db.unit.count({ where: { archivedAt: null } }),
+    db.lease.findFirst({
+      where: { archivedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    }),
+    db.reminderEvent.count(),
+    db.user.findUnique({ where: { id: userId }, select: { totpConfirmedAt: true } }),
   ]);
   const steps = [
     {
-      done: settings.companyName !== "Your Company",
-      title: "Add your company name",
-      href: "/settings/general",
-      icon: Settings2,
-    },
-    {
-      done: settings.dpoEmail !== "privacy@example.com",
-      title: "Name your privacy officer",
-      href: "/settings/privacy",
-      icon: Settings2,
-    },
-    {
-      done: userCount > 1,
-      title: "Add the Leasing team",
-      href: "/settings/users",
-      icon: UsersRound,
-    },
-    {
       done: buildingCount > 0,
-      title: "Add buildings and units",
+      title: "Add your first building",
+      hint: "Its name, short code and address.",
       href: "/settings/buildings",
       icon: Building2,
     },
     {
-      done: leaseCount > 0,
-      title: "Add your first lease",
+      done: unitCount > 0,
+      title: "Import from Excel, or add units",
+      hint: "Many at once with the Excel template, or one by one.",
+      href: "/settings/import",
+      icon: FileSpreadsheet,
+    },
+    {
+      done: firstLease !== null,
+      title: "Add a lease",
+      hint: "Tenant, dates and rent. The rent schedule is made for you.",
       href: "/leases/new",
       icon: FileSpreadsheet,
+    },
+    {
+      done: reminderCount > 0,
+      title: "See your first reminder",
+      hint: "When Propfolio will email you before the lease ends.",
+      href: firstLease ? `/leases/${firstLease.id}?tab=reminders` : "/calendar",
+      icon: BellRing,
+    },
+    {
+      done: me?.totpConfirmedAt != null,
+      title: "Turn on two-step sign-in",
+      hint: "Keeps your tenants' data safe even if your password is stolen.",
+      href: "/account/two-step",
+      icon: Settings2,
     },
   ];
   if (steps.every((s) => s.done)) return null;
@@ -347,7 +359,7 @@ async function GettingStarted() {
       <CardHeader>
         <CardTitle>Getting started</CardTitle>
         <CardDescription>
-          A few things to set up before the team starts using Propfolio.
+          Five steps to get Propfolio working for you. Your free Premium trial is running.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -373,7 +385,7 @@ async function GettingStarted() {
                 <span>
                   <span className="block font-medium">{step.title}</span>
                   <span className="text-muted-foreground block text-sm">
-                    {step.done ? "Done" : "To do"}
+                    {step.done ? "Done ✓" : step.hint}
                   </span>
                 </span>
               </Link>

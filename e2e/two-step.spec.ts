@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { E2E_DATABASE_URL } from "../playwright.config";
 import { base32Decode, totpCode, totpStep } from "../src/domain/auth/totp";
+import { currentVersions } from "../src/domain/legal/documents";
 import { E2E_ACCOUNT_ID, PASSWORD, USERS, signIn, signInAs } from "./fixtures";
 
 /** Two-step sign-in, as an Admin who hasn't set it up yet experiences it. */
@@ -47,6 +48,7 @@ test.beforeAll(async () => {
       passwordHash: await hash(PASSWORD),
       mustChangePassword: false,
       memberships: { create: { accountId: E2E_ACCOUNT_ID, role: "ADMIN" } },
+      legalAcceptances: { create: currentVersions() },
     },
   });
   await db.$disconnect();

@@ -13,6 +13,7 @@ import { optionalText, uuidSchema } from "@/schemas/common-fields";
 import { unitReminderSchema, unitSchema } from "@/schemas/property";
 import { diffFields, writeAudit } from "@/server/audit";
 import { canDo, assertCan, assertFeature, type Actor } from "@/server/auth/authorize";
+import { recordFunnelStep } from "@/server/accounts/funnel";
 import { assertUnitRoom } from "@/server/plans/access";
 import { db } from "@/server/db";
 import { isUniqueViolation, isUuid } from "@/server/db-errors";
@@ -248,7 +249,7 @@ export async function createUnit(actor: Actor, input: unknown, meta: RequestMeta
   const data = parseInput(unitSchema, input);
   await assertRefsUsable(data.buildingId, data.unitTypeId);
   try {
-    return await db.$transaction(async (tx) => {
+    const unit = await db.$transaction(async (tx) => {
       await assertUnitRoom(tx, actor);
       const u = await tx.unit.create({
         data: { ...data, createdById: actor.id, updatedById: actor.id },
@@ -259,6 +260,8 @@ export async function createUnit(actor: Actor, input: unknown, meta: RequestMeta
       );
       return u;
     });
+    await recordFunnelStep("FIRST_UNIT", actor.accountId);
+    return unit;
   } catch (err) {
     if (isUniqueViolation(err)) throw numberTaken();
     throw err;
@@ -288,7 +291,7 @@ export async function createUnits(
     throw new ValidationError("Please check the highlighted fields.", { unitNumbers: list.error });
   }
   await assertRefsUsable(data.buildingId, data.unitTypeId);
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const existing = await tx.unit.findMany({
       where: { buildingId: data.buildingId, archivedAt: null },
       select: { unitNumber: true },
@@ -327,6 +330,8 @@ export async function createUnits(
     }
     return { created, skipped };
   });
+  if (result.created.length) await recordFunnelStep("FIRST_UNIT", actor.accountId);
+  return result;
 }
 
 export async function updateUnit(actor: Actor, id: string, input: unknown, meta: RequestMeta) {

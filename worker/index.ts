@@ -33,6 +33,7 @@ import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
 import { sendTrialReminders } from "../src/server/plans/trial-reminders";
+import { purgeExpiredSignUps } from "../src/server/signup/service";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
 
 type Job = {
@@ -71,7 +72,8 @@ const JOBS: Job[] = [
     cron: "15 3 * * *",
     run: async () =>
       `removed ${await purgeOldSessions()} old session(s), ${await purgeOldDrafts()} old draft(s), ` +
-      `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s)`,
+      `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s), ` +
+      `${await purgeExpiredSignUps()} expired sign-up(s)`,
   },
   dailyReminders,
   {

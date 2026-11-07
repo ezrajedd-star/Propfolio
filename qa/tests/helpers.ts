@@ -75,7 +75,10 @@ export async function signIn(page: Page) {
   if (session) {
     await page.context().addCookies([JSON.parse(session) as Cookie]);
     await page.goto("/");
-    if (!new URL(page.url()).pathname.startsWith("/login")) return;
+    if (!new URL(page.url()).pathname.startsWith("/login")) {
+      await acceptTermsIfAsked(page);
+      return;
+    }
   }
   await page.goto("/login");
   await page.getByLabel("Email").fill(QA_EMAIL);
@@ -96,6 +99,7 @@ export async function signIn(page: Page) {
       "The QA account must set up two-step sign-in first. Do it once by hand (use “Can't scan?”), and put the setup key in QA_TOTP_SECRET.",
     );
   }
+  await acceptTermsIfAsked(page);
   const cookie = (await page.context().cookies()).find((c) => c.name.endsWith("propfolio_session"));
   if (cookie) {
     await mkdir(path.dirname(SESSION_FILE), { recursive: true });
@@ -106,6 +110,17 @@ export async function signIn(page: Page) {
   // The auto-skip handler (skipToursAutomatically) may already have closed it; don't wait for it.
   if (await skip.isVisible({ timeout: 1500 }).catch(() => false))
     await skip.click({ timeout: 3000 }).catch(() => undefined);
+}
+
+/**
+ * People are asked to accept new versions of the Terms, Privacy Policy and DPA at sign-in. The
+ * robot accepts them (it is a test account on the test site).
+ */
+export async function acceptTermsIfAsked(page: Page) {
+  if (!new URL(page.url()).pathname.startsWith("/accept-terms")) return;
+  await page.getByLabel(/I accept the/).check();
+  await page.getByRole("button", { name: "Accept and continue" }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/accept-terms"), { timeout: 20_000 });
 }
 
 /** Fail on server errors and on uncaught errors in the browser. */
@@ -175,7 +190,8 @@ export async function createRoleAccount(
   await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Type the new password again").fill(password);
   await page.getByRole("button", { name: "Save new password" }).click();
-  await page.waitForURL((u) => u.pathname === "/");
+  await page.waitForURL((u) => u.pathname === "/" || u.pathname.startsWith("/accept-terms"));
+  await acceptTermsIfAsked(page);
   await context.close();
   return { role, name, email, password };
 }
@@ -187,6 +203,7 @@ export async function signInWith(page: Page, account: { email: string; password:
   await page.getByLabel("Password", { exact: true }).fill(account.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20_000 });
+  await acceptTermsIfAsked(page);
   const skip = page.getByRole("button", { name: "Skip tour" });
   // The auto-skip handler (skipToursAutomatically) may already have closed it; don't wait for it.
   if (await skip.isVisible({ timeout: 1500 }).catch(() => false))

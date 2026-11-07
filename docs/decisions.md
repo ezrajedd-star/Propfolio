@@ -358,3 +358,45 @@ Confirmed by the owner on 4 Nov 2026: Premium ₱3,500 a month; Pro up to 50 uni
   "Email us" button (`SUPPORT_EMAIL`); the platform admin then records the bank transfer or
   **changes the plan** (new, audited, with a reason). Changing the plan replaces any trial; a
   recorded paid-until day still governs.
+
+## 27. Self-serve sign-up and onboarding (public launch, Phase 4)
+
+- **No half-made accounts.** "Start free" keeps the sign-up in `PendingSignUp` (hashes only)
+  until the 6-digit code is typed on the same screen; only then are the account, its Owner, the
+  30-day Premium trial (to the end of the Manila day), the standard unit types, privacy-contact
+  defaults and the legal acceptances created, in one transaction. Codes: 15 minutes, 5 wrong
+  tries, a new code at most once a minute and 5 per sign-up; HMAC with `APP_SECRET`; never in
+  an email subject (subjects appear in mail logs). A second click can't create two accounts.
+- **"That email already has an account. Sign in instead?"**, as the brief asks, although it tells
+  a visitor that an email is registered; sign-ups are rate-limited per IP (10 an hour).
+- **Google** (OpenID Connect, code flow with PKCE, state and nonce) with no new library: the ID
+  token comes straight from Google's token endpoint over TLS with our client secret, so its
+  claims are checked (issuer, audience, expiry, nonce, verified email) rather than its signature,
+  as the spec allows. An email that already has an account signs into it and is linked; an
+  account linked to another Google account isn't taken over; two-step sign-in and lockout still
+  apply. Someone new gives the company name and ticks the box on one more screen. Off until
+  `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set. Error codes, never text, go in the address.
+- **Bot check:** Cloudflare Turnstile, invisible to most people, off until both keys are set. A
+  rejected token is refused; if Cloudflare can't be reached the sign-up is allowed (and logged).
+- **Legal documents** are versioned in `src/domain/legal/documents.ts` (change a `version` to
+  publish). Each acceptance (person, document, version, time, IP) is kept; anyone missing a
+  current version sees "We've updated our terms" before any page. Existing people are asked once
+  after this release. The pages at `/legal/*` are public placeholders "[LAWYER TO SUPPLY]".
+- **Keep me signed in** (sign-in screen, also through the code step and Google): the session
+  lasts 30 days with no idle timeout, except Owners and Admins while the account's setting
+  "Sign Owners and Admins out after 30 minutes without activity" (Settings → General, on by
+  default) is on. Without it, sessions are as before (30 idle minutes, 12 hours).
+- **Two-step sign-in** for new Owners is the last onboarding step, required after 14 days.
+- **Onboarding** (Home, Owners and Admins): first building → Excel import or units → a lease →
+  its first reminder → two-step sign-in. The welcome tour and Guide stay.
+- **Excel import** (Settings → Import from Excel): a template (Read me + Buildings, Units, Tenants,
+  Leases). The whole file is checked first with the forms' own rules plus duplicates, references
+  between sheets and to existing records, overlapping leases and the plan's unit limit, and every
+  problem is listed by sheet and row. Nothing is saved unless all of it is right. Saving uses the
+  normal services (rent schedules, reminders, lease numbers, audit). The database layer can't
+  wrap many services in one transaction, so if a save still fails part-way (a race), what the
+  import created is archived again and the person is told nothing was kept. 2 MB, 1,000 rows per
+  sheet.
+- **Sign-up funnel** (`FunnelEvent`, counts only): started, verified, first unit, first lease, shown
+  on the platform admin's Accounts page for the last 30 days.
+- Migration `20261107090000_self_serve_sign_up`, reversible (rehearsed forward, back, forward).

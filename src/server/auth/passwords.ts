@@ -20,7 +20,8 @@ export const RESET_TOKEN_MINUTES = 60;
 /** At most this many self-service reset emails per account per hour (stops inbox flooding). */
 export const RESET_REQUESTS_PER_HOUR = 3;
 
-async function assertPolicy(password: string, email: string) {
+/** The password policy plus the breached-password check (also used by sign-up). */
+export async function assertPolicy(password: string, email: string) {
   const problem = checkPassword(password, email);
   if (problem) {
     throw new ValidationError("Please choose a different password.", {

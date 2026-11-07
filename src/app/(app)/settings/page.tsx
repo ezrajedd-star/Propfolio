@@ -2,6 +2,7 @@ import {
   Building2,
   BellRing,
   ChevronRight,
+  FileUp,
   Gem,
   Lock,
   MailCheck,
@@ -59,6 +60,12 @@ const SECTIONS: {
     icon: Building2,
     title: "Buildings and units",
     text: "Add and edit buildings and their units.",
+  },
+  {
+    href: "/settings/import",
+    icon: FileUp,
+    title: "Import from Excel",
+    text: "Add many buildings, units, tenants and leases at once.",
   },
   {
     href: "/settings/unit-types",

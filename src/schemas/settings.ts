@@ -33,6 +33,8 @@ export const settingsSchema = z.object({
     .max(30, "Use at most 30 years."),
   /** Add a short "overdue payments" section to the daily reminder email. */
   digestIncludeOverdue: z.boolean(),
+  /** Owners and Admins are signed out after 30 idle minutes even with "Keep me signed in" (shared computers). */
+  adminIdleTimeout: z.boolean(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -88,6 +90,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   dpoEmail: "privacy@example.com",
   retentionYears: 10,
   digestIncludeOverdue: true,
+  adminIdleTimeout: true,
 };
 
 export const updateSettingsSchema = settingsSchema.partial();

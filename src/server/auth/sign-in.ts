@@ -50,14 +50,20 @@ export type SignInResult =
  *
  * Runs outside any one account's work: the person isn't known yet.
  */
+export interface SignInOptions {
+  /** "Keep me signed in on this device" (30 days). */
+  persistent?: boolean;
+}
+
 export function signIn(
   email: string,
   password: string,
   meta: RequestMeta,
   now = new Date(),
   deviceToken?: string,
+  options: SignInOptions = {},
 ): Promise<SignInResult> {
-  return asSystem(() => signInAsSystem(email, password, meta, now, deviceToken));
+  return asSystem(() => signInAsSystem(email, password, meta, now, deviceToken, options));
 }
 
 async function signInAsSystem(
@@ -66,6 +72,7 @@ async function signInAsSystem(
   meta: RequestMeta,
   now: Date,
   deviceToken: string | undefined,
+  options: SignInOptions,
 ): Promise<SignInResult> {
   const limit = await hitRateLimits(
     [
@@ -150,6 +157,27 @@ async function signInAsSystem(
       : { ok: false, reason: "invalid" };
   }
 
+  return identityConfirmed(user, target, meta, now, deviceToken, {
+    persistent: options.persistent ?? false,
+    method: "password",
+  });
+}
+
+/**
+ * The person proved who they are (password, or Google): pick the account, refuse people who are
+ * turned off, paused by the plan's user limit or in a suspended account, then ask for the two-step
+ * code if it is on, or open the session. Shared by password and Google sign-in.
+ */
+export async function identityConfirmed(
+  user: User,
+  target: SignInTarget | null,
+  meta: RequestMeta,
+  now: Date,
+  deviceToken: string | undefined,
+  how: { persistent: boolean; method: "password" | "google" },
+): Promise<SignInResult> {
+  const accountId = target?.accountId ?? (await anyAccountOf(user.id));
+  const actor = { id: user.id, name: user.name, role: target?.role ?? null };
   if (!target) {
     const suspended = await db.membership.count({
       where: { userId: user.id, isActive: true, account: { status: "SUSPENDED" } },
@@ -178,6 +206,7 @@ async function signInAsSystem(
         tokenHash: sha256(challengeToken),
         userId: user.id,
         accountId: target.accountId,
+        persistent: how.persistent,
         createdAt: now,
         expiresAt,
         ipAddress: meta.ipAddress,
@@ -187,9 +216,14 @@ async function signInAsSystem(
     return { ok: false, reason: "code_needed", challengeToken, expiresAt };
   }
 
-  return finishSignIn(user, target, meta, now, {
-    twoStep: user.totpConfirmedAt ? "remembered_device" : "off",
-  });
+  return finishSignIn(
+    user,
+    target,
+    meta,
+    now,
+    { method: how.method, twoStep: user.totpConfirmedAt ? "remembered_device" : "off" },
+    how.persistent,
+  );
 }
 
 /** The person is who they say: open the session and record it. */
@@ -199,6 +233,7 @@ async function finishSignIn(
   meta: RequestMeta,
   now: Date,
   details: Record<string, unknown>,
+  persistent = false,
 ): Promise<SignedIn> {
   await db.user.update({
     where: { id: user.id },
@@ -208,7 +243,7 @@ async function finishSignIn(
     where: { accountId_userId: { accountId: target.accountId, userId: user.id } },
     data: { lastUsedAt: now },
   });
-  const session = await createSession(user.id, target.accountId, meta, now);
+  const session = await createSession(user.id, target.accountId, meta, now, persistent);
   await writeAudit({
     actor: { id: user.id, name: user.name, role: target.role },
     action: "auth.login",
@@ -317,10 +352,17 @@ export function completeSignInWithCode(
     });
     if (claimed.count !== 1) return { ok: false, reason: "expired" };
 
-    const signedIn = await finishSignIn(user, target, meta, now, {
-      twoStep: check.method,
-      ...(check.method === "recovery_code" ? { recoveryCodesLeft: check.left } : {}),
-    });
+    const signedIn = await finishSignIn(
+      user,
+      target,
+      meta,
+      now,
+      {
+        twoStep: check.method,
+        ...(check.method === "recovery_code" ? { recoveryCodesLeft: check.left } : {}),
+      },
+      challenge.persistent,
+    );
     if (!remember) return signedIn;
     return { ...signedIn, deviceToken: await rememberDevice(user.id, meta, now) };
   });

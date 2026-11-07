@@ -10,6 +10,7 @@ import {
   planAccess,
   planDenial,
   planIncludes,
+  trialEndsAtFor,
   trialReminderDue,
   unitLimitMessage,
   userLimitMessage,
@@ -233,5 +234,18 @@ describe("trialReminderDue", () => {
     [-1, [], null],
   ])("%i day(s) left, sent %o → %s", (left, sent, due) => {
     expect(trialReminderDue(left, sent)).toBe(due);
+  });
+});
+
+describe("trialEndsAtFor", () => {
+  it.each([
+    // 7 Nov 2026, 10:00 Manila → last day 7 Dec, end of that Manila day
+    ["2026-11-07T02:00:00Z", "2026-12-07T15:59:59.999Z"],
+    // 7 Nov 2026, 23:30 Manila (15:30 UTC) is still 7 Nov in Manila
+    ["2026-11-07T15:30:00Z", "2026-12-07T15:59:59.999Z"],
+    // 8 Nov 2026, 00:30 Manila (16:30 UTC on the 7th) is already the 8th in Manila
+    ["2026-11-07T16:30:00Z", "2026-12-08T15:59:59.999Z"],
+  ])("signing up at %s → trial ends %s", (at, end) => {
+    expect(trialEndsAtFor(new Date(at)).toISOString()).toBe(end);
   });
 });

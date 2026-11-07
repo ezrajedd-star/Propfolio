@@ -6,7 +6,9 @@ const isDev = process.env.NODE_ENV !== "production";
 // nonces are wired through middleware; 'unsafe-eval' is only allowed in development.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // Cloudflare Turnstile (the sign-up bot check) loads its script and an iframe from here.
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
+  "frame-src https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

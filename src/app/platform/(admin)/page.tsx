@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatIsoDate } from "@/domain/time/manila";
-import { listAccounts } from "@/server/platform/accounts";
+import { getSignUpFunnel, listAccounts } from "@/server/platform/accounts";
 import { requirePlatformPage } from "@/server/platform/current";
 import { AccountStatusBadge, planLabel } from "./account-badges";
 
@@ -27,7 +27,18 @@ export default async function PlatformAccountsPage({
 }) {
   const admin = await requirePlatformPage();
   const { q } = await searchParams;
-  const accounts = await listAccounts(admin, { q: q?.slice(0, 100) });
+  const [accounts, funnel] = await Promise.all([
+    listAccounts(admin, { q: q?.slice(0, 100) }),
+    getSignUpFunnel(admin),
+  ]);
+  const pct = (n: number) =>
+    funnel.started > 0 ? `${Math.round((n / funnel.started) * 100)}% of sign-ups` : "—";
+  const steps = [
+    { label: "Started sign-up", value: funnel.started, note: "Filled in the form" },
+    { label: "Verified their email", value: funnel.verified, note: pct(funnel.verified) },
+    { label: "Added a unit", value: funnel.firstUnit, note: pct(funnel.firstUnit) },
+    { label: "Added a lease", value: funnel.firstLease, note: pct(funnel.firstLease) },
+  ];
 
   return (
     <>
@@ -35,6 +46,21 @@ export default async function PlatformAccountsPage({
         title="Accounts"
         description="Every customer account, newest first. Open one to extend its trial, record a bank transfer, or suspend it."
       />
+      <section aria-labelledby="funnel" className="mb-8">
+        <h2 id="funnel" className="mb-3 text-xl font-semibold">
+          Sign-ups, last {funnel.days} days
+        </h2>
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((s, i) => (
+            <li key={s.label} className="bg-card rounded-xl border p-4">
+              <span className="text-muted-foreground block text-sm">Step {i + 1}</span>
+              <span className="block font-medium">{s.label}</span>
+              <span className="mt-1 block text-3xl font-semibold tabular-nums">{s.value}</span>
+              <span className="text-muted-foreground block text-sm">{s.note}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
       <form className="mb-6 flex max-w-md gap-3" role="search">
         <label htmlFor="q" className="sr-only">
           Search accounts by name

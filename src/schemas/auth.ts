@@ -5,6 +5,8 @@ import { emailSchema, newPasswordSchema } from "./common";
 export const signInSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Enter your password.").max(1024),
+  /** "Keep me signed in on this device" (30 days). */
+  persistent: z.boolean().optional(),
 });
 export type SignInInput = z.infer<typeof signInSchema>;
 

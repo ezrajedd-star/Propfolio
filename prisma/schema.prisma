@@ -102,6 +102,72 @@ model Membership {
   @@index([userId])
 }
 
+/// A self-serve sign-up waiting for its 6-digit email code (or, for Google, for the company name
+/// and the legal checkbox). The account and its Owner are created only when it completes, so there
+/// are never half-made accounts. Only hashes of the token, code and password are stored.
+/// Propfolio's own record: never reachable from customer work.
+model PendingSignUp {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  /// SHA-256 of the token in the browser's sign-up cookie.
+  tokenHash    String   @unique
+  /// Lower-cased and trimmed.
+  email        String
+  name         String
+  /// The name they lease under (company or personal). Empty until a Google sign-up gives it.
+  companyName  String   @default("")
+  passwordHash String?
+  googleSub    String?
+  /// HMAC of the 6-digit code (null for Google: the email is already verified).
+  codeHash     String?
+  attempts     Int      @default(0)
+  codesSent    Int      @default(1)
+  codeSentAt   DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt    DateTime @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+enum LegalDocument {
+  TERMS
+  PRIVACY
+  DPA
+}
+
+/// Which version of each legal document a person accepted, and when. A new version (see
+/// src/domain/legal/documents.ts) is asked for at their next sign-in.
+model LegalAcceptance {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  userId     String        @db.Uuid
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document   LegalDocument
+  version    String
+  acceptedAt DateTime      @default(now()) @db.Timestamptz(3)
+  ipAddress  String?
+
+  @@unique([userId, document, version])
+}
+
+enum FunnelStep {
+  SIGNUP_STARTED
+  EMAIL_VERIFIED
+  FIRST_UNIT
+  FIRST_LEASE
+}
+
+/// The sign-up journey, counted for the platform admin's drop-off numbers. No names or emails:
+/// a started sign-up has no account yet; the later steps happen once per account.
+model FunnelEvent {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  step      FunnelStep
+  accountId String?    @db.Uuid
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@unique([accountId, step])
+  @@index([step, createdAt])
+}
+
 /// A "your trial ends soon" email (7 days and 1 day before). One row per trial end and lead
 /// time makes the daily job idempotent; extending a trial gives a new end, so it is reminded again.
 /// Propfolio's own record: never reachable from customer work.
@@ -197,6 +263,8 @@ model User {
   totpLastStep       BigInt?
   /// Owners and Admins may wait until this moment before two-step sign-in is enforced.
   twoStepGraceUntil  DateTime? @db.Timestamptz(3)
+  /// The Google account ("sub") this person signs in with, once linked. Never reused.
+  googleSub          String?   @unique
 
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
@@ -209,6 +277,7 @@ model User {
   recoveryCodes       RecoveryCode[]
   trustedDevices      TrustedDevice[]
   signInChallenges    SignInChallenge[]
+  legalAcceptances    LegalAcceptance[]
 }
 
 /// One-time codes for two-step sign-in when the phone is lost. Only hashes are stored.
@@ -241,17 +310,19 @@ model TrustedDevice {
 
 /// The password was right; waiting for the 6-digit code (5 minutes, 5 tries).
 model SignInChallenge {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  tokenHash String    @unique
-  userId    String    @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId String    @db.Uuid
-  attempts  Int       @default(0)
-  createdAt DateTime  @default(now()) @db.Timestamptz(3)
-  expiresAt DateTime  @db.Timestamptz(3)
-  usedAt    DateTime? @db.Timestamptz(3)
-  ipAddress String?
-  userAgent String?
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tokenHash  String    @unique
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId  String    @db.Uuid
+  attempts   Int       @default(0)
+  /// "Keep me signed in" was ticked with the password; the session after the code follows it.
+  persistent Boolean   @default(false)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  usedAt     DateTime? @db.Timestamptz(3)
+  ipAddress  String?
+  userAgent  String?
 
   @@index([userId])
 }
@@ -270,6 +341,9 @@ model Session {
   /// Absolute expiry, regardless of activity.
   expiresAt  DateTime  @db.Timestamptz(3)
   revokedAt  DateTime? @db.Timestamptz(3)
+  /// "Keep me signed in on this device": lasts 30 days (Owners and Admins still time out after
+  /// 30 idle minutes while the account's setting is on).
+  persistent Boolean   @default(false)
   ipAddress  String?
   userAgent  String?
 

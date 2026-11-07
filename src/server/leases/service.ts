@@ -20,6 +20,7 @@ import {
   updateLeaseSchema,
   type LeaseTerms,
 } from "@/schemas/lease";
+import { recordFunnelStep } from "@/server/accounts/funnel";
 import { diffFields, writeAudit } from "@/server/audit";
 import { canDo, assertCan, type Actor } from "@/server/auth/authorize";
 import { db, type Tx } from "@/server/db";
@@ -509,6 +510,7 @@ export async function createLease(
   );
   await syncLeaseCharges(created.id, actor, now, "New lease");
   await syncReminders({ leaseIds: [created.id] }, now);
+  await recordFunnelStep("FIRST_LEASE", actor.accountId, now);
   return created;
 }
 
