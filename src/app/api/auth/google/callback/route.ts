@@ -13,6 +13,7 @@ import { finishGoogleSignIn, googleEnabled, type GoogleState } from "@/server/au
 import { env } from "@/server/env";
 import { requestMeta } from "@/server/request-meta";
 import { googleSignIn } from "@/server/signup/service";
+import { acceptInvitationWithGoogle } from "@/server/team/service";
 
 export const dynamic = "force-dynamic";
 
@@ -74,9 +75,25 @@ export async function GET(req: NextRequest) {
           ? `/login/code?next=${encodeURIComponent(safeNext(saved.next))}`
           : "/login/code",
       );
-    case "needs_details":
+    case "needs_details": {
+      // Someone new who came from an invitation joins that team instead of starting an account.
+      const invite = /^\/invite\/([A-Za-z0-9_-]{20,200})$/.exec(safeNext(saved.next));
+      if (invite) {
+        try {
+          const session = await acceptInvitationWithGoogle(
+            invite[1]!,
+            profile,
+            await requestMeta(),
+          );
+          await setSessionCookie(session.token, session.expiresAt);
+          return go("/?welcome=joined");
+        } catch {
+          return go(`/invite/${invite[1]}?error=google`);
+        }
+      }
       await setSignUpCookie(r.token, r.expiresAt);
       return go("/signup/google");
+    }
     default:
       // locked, rate_limited, inactive, user_limit, suspended, google_mismatch, invalid
       return fail(r.reason.replace(/_/g, "-"));

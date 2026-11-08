@@ -99,7 +99,22 @@ export async function assertUserRoom(
   actor: { accountId: string; access: Pick<PlanAccess, "plan" | "users"> },
 ): Promise<void> {
   await lockAccountLimits(tx, actor.accountId, "users");
-  if ((await countActiveMembers(tx, actor.accountId)) + 1 > actor.access.users.limit) {
+  // Open invitations hold a seat until they are used, withdrawn or expire. They are Propfolio's
+  // own records (not reachable from customer work), so they are read as the system.
+  const invitations = await asSystem(() =>
+    db.invitation.count({
+      where: {
+        accountId: actor.accountId,
+        acceptedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    }),
+  );
+  if (
+    (await countActiveMembers(tx, actor.accountId)) + invitations + 1 >
+    actor.access.users.limit
+  ) {
     throw new PlanLimitError(userLimitMessage(actor.access.plan));
   }
 }

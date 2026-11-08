@@ -6,18 +6,10 @@ import { runAction } from "@/server/actions";
 import { adminSendPasswordReset } from "@/server/auth/passwords";
 import { requireActor } from "@/server/auth/current";
 import { requestMeta } from "@/server/request-meta";
-import { createUser, setUserActive, unlockUser, updateUser } from "@/server/users/service";
+import { inviteMember, revokeInvitation, transferOwnership } from "@/server/team/service";
+import { setUserActive, unlockUser, updateUser } from "@/server/users/service";
 
 const PATH = "/settings/users";
-
-export async function createUserAction(input: unknown) {
-  return runAction(async () => {
-    const actor = await requireActor("user.manage");
-    const { user, temporaryPassword } = await createUser(actor, input, await requestMeta());
-    revalidatePath(PATH);
-    return { name: user.name, email: user.email, temporaryPassword };
-  });
-}
 
 export async function updateUserAction(id: string, input: unknown) {
   return runAction(async () => {
@@ -50,5 +42,33 @@ export async function sendPasswordResetAction(id: string) {
   return runAction(async () => {
     const actor = await requireActor("user.manage");
     return { sent: await adminSendPasswordReset(actor, id, await requestMeta()) };
+  });
+}
+
+export async function inviteAction(input: unknown) {
+  return runAction(async () => {
+    const actor = await requireActor("user.manage");
+    const r = await inviteMember(actor, input, await requestMeta());
+    revalidatePath(PATH);
+    return { link: r.link };
+  });
+}
+
+export async function revokeInvitationAction(id: string) {
+  return runAction(async () => {
+    const actor = await requireActor("user.manage", { duringReadOnly: true });
+    await revokeInvitation(actor, id, await requestMeta());
+    revalidatePath(PATH);
+    return null;
+  });
+}
+
+/** The Owner hands the account to an Admin (and becomes an Admin). */
+export async function transferOwnershipAction(userId: string) {
+  return runAction(async () => {
+    const actor = await requireActor("billing.manage", { duringReadOnly: true });
+    await transferOwnership(actor, userId, await requestMeta());
+    revalidatePath(PATH);
+    return null;
   });
 }

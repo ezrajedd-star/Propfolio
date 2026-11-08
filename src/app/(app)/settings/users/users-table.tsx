@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Crown,
   KeyRound,
   LockOpen,
   MoreHorizontal,
@@ -44,7 +45,12 @@ import {
 import { ROLE_LABELS } from "@/domain/auth/roles";
 import { formatDateTime, formatTime } from "@/domain/time/manila";
 import { resetTwoStepForUserAction } from "../../../(auth)/two-step-actions";
-import { sendPasswordResetAction, setUserActiveAction, unlockUserAction } from "./actions";
+import {
+  sendPasswordResetAction,
+  setUserActiveAction,
+  unlockUserAction,
+  transferOwnershipAction,
+} from "./actions";
 import type { UserRow } from "./types";
 import { EditUserDialog } from "./user-dialogs";
 
@@ -66,9 +72,18 @@ function UserStatusBadge({ user }: { user: UserRow }) {
   }
 }
 
-type Confirm = { kind: "reset" | "deactivate" | "twoStep"; user: UserRow } | null;
+type Confirm = { kind: "reset" | "deactivate" | "twoStep" | "owner"; user: UserRow } | null;
 
-export function UsersTable({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
+export function UsersTable({
+  users,
+  currentUserId,
+  isOwner = false,
+}: {
+  users: UserRow[];
+  currentUserId: string;
+  /** The Owner can hand the account to an active Admin. */
+  isOwner?: boolean;
+}) {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [pending, startTransition] = useTransition();
@@ -171,6 +186,11 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                             <LockOpen /> Unlock
                           </DropdownMenuItem>
                         ) : null}
+                        {isOwner && !isSelf && user.isActive && user.role === "ADMIN" ? (
+                          <DropdownMenuItem onSelect={() => setConfirm({ kind: "owner", user })}>
+                            <Crown /> Make Owner
+                          </DropdownMenuItem>
+                        ) : null}
                         {!isSelf && user.role !== "OWNER" ? (
                           <>
                             <DropdownMenuSeparator />
@@ -271,6 +291,27 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                   }}
                 >
                   Reset two-step sign-in
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) : confirm?.kind === "owner" ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Make {confirm.user.name} the Owner?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {confirm.user.name} will control the plan and payments, and can&apos;t be removed.
+                  You&apos;ll stay on the team as an Admin. Only they can hand it back.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    const user = confirm.user;
+                    run(() => transferOwnershipAction(user.id), `${user.name} is now the Owner ✓`);
+                  }}
+                >
+                  Make Owner
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

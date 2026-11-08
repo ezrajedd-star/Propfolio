@@ -10,6 +10,9 @@
  *   fails it is retried 3 times (10, 20, 40 minutes later); failures are shown to Admins in
  *   Settings → Reminder emails, and missed reminders go out with the next day's email.
  *
+ * - 07:00 subscriptions: ask for monthly renewals that are due, end cancelled subscriptions after
+ *   their paid month and unpaid ones after the 7-day grace period (the account moves to Free),
+ *   and remind past-due Owners on grace days 3 and 6.
  * - 09:00 trial-reminders: "your free Premium trial ends soon" to each account's Owner and
  *   Admins, 7 days and 1 day before. Retried 3 times; each email is sent once per trial end.
  *
@@ -34,6 +37,7 @@ import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
 import { sendTrialReminders } from "../src/server/plans/trial-reminders";
 import { purgeExpiredSignUps } from "../src/server/signup/service";
+import { runSubscriptionCycle } from "../src/server/subscription/service";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
 
 type Job = {
@@ -76,6 +80,15 @@ const JOBS: Job[] = [
       `${await purgeExpiredSignUps()} expired sign-up(s)`,
   },
   dailyReminders,
+  {
+    name: "subscriptions",
+    cron: "0 7 * * *",
+    retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
+    run: async () => {
+      const r = await runSubscriptionCycle();
+      return `${r.renewalsRequested} renewal(s) requested, ${r.ended} subscription(s) ended, ${r.graceReminders} grace reminder(s)`;
+    },
+  },
   {
     name: "trial-reminders",
     cron: "0 9 * * *",

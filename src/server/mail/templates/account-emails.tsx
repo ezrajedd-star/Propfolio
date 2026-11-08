@@ -116,3 +116,68 @@ export function SignUpCodeEmail({
     </EmailLayout>
   );
 }
+
+/** Subscription news for the Owner: payment received or failed, plan changed, moved to Free. */
+export function SubscriptionEmail({
+  companyName,
+  name,
+  preview,
+  paragraphs,
+  buttonText,
+  buttonUrl,
+}: Base & {
+  preview: string;
+  paragraphs: string[];
+  buttonText?: string;
+  buttonUrl?: string;
+}) {
+  return (
+    <EmailLayout preview={preview} companyName={companyName}>
+      <Text style={textStyle}>Hi {name},</Text>
+      {paragraphs.map((p) => (
+        <Text key={p} style={textStyle}>
+          {p}
+        </Text>
+      ))}
+      {buttonText && buttonUrl ? (
+        <Button href={buttonUrl} style={buttonStyle}>
+          {buttonText}
+        </Button>
+      ) : null}
+    </EmailLayout>
+  );
+}
+
+export function InvitationEmail({
+  companyName,
+  inviterName,
+  roleLabel,
+  url,
+  validDays,
+}: {
+  companyName: string;
+  inviterName: string;
+  roleLabel: string;
+  url: string;
+  validDays: number;
+}) {
+  return (
+    <EmailLayout
+      preview={`${inviterName} invited you to ${companyName} on Propfolio`}
+      companyName={companyName}
+    >
+      <Text style={textStyle}>Hello,</Text>
+      <Text style={textStyle}>
+        {inviterName} invited you to join {companyName} on Propfolio, the lease ledger, as{" "}
+        {roleLabel}.
+      </Text>
+      <Button href={url} style={buttonStyle}>
+        Join {companyName}
+      </Button>
+      <Text style={{ ...textStyle, marginTop: 16 }}>
+        You&apos;ll choose your own password, or continue with Google. The link works for{" "}
+        {validDays} days. If you weren&apos;t expecting this, you can ignore this email.
+      </Text>
+    </EmailLayout>
+  );
+}

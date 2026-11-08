@@ -18,10 +18,12 @@ const ADMIN_ONLY: Permission[] = [
   "privacy.manage",
   "record.purge",
 ];
+/** The Owner controls the subscription; nobody else does. */
+const OWNER_ONLY: Permission[] = ["billing.manage"];
 
 describe("role permissions", () => {
-  it.each(PERMISSIONS)("Admin can %s", (p) => {
-    expect(can("ADMIN", p)).toBe(true);
+  it.each(PERMISSIONS)("Admin: %s", (p) => {
+    expect(can("ADMIN", p)).toBe(!OWNER_ONLY.includes(p));
   });
 
   it.each(PERMISSIONS)("Owner can %s", (p) => {
@@ -42,7 +44,7 @@ describe("role permissions", () => {
   });
 
   it.each(PERMISSIONS)("Leasing Staff: %s", (p) => {
-    expect(can("LEASING_STAFF", p)).toBe(!ADMIN_ONLY.includes(p));
+    expect(can("LEASING_STAFF", p)).toBe(!ADMIN_ONLY.includes(p) && !OWNER_ONLY.includes(p));
   });
 
   it("Viewers never see tenant contact, financial or document data", () => {

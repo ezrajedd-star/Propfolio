@@ -157,8 +157,8 @@ const ROLE_CHOICE: Record<QaRole, string> = {
 };
 
 /**
- * The QA Admin creates a throwaway account for a role (labelled "QA Robot"), signs in as it once
- * and sets a random password. Accounts are turned off again by `turnOffAccounts`.
+ * The QA Admin invites a throwaway person for a role (labelled "QA Robot"), who joins from the
+ * invitation link with a random password. Accounts are turned off again by `turnOffAccounts`.
  */
 export async function createRoleAccount(
   admin: Page,
@@ -169,29 +169,25 @@ export async function createRoleAccount(
   const name = `${QA_LABEL} ${role === "VIEWER" ? "Viewer" : "Leasing"} ${stamp}`;
   const email = `qa-${role === "VIEWER" ? "viewer" : "leasing"}-${stamp}@propfolio.test`;
   await admin.goto("/settings/users");
-  await admin.getByRole("button", { name: "Add user" }).click();
+  await admin.getByRole("button", { name: "Invite someone" }).click();
   const dialog = admin.getByRole("dialog");
-  await dialog.getByLabel("Full name").fill(name);
-  await dialog.getByLabel("Work email").fill(email);
+  await dialog.getByLabel("Their work email").fill(email);
   await dialog.getByText(ROLE_CHOICE[role], { exact: true }).click();
-  await dialog.getByRole("button", { name: "Add user" }).click();
-  const temporary = (await dialog.getByTestId("temporary-password").textContent())!.trim();
+  await dialog.getByRole("button", { name: "Send invitation" }).click();
+  // The link is also shown to the inviter (the robot can't read the invitation email).
+  const link = (await dialog.getByTestId("invite-link").textContent())!.trim();
   await dialog.getByRole("button", { name: "Done" }).click();
 
+  // The invited person joins in their own browser and chooses their own password.
   const password = `qa-${randomBytes(18).toString("base64url")}`;
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(temporary);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/change-password/);
-  await page.getByLabel("Temporary password").fill(temporary);
-  await page.getByLabel("New password", { exact: true }).fill(password);
-  await page.getByLabel("Type the new password again").fill(password);
-  await page.getByRole("button", { name: "Save new password" }).click();
-  await page.waitForURL((u) => u.pathname === "/" || u.pathname.startsWith("/accept-terms"));
-  await acceptTermsIfAsked(page);
+  await page.goto(new URL(link).pathname);
+  await page.getByLabel("Your name").fill(name);
+  await page.getByLabel("Choose a password").fill(password);
+  await page.getByLabel(/I accept the/).check();
+  await page.getByRole("button", { name: "Join the team" }).click();
+  await page.waitForURL((u) => u.pathname === "/");
   await context.close();
   return { role, name, email, password };
 }

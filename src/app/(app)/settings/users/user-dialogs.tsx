@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Copy, Loader2, UserPlus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Controller, useForm, type Path } from "react-hook-form";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { createUserSchema } from "@/schemas/user";
-import { createUserAction, updateUserAction } from "./actions";
+import { updateUserAction } from "./actions";
 import { RolePicker } from "./role-picker";
 import type { UserRow } from "./types";
 
@@ -114,92 +114,6 @@ function UserForm({
         </Button>
       </DialogFooter>
     </form>
-  );
-}
-
-export function AddUserButton() {
-  const [open, setOpen] = useState(false);
-  const [created, setCreated] = useState<{
-    name: string;
-    email: string;
-    temporaryPassword: string;
-  } | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  const close = (next: boolean) => {
-    setOpen(next);
-    if (!next) {
-      setCreated(null);
-      setCopied(false);
-    }
-  };
-
-  return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        <UserPlus aria-hidden /> Add user
-      </Button>
-      <Dialog open={open} onOpenChange={close}>
-        <DialogContent>
-          {created ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{created.name} can now sign in</DialogTitle>
-                <DialogDescription>
-                  Give them this temporary password in person or by phone. It is shown only once.
-                  They will choose their own password the first time they sign in.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="bg-muted/50 space-y-3 rounded-lg border p-4">
-                <div>
-                  <p className="text-muted-foreground text-sm">Email</p>
-                  <p className="font-medium break-all">{created.email}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Temporary password</p>
-                  <p
-                    className="font-mono text-xl font-semibold tracking-wider"
-                    data-testid="temporary-password"
-                  >
-                    {created.temporaryPassword}
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(created.temporaryPassword);
-                    setCopied(true);
-                  }}
-                >
-                  {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-                  {copied ? "Copied" : "Copy password"}
-                </Button>
-                <Button onClick={() => close(false)}>Done</Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Add a user</DialogTitle>
-                <DialogDescription>Create an account for someone on the team.</DialogDescription>
-              </DialogHeader>
-              <UserForm
-                defaultValues={{ name: "", email: "", role: "LEASING_STAFF" }}
-                submitLabel="Add user"
-                onCancel={() => close(false)}
-                onSubmit={async (values) => {
-                  const result = await createUserAction(values);
-                  if (result.ok) setCreated(result.data);
-                  return result;
-                }}
-              />
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 

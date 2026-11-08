@@ -7,60 +7,51 @@ const formAlert = (page: import("@playwright/test").Page, text: string) =>
   page.getByRole("alert").filter({ hasText: text });
 
 test.describe("Phase 1 acceptance", () => {
-  test("Admin creates a user, who must set a new password at first sign-in", async ({
+  test("the Owner invites someone, who joins with their own password", async ({
     page,
     browser,
   }) => {
     await signInAs(page, "admin");
     await page.getByRole("link", { name: "Settings" }).click();
     await page.getByRole("link", { name: /Users/ }).click();
-    await page.getByRole("button", { name: "Add user" }).click();
+    await expect(page.getByTestId("seats")).toContainText("4 of 5 users");
+    await page.getByRole("button", { name: "Invite someone" }).click();
 
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Full name").fill("Nina New");
-    await dialog.getByLabel("Work email").fill("Nina.New@E2E.test");
+    await dialog.getByLabel("Their work email").fill("Nina.New@E2E.test");
     await dialog.getByText("Property Management (Viewer)").click();
-    await dialog.getByRole("button", { name: "Add user" }).click();
-
-    await expect(dialog.getByRole("heading", { name: "Nina New can now sign in" })).toBeVisible();
-    const temporaryPassword = (await dialog
-      .getByTestId("temporary-password")
-      .textContent())!.trim();
+    await dialog.getByRole("button", { name: "Send invitation" }).click();
+    await expect(dialog.getByRole("heading", { name: "Invitation sent ✓" })).toBeVisible();
+    const link = (await dialog.getByTestId("invite-link").textContent())!.trim();
     await dialog.getByRole("button", { name: "Done" }).click();
-    const row = page.getByRole("row", { name: /Nina New/ });
-    await expect(row).toContainText("nina.new@e2e.test");
-    await expect(row).toContainText("Hasn't signed in yet");
+    await expect(page.getByText("nina.new@e2e.test")).toBeVisible();
+    await expect(page.getByTestId("seats")).toContainText("5 of 5 users");
 
-    // The new user signs in in a separate browser.
+    // The invited person opens the link in their own browser and chooses their own password.
     const context = await browser.newContext();
     const newUser = await context.newPage();
-    await signIn(newUser, "nina.new@e2e.test", temporaryPassword);
-    await expect(newUser).toHaveURL(/\/change-password$/);
-    await expect(newUser.getByRole("heading", { name: "Welcome, Nina New" })).toBeVisible();
-
-    // Can't skip the password change by going elsewhere.
-    await newUser.goto("/units");
-    await expect(newUser).toHaveURL(/\/change-password$/);
-    const api = await newUser.request.get("/api/v1/me");
-    expect(api.status()).toBe(403);
-    expect((await api.json()).error.code).toBe("PASSWORD_CHANGE_REQUIRED");
-
-    await newUser.getByLabel("Temporary password").fill(temporaryPassword);
-    await newUser.getByLabel("New password", { exact: true }).fill("short");
-    await newUser.getByLabel("Type the new password again").fill("short");
-    await newUser.getByRole("button", { name: "Save new password" }).click();
-    await expect(newUser.getByText(/at least 12 characters/i).first()).toBeVisible();
-
-    await newUser.getByLabel("New password", { exact: true }).fill("my own long password");
-    await newUser.getByLabel("Type the new password again").fill("my own long password");
-    await newUser.getByRole("button", { name: "Save new password" }).click();
-    // Everyone accepts the Terms, Privacy Policy and DPA before using Propfolio.
-    await expect(newUser).toHaveURL(/\/accept-terms/);
-    await expect(newUser.getByText("Your new password is saved ✓")).toBeVisible();
+    await newUser.goto(new URL(link).pathname);
+    await expect(newUser.getByRole("heading", { name: "Join E2E Leasing Co." })).toBeVisible();
+    await expect(newUser.getByText("Property Management (Viewer)")).toBeVisible();
+    await newUser.getByLabel("Your name").fill("Nina New");
+    await newUser.getByLabel("Choose a password").fill("short");
     await newUser.getByLabel(/I accept the/).check();
-    await newUser.getByRole("button", { name: "Accept and continue" }).click();
-    await expect(newUser).toHaveURL("/");
+    await newUser.getByRole("button", { name: "Join the team" }).click();
+    await expect(newUser.getByText(/at least 12 characters/i).first()).toBeVisible();
+    await newUser.getByLabel("Choose a password").fill("my own long password");
+    await newUser.getByRole("button", { name: "Join the team" }).click();
+    await expect(newUser.getByRole("heading", { level: 1 })).toContainText("Nina");
+    // A Viewer's menu.
+    await expect(
+      newUser.getByRole("navigation", { name: "Main" }).first().getByRole("link"),
+    ).toHaveText(["Home", "Calendar", "Units"]);
+    // The link works once.
+    await newUser.goto(new URL(link).pathname);
+    await expect(newUser.getByText("This invitation was already used")).toBeVisible();
     await context.close();
+
+    await page.reload();
+    await expect(page.getByRole("row", { name: /Nina New/ })).toContainText("nina.new@e2e.test");
   });
 
   test("Five wrong passwords lock the account", async ({ page }) => {

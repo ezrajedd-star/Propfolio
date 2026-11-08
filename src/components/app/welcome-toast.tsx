@@ -8,6 +8,7 @@ const MESSAGES: Record<string, string> = {
   "password-changed": "Your new password is saved ✓",
   "two-step": "Two-step sign-in is on ✓",
   "signed-up": "Welcome to Propfolio! Your free Premium trial has started ✓",
+  joined: "Welcome to the team ✓",
 };
 
 /** Shows a one-off confirmation passed as ?welcome=…, then removes it from the URL. */

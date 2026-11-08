@@ -84,6 +84,8 @@ const READ_ONLY_ALLOWED: ReadonlySet<Permission> = new Set<Permission>([
   "data.export",
   "audit.view",
   "privacy.manage",
+  // Upgrading is how a read-only account gets going again.
+  "billing.manage",
 ]);
 
 const RANK: Record<PlanName, number> = { FREE: 0, PRO: 1, PREMIUM: 2 };

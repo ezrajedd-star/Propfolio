@@ -55,6 +55,8 @@ export const PERMISSIONS = [
   "audit.view",
   "privacy.manage",
   "record.purge",
+  // The Owner only
+  "billing.manage",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -85,7 +87,7 @@ const ADMIN: readonly Permission[] = [
 ];
 
 const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
-  OWNER: new Set<Permission>(ADMIN),
+  OWNER: new Set<Permission>([...ADMIN, "billing.manage"]),
   ADMIN: new Set<Permission>(ADMIN),
   LEASING_STAFF: new Set<Permission>(LEASING),
   VIEWER: new Set<Permission>(["occupancy.view"]),

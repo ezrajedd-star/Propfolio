@@ -132,7 +132,8 @@ database** on every run, so never point them at real data.
 - **argon2id** password hashing; server-side sessions (see [decisions](docs/decisions.md))
 - **Nodemailer + React Email** for email templates
 - **pg-boss** worker for scheduled jobs (no Redis needed): lease status sync at 00:05,
-  housekeeping at 03:15, the reminder email at 06:00 and trial reminders at 09:00 Manila time
+  housekeeping at 03:15, the reminder email at 06:00, subscriptions (renewals, grace) at 07:00
+  and trial reminders at 09:00 Manila time
 - **Vitest** (unit + integration) and **Playwright** (end-to-end)
 - Docker Compose: web, worker, Postgres, Mailpit
 
@@ -306,11 +307,24 @@ from Excel** adds buildings, units, tenants and leases from a template, all or n
 platform admin's Accounts page shows the sign-up funnel. Details:
 [decisions §27](docs/decisions.md#27-self-serve-sign-up-and-onboarding-public-launch-phase-4).
 
+### Subscriptions and teams
+
+The Owner chooses, upgrades (now, paying the difference for the days left), downgrades (from next
+month) or cancels the plan on the **Plan** page, and sees the payment records. Payments go through
+a payment-provider interface; until PayMongo accepts the account, a **demo checkout** (test site
+and development only, no real money) stands in, with buttons for a successful payment, a failed
+one, and a card whose next renewal fails. A failed renewal gives 7 days' grace with reminders,
+then the account moves to Free. Owners and Admins **invite** people by email (7-day links); they
+join with their own password or Google. The Users page shows "X of Y users" and the Owner can hand
+ownership to an Admin. Details: [decisions §28](docs/decisions.md#28-subscriptions-and-payments-public-launch-phase-5)
+and [§29](docs/decisions.md#29-teams-public-launch-phase-6).
+
 ### Platform admin (Propfolio staff)
 
 `/platform` is Propfolio's back office: list accounts (plan, trial end, paid until, status,
-people and units — never tenant records), change an account's plan, extend a trial, record a
-bank-transfer payment, and suspend or reactivate an account. It has its own sign-in with **two steps** (password + a code
+people and units — never tenant records) with the sign-up funnel, change an account's plan, extend
+a trial, record a bank-transfer payment, suspend or reactivate an account, and list and export
+subscription payment records for the bookkeeper (**Payments**). It has its own sign-in with **two steps** (password + a code
 from an authenticator app), sessions of at most 8 hours, and every action is in the audit log.
 
 Add yourself (or start again after losing your phone) on the server:
@@ -445,9 +459,9 @@ Public launch ([brief](docs/brief-public-launch.md)):
 | 2. Security hardening         | 2-step sign-in for all, rate limits, backups, scanning, monitoring, staging       | ✅ Done |
 | 3. Plans, limits, trial       | Free/Pro/Premium limits, locked features, read-only, 30-day trial and reminders   | ✅ Done |
 | 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  | ✅ Done |
-| 5. Billing (PayMongo)         | Subscriptions (card, Maya), GCash monthly top-up, invoices                        | Next    |
-| 6. Teams                      | Invitations, seats, ownership transfer                                            |         |
-| 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    |         |
+| 5. Billing (PayMongo)         | Subscriptions, webhooks, grace period, payment records (PayMongo adapter pending) | ✅ Done |
+| 6. Teams                      | Invitations, seats, ownership transfer                                            | ✅ Done |
+| 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    | Next    |
 | 8. Launch readiness           | Checklist                                                                         |         |
 
 Confirmed assumptions (brief §14): reminder lead times Residential [60, 30, 7], Office/Retail

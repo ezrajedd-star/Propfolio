@@ -64,6 +64,12 @@ const schema = z.object({
   /** Cloudflare Turnstile bot check on the sign-up form. Both set: it is on. */
   TURNSTILE_SITE_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   TURNSTILE_SECRET_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  /**
+   * Who takes subscription payments. `demo`: a simulated checkout (test site and development only;
+   * refused on a real production server). `none`: no online payment ("Email us" to upgrade).
+   * `paymongo` will be added when PayMongo accepts the account.
+   */
+  PAYMENT_PROVIDER: z.enum(["demo", "none"]).default("demo"),
   /** Where customers write to upgrade until online payment exists, e.g. hello@propfolio.ph. */
   SUPPORT_EMAIL: z.preprocess((v) => (v === "" ? undefined : v), z.email().optional()),
 });

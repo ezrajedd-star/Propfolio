@@ -61,6 +61,10 @@ model Account {
   sessions           Session[]
   manualPayments     ManualPayment[]
   trialReminders     TrialReminder[]
+  subscription       Subscription?
+  checkouts          Checkout[]
+  invoices           SubscriptionInvoice[]
+  invitations        Invitation[]
   auditLogs          AuditLog[]
   settings           Setting[]
   buildings          Building[]
@@ -100,6 +104,150 @@ model Membership {
 
   @@unique([accountId, userId])
   @@index([userId])
+}
+
+// ─── Subscriptions to Propfolio (not the lessor's rent billing) ─────────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  /// A renewal failed: the plan continues for the grace period (7 days) while we remind them.
+  PAST_DUE
+  /// Ended (cancelled, or the grace period ran out). The account is on Free.
+  CANCELED
+}
+
+/// An account's paid plan, renewed monthly through the payment provider. A payment sets the
+/// account's plan and paid-until day; the plan rules do the rest. Propfolio's own record.
+model Subscription {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  accountId          String             @unique @db.Uuid
+  account            Account            @relation(fields: [accountId], references: [id])
+  plan               Plan
+  status             SubscriptionStatus
+  /// "demo" (simulated checkout, before a provider is connected) or "paymongo".
+  provider           String
+  /// The provider's own id for this subscription or customer, if it has one.
+  providerRef        String?
+  /// Manila dates, inclusive.
+  currentPeriodStart DateTime           @db.Date
+  currentPeriodEnd   DateTime           @db.Date
+  /// Cancel at the end of the paid period (nothing more is charged).
+  cancelAtPeriodEnd  Boolean            @default(false)
+  /// A downgrade that applies from the next period.
+  pendingPlan        Plan?
+  pastDueSince       DateTime?          @db.Timestamptz(3)
+  /// The last grace reminder sent (days into the grace period), so each goes once.
+  graceReminderDay   Int?
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+}
+
+enum CheckoutKind {
+  /// Start a paid plan (from the trial, Free, or after it ended).
+  SUBSCRIBE
+  /// Pro → Premium in the middle of a period: the difference for the days left.
+  UPGRADE
+  /// A monthly renewal the provider charges.
+  RENEWAL
+}
+
+enum CheckoutStatus {
+  OPEN
+  PAID
+  FAILED
+  EXPIRED
+}
+
+/// One payment we asked the provider for. Plan and amount come from here, never from the
+/// provider's message, so a tampered notification can't change what is granted.
+model Checkout {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  accountId   String         @db.Uuid
+  account     Account        @relation(fields: [accountId], references: [id])
+  kind        CheckoutKind
+  plan        Plan
+  amount      Decimal        @db.Decimal(14, 2)
+  provider    String
+  /// The provider's checkout or payment id (set once created there).
+  providerRef String?        @unique
+  status      CheckoutStatus @default(OPEN)
+  /// Who started it (the Owner), or null for a renewal.
+  createdById String?        @db.Uuid
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  closedAt    DateTime?      @db.Timestamptz(3)
+
+  @@index([accountId, createdAt])
+}
+
+/// Every message from a payment provider, as received (secrets and card data never included),
+/// and what we did with it. The unique key makes repeated deliveries harmless.
+model ProviderEvent {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  provider        String
+  providerEventId String
+  type            String
+  accountId       String?   @db.Uuid
+  payload         Json
+  receivedAt      DateTime  @default(now()) @db.Timestamptz(3)
+  processedAt     DateTime? @db.Timestamptz(3)
+  /// What happened, in a few words ("paid: PF-2026-000012", "ignored: unknown checkout").
+  outcome         String?
+
+  @@unique([provider, providerEventId])
+  @@index([receivedAt])
+}
+
+/// A payment record for each payment received: for the bookkeeper's export and the Owner's
+/// payment history. NOT a BIR official invoice: see src/server/subscription/invoicing.ts for where
+/// BIR-compliant invoicing plugs in once the accountant confirms the method.
+model SubscriptionInvoice {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  /// PF-2026-000001, numbered per year without gaps.
+  number          String   @unique
+  accountId       String   @db.Uuid
+  account         Account  @relation(fields: [accountId], references: [id])
+  issuedAt        DateTime @default(now()) @db.Timestamptz(3)
+  customerName    String
+  customerAddress String
+  plan            Plan
+  description     String
+  periodStart     DateTime @db.Date
+  periodEnd       DateTime @db.Date
+  amount          Decimal  @db.Decimal(14, 2)
+  /// card, gcash, maya, bank_transfer, demo…
+  method          String
+  provider        String
+  providerRef     String?
+  checkoutId      String?  @unique @db.Uuid
+
+  @@index([accountId, issuedAt])
+  @@index([issuedAt])
+}
+
+model InvoiceCounter {
+  year Int @id
+  last Int @default(0)
+}
+
+/// "Join our team on Propfolio": an Owner or Admin invites someone by email, with a role. The
+/// link works for 7 days and once. The invited person signs up (or signs in) themselves: nobody
+/// types a password for them. Only a hash of the link's token is stored. Propfolio's own record.
+model Invitation {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  accountId      String    @db.Uuid
+  account        Account   @relation(fields: [accountId], references: [id])
+  /// Lower-cased and trimmed.
+  email          String
+  role           Role
+  tokenHash      String    @unique
+  invitedById    String?   @db.Uuid
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  acceptedAt     DateTime? @db.Timestamptz(3)
+  acceptedUserId String?   @db.Uuid
+  revokedAt      DateTime? @db.Timestamptz(3)
+
+  @@index([accountId, email])
 }
 
 /// A self-serve sign-up waiting for its 6-digit email code (or, for Google, for the company name

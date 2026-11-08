@@ -400,3 +400,81 @@ Confirmed by the owner on 4 Nov 2026: Premium ₱3,500 a month; Pro up to 50 uni
 - **Sign-up funnel** (`FunnelEvent`, counts only): started, verified, first unit, first lease, shown
   on the platform admin's Accounts page for the last 30 days.
 - Migration `20261107090000_self_serve_sign_up`, reversible (rehearsed forward, back, forward).
+
+## 28. Subscriptions and payments (public launch, Phase 5)
+
+PayMongo isn't accepting new merchants yet, so everything is built and tested except the PayMongo
+adapter itself.
+
+- **Provider interface** (`src/server/subscription/providers/types.ts`): create a hosted
+  checkout, request a renewal, verify and read a webhook. Connecting PayMongo (or Xendit) is one
+  file implementing it, plus a line in `providers/index.ts`. Card details never reach Propfolio.
+- **Demo provider** until then: a simulated hosted checkout inside the app ("Test payment: no real
+  money moves") with buttons for card, GCash, Maya, a card whose next renewal fails, and a failed
+  payment. Its messages are signed (key derived from `APP_SECRET`) and go through exactly the same
+  webhook handling as a real provider's. **Refused on a production server that isn't the test
+  site** (`NODE_ENV=production` without `UAT_MODE`), so nobody can "pay" with a pretend card;
+  `PAYMENT_PROVIDER=none` hides online payment ("Email us" instead).
+- **Payments drive the plan rules** (§26): a payment sets the account's plan and paid-until day,
+  so access, limits and read-only need nothing new. Paying during the trial ends the trial and
+  starts the paid month that day.
+- **Checkouts** record the plan and amount on our side; a provider message only says "this
+  payment was paid/failed", so a tampered message can't change what is granted. A checkout is
+  claimed once (two deliveries racing can't both apply it).
+- **Webhooks** (`/api/v1/subscription/webhook/<provider>`): signature checked (401 if wrong),
+  every genuine message logged in `ProviderEvent` with what was done, and a repeated delivery is
+  recognised by its event id and changes nothing.
+- **States:** trialing, active, past due, cancelled (still paid up), free. Monthly periods run from
+  the payment day to the day before the same date next month (31 Jan → 27 Feb; a period that
+  starts at a month's end drifts to the shorter month's date, accepted for now).
+- **Upgrade** (Pro → Premium) applies now and costs the difference for the days left
+  (`upgradeCharge`); the period's end doesn't move. **Downgrade** waits for the period's end.
+  **Cancel** keeps the plan to the period's end, then the account is on Free; "Keep this plan"
+  undoes it until then.
+- **Past due:** a failed renewal gives 7 days' grace (access continues: paid-until moves to the
+  grace end), with emails on the failure and on grace days 3 and 6; then the subscription ends and
+  the account is on Free under the §26 rules. Paying during the grace starts a new month that day.
+- **Daily worker job** (07:00 Manila): renewals due, ending cancelled and unpaid subscriptions,
+  grace reminders. Safe to run twice (one renewal request per period).
+- **Emails** to the Owner: payment received, payment failed, plan changed (upgrade, downgrade
+  scheduled), cancelled, moved to Free; the trial-ending emails exist since §26.
+- **Payment records** (`SubscriptionInvoice`), numbered `PF-YYYY-NNNNNN` per year without gaps:
+  number, date, customer name and address, plan, period, amount, method, provider reference.
+  **Never labelled a BIR official invoice**; `src/server/subscription/invoicing.ts` is where
+  BIR-compliant invoicing plugs in once the accountant decides. The Owner sees them on the Plan
+  page; the platform admin's **Payments** page lists them and exports Excel for the bookkeeper
+  (audited). Manual bank-transfer payments (platform admin) still set a paid-until day.
+- **Billing is the Owner's** (new permission `billing.manage`, Owner only), allowed while
+  read-only so an account over its limit can always upgrade.
+- To connect PayMongo: implement `PaymentProvider` with its Checkout/Subscriptions API (hosted
+  checkout for SUBSCRIBE/UPGRADE; for RENEWAL, map PayMongo's subscription invoice events to our
+  RENEWAL checkout by the subscription's `providerRef`), verify `Paymongo-Signature` (HMAC-SHA256
+  of `timestamp.body` with the webhook secret, rejecting old timestamps), add
+  `PAYMENT_PROVIDER=paymongo` and the keys as secrets, then run the brief's ₱1,500 live test.
+
+## 29. Teams (public launch, Phase 6)
+
+- **Invitations** replace "Add user" with a temporary password: an Owner or Admin enters an email
+  and a role; the person gets an email with a link that works for 7 days and once, and signs up
+  themselves (name and own password, or Google with the invited email), accepting the legal
+  documents. The link proves they can read that email, so no code step. Someone who already has a
+  Propfolio sign-in (e.g. an outside accountant with another account) signs in and joins: one
+  person, several accounts. Inviting the same email again replaces the old link; invitations can
+  be withdrawn. The link is also shown to the inviter in case the email doesn't arrive.
+- **Seats:** the plan's user limit (§26) counts active people **and open invitations**; the Users
+  page shows "X of Y users". Joining checks the seat again (the plan may have changed).
+- **Roles:** Owner, Admin, Leasing Staff, Property Management (read-only; also suits an outside
+  accountant). Admins change roles and remove people ("Turn off account": the sign-in stops and
+  the seat is freed; nothing is deleted, as everywhere in Propfolio).
+- **Ownership transfer:** the Owner makes an active Admin the Owner and becomes an Admin, in one
+  transaction (there is never a moment with no Owner or two). Both people's other sessions are
+  signed out so they start again with their new role. Billing follows the Owner.
+- **Audit:** invitations sent, withdrawn and accepted, role changes, turning off and on, and
+  ownership transfers are all in the audit log.
+- **Per-building access (not built, as asked):** add a `MembershipBuilding (membershipId,
+buildingId)` table; a membership with no rows sees every building (today's behaviour), one with
+  rows sees only those. Enforce it in the same two places as accounts: the database client's
+  query filter (units, leases, tenants with a lease there, charges, payments, documents, reminders
+  joined through the unit's building) and row-level security policies using a
+  `current_building_ids()` setting next to `app.account_id`. Reports and exports then follow
+  automatically; the Users page gets a building picker per person.
