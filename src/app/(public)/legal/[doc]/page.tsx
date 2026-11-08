@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Logo } from "@/components/app/logo";
 import { LEGAL_DOCUMENTS, LEGAL_INFO, type LegalDocumentName } from "@/domain/legal/documents";
 import { formatIsoDate } from "@/domain/time/manila";
+import { COMPANY } from "@/domain/legal/company";
+import { env } from "@/server/env";
 
 const BY_SLUG: Record<string, LegalDocumentName> = Object.fromEntries(
   LEGAL_DOCUMENTS.map((d) => [LEGAL_INFO[d].path.split("/").pop()!, d]),
 );
 
-export function generateStaticParams() {
-  return Object.keys(BY_SLUG).map((doc) => ({ doc }));
-}
+// Reads the support email (a server setting) when the page is shown, not when it is built.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -29,15 +29,32 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
   if (!d) notFound();
   const info = LEGAL_INFO[d];
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href="/" aria-label="Propfolio home">
-        <Logo />
-      </Link>
-      <h1 className="mt-8 text-3xl font-semibold">{info.title}</h1>
+    <article className="mx-auto max-w-2xl">
+      <h1 className="text-3xl font-semibold">{info.title}</h1>
       <p className="text-muted-foreground mt-2">Version of {formatIsoDate(info.version)}</p>
       <div className="border-warning bg-warning-soft text-warning mt-8 rounded-lg border p-4 font-medium">
         [LAWYER TO SUPPLY] The full text of the {info.title} will appear here.
       </div>
+      <section aria-labelledby="who" className="mt-8">
+        <h2 id="who" className="text-xl font-semibold">
+          Who we are
+        </h2>
+        <dl className="mt-3 divide-y rounded-xl border">
+          {(
+            [
+              ["Provider", `${COMPANY.legalName} (${COMPANY.tradeName})`],
+              ["Address", COMPANY.address],
+              ["Contact", env().SUPPORT_EMAIL ?? "[TO SUPPLY: support email]"],
+              ...(d === "PRIVACY" ? [["Where data is kept", COMPANY.dataHosting]] : []),
+            ] as [string, string][]
+          ).map(([label, value]) => (
+            <div key={label} className="grid gap-1 p-3 sm:grid-cols-3">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="sm:col-span-2">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
       <nav aria-label="Legal documents" className="mt-10 flex flex-wrap gap-x-6 gap-y-2">
         {LEGAL_DOCUMENTS.filter((o) => o !== d).map((o) => (
           <Link
@@ -49,6 +66,6 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
           </Link>
         ))}
       </nav>
-    </main>
+    </article>
   );
 }

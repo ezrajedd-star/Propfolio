@@ -461,8 +461,8 @@ Public launch ([brief](docs/brief-public-launch.md)):
 | 4. Self-serve sign-up         | Google / email sign-up, onboarding, Excel import                                  | ✅ Done |
 | 5. Billing (PayMongo)         | Subscriptions, webhooks, grace period, payment records (PayMongo adapter pending) | ✅ Done |
 | 6. Teams                      | Invitations, seats, ownership transfer                                            | ✅ Done |
-| 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    | Next    |
-| 8. Launch readiness           | Checklist                                                                         |         |
+| 7. Public pages               | Pricing, terms, privacy, DPA, refunds, contact                                    | ✅ Done |
+| 8. Launch readiness           | [Checklist](docs/launch-checklist.md): what's done and what's left                | ✅ Done |
 
 Confirmed assumptions (brief §14): reminder lead times Residential [60, 30, 7], Office/Retail
 [90, 60, 30], Warehouse/Industrial [180, 120, 90, 60, 30]; digest at 06:00 Asia/Manila; repeats

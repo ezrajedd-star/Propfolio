@@ -478,3 +478,16 @@ buildingId)` table; a membership with no rows sees every building (today's behav
   joined through the unit's building) and row-level security policies using a
   `current_building_ids()` setting next to `app.account_id`. Reports and exports then follow
   automatically; the Users page gets a building picker per person.
+
+## 30. Public pages and launch readiness (public launch, Phases 7–8)
+
+- **Public pages** (no sign-in, linked from the footer of the sign-in and sign-up pages): Pricing
+  (built from the plan configuration, so it can't disagree with the app), Terms of Service,
+  Privacy Policy, Data Processing Agreement, Refunds and cancellation, Contact.
+- **Nothing that commits the business is invented.** How cancelling, downgrades, failed payments
+  and the trial work is written out (it's how the product behaves); refund terms and the legal
+  texts say "[LAWYER TO SUPPLY]"; business details (registered name, registration and TIN,
+  address, phone, data-hosting location) live in `src/domain/legal/company.ts` and say
+  "[TO SUPPLY …]" until filled in. The contact email is `SUPPORT_EMAIL`.
+- **Launch readiness:** `docs/launch-checklist.md`, each item done, partly done or not done, with
+  what is left and who does it. The phone walk-through is automated on a simulated Pixel 7.

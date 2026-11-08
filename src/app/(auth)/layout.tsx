@@ -1,4 +1,5 @@
 import { Logo } from "@/components/app/logo";
+import { SiteFooter } from "@/components/public/site-footer";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="bg-card w-full max-w-md rounded-2xl border p-6 shadow-sm sm:p-8">
         {children}
       </div>
+      <SiteFooter className="mt-8 max-w-md" />
     </main>
   );
 }
