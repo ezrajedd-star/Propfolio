@@ -26,7 +26,10 @@ test.describe("Phase 6: guide, documents, reports, feedback", () => {
     }
     // The test version ends with the feedback button.
     await expect(tour.getByRole("heading", { name: "Tell us what you think" })).toBeVisible();
+    // The tour's "done" is saved in the background: wait for it before reloading.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.ok());
     await tour.getByRole("button", { name: "Finish" }).click();
+    await saved;
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.reload();
@@ -37,7 +40,10 @@ test.describe("Phase 6: guide, documents, reports, feedback", () => {
   test("Guide shows plain notes for the buttons on the current page", async ({ page }) => {
     await signInAs(page, "staff");
     await page.goto("/payments");
+    // Turning the Guide on is saved in the background: wait for it before moving on.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.ok());
     await page.getByRole("button", { name: "Guide", exact: true }).click();
+    await saved;
     const guide = page.getByRole("complementary", { name: "Guide" });
     await expect(guide.getByRole("heading", { name: "Payments" })).toBeVisible();
     await expect(guide.getByText("Record payment", { exact: true })).toBeVisible();

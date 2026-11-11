@@ -11,6 +11,12 @@ const PAGES: [string, string][] = [
   ["/legal/dpa", "Data Processing Agreement"],
   ["/legal/refunds", "Refunds and cancellation"],
   ["/contact", "Contact us"],
+  ["/welcome", "Never miss a lease renewal again."],
+  ["/product", "Every lease, every peso, every date. In one place."],
+  ["/customers", "Lessors who stopped chasing dates"],
+  ["/help", "How can we help?"],
+  ["/about", "We built the lease ledger we wished we had"],
+  ["/security", "Your tenants trust you. You can trust Propfolio."],
 ];
 
 for (const [path, heading] of PAGES) {
@@ -39,8 +45,8 @@ test("the sign-in page links to every public page", async ({ page }) => {
 
 test("pricing shows the configured prices and leads to sign-up", async ({ page }) => {
   await page.goto("/pricing");
-  await expect(page.getByText("₱1,500.00")).toBeVisible();
-  await expect(page.getByText("₱3,500.00")).toBeVisible();
+  await expect(page.getByText("₱1,500.00").first()).toBeVisible();
+  await expect(page.getByText("₱3,500.00").first()).toBeVisible();
   await page.getByRole("link", { name: "Start free" }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "Start free" })).toBeVisible();
 });

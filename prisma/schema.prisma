@@ -1086,3 +1086,21 @@ model RateLimit {
 
   @@index([windowStart])
 }
+
+/// "Book a demo" requests from the website. Propfolio's own records, not an account's: only the
+/// platform admin sees them. Removed a year after they arrive (housekeeping job).
+model DemoRequest {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String
+  email       String
+  company     String
+  phone       String    @default("")
+  /// A band, e.g. "11–50".
+  units       String
+  message     String    @default("")
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  handledAt   DateTime? @db.Timestamptz(3)
+  handledById String?   @db.Uuid
+
+  @@index([createdAt])
+}

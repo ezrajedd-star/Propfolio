@@ -30,6 +30,7 @@ _Public launch, Phase 8. Last updated 8 Nov 2026. ✅ done · ⚠️ partly done
 | Remaining dependency upgrades: PRs #10, #12, #13 need code changes                                                        | ❌     | Developer                |
 | The first customer's account within its plan's user limit (5 on Premium), or a decision to give it more                   | ⚠️     | You                      |
 | Two-step sign-in, rate limits, backups, account separation, audit log, plan limits, sign-up, billing logic, teams         | ✅     | —                        |
+| Website copy: real customer stories, founder story and team (now marked "Placeholder" on the site)                        | ❌     | You                      |
 | Public pages the payment partner checks (pricing, terms, privacy, DPA, refunds, contact), linked from the sign-in page    | ✅     | —                        |
 
 ## How to update this list

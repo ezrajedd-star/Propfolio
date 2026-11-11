@@ -21,6 +21,8 @@ export const RATE_LIMITS = {
   resetCompleteByIp: { max: 20, windowSeconds: 3600 },
   /** "Start free" sign-ups from one IP address (an office can sign up a few people). */
   signUpByIp: { max: 10, windowSeconds: 3600 },
+  /** "Book a demo" requests from one IP address. */
+  demoRequestByIp: { max: 5, windowSeconds: 3600 },
   /** Platform admin sign-in attempts from one IP address. */
   platformSignInByIp: { max: 10, windowSeconds: 600 },
 } as const;

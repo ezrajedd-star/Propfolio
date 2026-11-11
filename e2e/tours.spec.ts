@@ -31,7 +31,10 @@ test.describe("Task tours, adding units, not-found pages", () => {
     await expect(tour.getByRole("heading", { name: "Four steps" })).toBeVisible();
     await tour.getByRole("button", { name: "Next" }).click();
     await expect(tour.getByRole("heading", { name: "Find the unit" })).toBeVisible();
+    // The tour's "done" is saved in the background: wait for it before reloading.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.ok());
     await tour.getByRole("button", { name: "Skip tour" }).click();
+    await saved;
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.reload();

@@ -491,3 +491,19 @@ buildingId)` table; a membership with no rows sees every building (today's behav
   "[TO SUPPLY …]" until filled in. The contact email is `SUPPORT_EMAIL`.
 - **Launch readiness:** `docs/launch-checklist.md`, each item done, partly done or not done, with
   what is left and who does it. The phone walk-through is automated on a simulated Pixel 7.
+
+## 31. The public website (11 Nov 2026)
+
+- **"/" shows the website to signed-out visitors** (`src/proxy.ts` rewrites it to `/welcome`);
+  signed-in people still get their dashboard at "/". Other app pages still send signed-out
+  visitors to sign in.
+- **Pages:** Home, Product, Pricing (with a plan picker built on the same limits the app enforces),
+  Customers, Help centre (searchable FAQ), About, Security and privacy, Contact and Book a demo.
+  All words live in `src/domain/marketing/content.ts`.
+- **Placeholders are labelled on the page:** customer stories, the founder's story and team, and
+  business details show "Placeholder" or "[TO SUPPLY …]" until real ones are given. The Security
+  page lists only what Propfolio does today.
+- **Book a demo** is stored in Propfolio (`DemoRequest`, platform admin only, removed after a
+  year), emailed to `SUPPORT_EMAIL`, rate-limited to 5 an hour per address, with a hidden field
+  to catch bots. A calendar booking link can replace or follow it later.
+- Branding (teal, Inter) and the headline are drafts.

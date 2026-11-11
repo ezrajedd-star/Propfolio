@@ -152,7 +152,12 @@ test.describe("Phase 1 acceptance", () => {
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed-out/);
     await expect(page.getByText("You have been signed out.")).toBeVisible();
+    // Signed out, "/" is the website's home page again.
     await page.goto("/");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Never miss a lease renewal again." }),
+    ).toBeVisible();
+    await page.goto("/settings/users");
     await expect(page).toHaveURL(/\/login$/);
   });
 });

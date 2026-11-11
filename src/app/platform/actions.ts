@@ -20,6 +20,7 @@ import {
 } from "@/server/platform/current";
 import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
+import { setDemoRequestHandled } from "@/server/demo/service";
 
 /** Platform actions need a platform session; without one, back to the platform sign-in. */
 async function asPlatformAdmin<T>(
@@ -98,4 +99,12 @@ export async function changePlanAction(accountId: string, input: unknown) {
   });
   revalidatePath(`/platform/accounts/${accountId}`);
   return result;
+}
+
+export async function setDemoRequestHandledAction(id: string, handled: boolean) {
+  const r = await asPlatformAdmin(async (admin) =>
+    setDemoRequestHandled(admin, id, handled, await requestMeta()),
+  );
+  if (r.ok) revalidatePath("/platform/demo-requests");
+  return r;
 }
