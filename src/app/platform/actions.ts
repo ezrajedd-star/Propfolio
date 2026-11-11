@@ -21,6 +21,7 @@ import {
 import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
 import { setDemoRequestHandled } from "@/server/demo/service";
+import { setWebsiteLeadHandled } from "@/server/website-leads/service";
 
 /** Platform actions need a platform session; without one, back to the platform sign-in. */
 async function asPlatformAdmin<T>(
@@ -106,5 +107,13 @@ export async function setDemoRequestHandledAction(id: string, handled: boolean) 
     setDemoRequestHandled(admin, id, handled, await requestMeta()),
   );
   if (r.ok) revalidatePath("/platform/demo-requests");
+  return r;
+}
+
+export async function setWebsiteLeadHandledAction(id: string, handled: boolean) {
+  const r = await asPlatformAdmin(async (admin) =>
+    setWebsiteLeadHandled(admin, id, handled, await requestMeta()),
+  );
+  if (r.ok) revalidatePath("/platform/website-leads");
   return r;
 }

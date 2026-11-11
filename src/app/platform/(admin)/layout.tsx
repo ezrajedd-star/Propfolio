@@ -30,6 +30,9 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
             <Button asChild variant="ghost">
               <Link href="/platform/demo-requests">Demo requests</Link>
             </Button>
+            <Button asChild variant="ghost">
+              <Link href="/platform/website-leads">Partners and downloads</Link>
+            </Button>
           </nav>
           <div className="flex items-center gap-3">
             <span className="text-muted-foreground hidden sm:inline">{admin.name}</span>

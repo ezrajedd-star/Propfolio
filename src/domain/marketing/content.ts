@@ -304,6 +304,7 @@ export const SITE_NAV = [
   { href: "/product", label: "Product" },
   { href: "/pricing", label: "Pricing" },
   { href: "/customers", label: "Customers" },
+  { href: "/resources", label: "Resources" },
   { href: "/help", label: "Help" },
   { href: "/about", label: "About" },
 ] as const;
@@ -316,7 +317,16 @@ export const FOOTER_COLUMNS = [
       { href: "/product", label: "Features" },
       { href: "/pricing", label: "Pricing" },
       { href: "/security", label: "Security and privacy" },
-      { href: "/signup", label: "Start free" },
+      { href: "/compare/excel", label: "Propfolio vs Excel" },
+      { href: "/whats-new", label: "What's new" },
+    ],
+  },
+  {
+    title: "Solutions",
+    links: [
+      { href: "/for/residential", label: "Residential" },
+      { href: "/for/commercial", label: "Commercial and office" },
+      { href: "/for/industrial", label: "Industrial and warehouses" },
     ],
   },
   {
@@ -324,13 +334,16 @@ export const FOOTER_COLUMNS = [
     links: [
       { href: "/about", label: "About us" },
       { href: "/customers", label: "Customer stories" },
+      { href: "/partners", label: "Partners" },
       { href: "/contact", label: "Contact and demo" },
     ],
   },
   {
     title: "Resources",
     links: [
+      { href: "/resources", label: "Guides and templates" },
       { href: "/help", label: "Help centre and FAQ" },
+      { href: "/status", label: "System status" },
       { href: "/login", label: "Sign in" },
     ],
   },

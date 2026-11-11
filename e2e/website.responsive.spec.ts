@@ -11,6 +11,13 @@ const PAGES = [
   "/security",
   "/contact",
   "/legal/terms",
+  "/for/residential",
+  "/compare/excel",
+  "/resources",
+  "/resources/rent-escalation-explained",
+  "/whats-new",
+  "/status",
+  "/partners",
 ];
 
 async function noSidewaysScroll(page: Page) {

@@ -99,3 +99,53 @@ test("book a demo: mistakes are explained, then the request is kept", async ({ p
   await expect(page.getByText("Thank you! We'll be in touch.")).toBeVisible();
   await expect.poll(() => db.demoRequest.count({ where: { email: DEMO_EMAIL } })).toBe(1);
 });
+
+const LEAD_EMAIL = `lead.${Date.now()}@website.example`;
+
+test.describe("more website pages", () => {
+  test.afterAll(async () => {
+    await db.websiteLead.deleteMany({ where: { email: LEAD_EMAIL } });
+  });
+
+  test("the free lease tracker downloads after name and email", async ({ page }) => {
+    await page.goto("/resources");
+    await page.getByRole("button", { name: "Get the free template" }).click();
+    await expect(page.getByText("Enter a name.")).toBeVisible();
+    await page.getByLabel("Your name").fill("Lito Lessor");
+    await page.getByLabel("Email", { exact: true }).fill(LEAD_EMAIL);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Get the free template" }).click();
+    expect((await download).suggestedFilename()).toBe("Propfolio lease tracker.xlsx");
+    await expect(page.getByText("Your download has started.")).toBeVisible();
+  });
+
+  test("partners apply on the partner page", async ({ page }) => {
+    await page.goto("/partners");
+    await page.getByLabel("Your name").fill("Bea Broker");
+    await page.getByLabel("Work email").fill(LEAD_EMAIL);
+    await page.getByRole("textbox", { name: "Company" }).fill("Bea Realty");
+    await page.getByLabel("What best describes you?").selectOption("Real estate broker");
+    await page.getByRole("button", { name: "Apply to partner" }).click();
+    await expect(page.getByText("Thank you for applying!")).toBeVisible();
+    await expect
+      .poll(() => db.websiteLead.count({ where: { email: LEAD_EMAIL, kind: "PARTNER" } }))
+      .toBe(1);
+  });
+
+  test("the status page says whether things are working, with words", async ({ page }) => {
+    await page.goto("/status");
+    await expect(page.getByRole("heading", { name: "Database" })).toBeVisible();
+    await expect(page.getByText("Working").first()).toBeVisible();
+  });
+
+  test("each property type page shows its standard reminders", async ({ page }) => {
+    await page.goto("/for/industrial");
+    await expect(page.getByText("180 days before the lease ends")).toBeVisible();
+    await page.goto("/");
+    await page
+      .getByRole("link", { name: /Residential/ })
+      .first()
+      .click();
+    await expect(page.getByText("7 days before the lease ends")).toBeVisible();
+  });
+});

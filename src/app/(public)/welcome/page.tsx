@@ -18,6 +18,7 @@ import {
   STORIES,
   VALUE_PROPOSITION as V,
 } from "@/domain/marketing/content";
+import { SEGMENT_PAGES } from "@/domain/marketing/pages";
 
 export const metadata: Metadata = {
   title: { absolute: "Propfolio · Never miss a lease renewal again" },
@@ -118,10 +119,16 @@ export default function HomePage() {
         <div className="grid gap-4 md:grid-cols-3">
           {SEGMENTS.map((s, i) => (
             <Reveal key={s.title} delay={i * 80}>
-              <div className="h-full rounded-2xl border p-6">
+              <Link
+                href={`/for/${SEGMENT_PAGES[i]!.slug}`}
+                className="hover:border-primary/40 flex h-full flex-col rounded-2xl border p-6 transition-all hover:-translate-y-0.5 hover:shadow-lg motion-reduce:hover:translate-y-0"
+              >
                 <h3 className="text-xl font-semibold">{s.title}</h3>
-                <p className="text-muted-foreground mt-2">{s.text}</p>
-              </div>
+                <p className="text-muted-foreground mt-2 flex-1">{s.text}</p>
+                <span className="text-primary mt-4 inline-flex items-center gap-1 font-semibold">
+                  Learn more <ArrowRight className="size-4" aria-hidden />
+                </span>
+              </Link>
             </Reveal>
           ))}
         </div>

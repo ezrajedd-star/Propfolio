@@ -5,13 +5,24 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { setDemoRequestHandledAction } from "../../actions";
+import { setDemoRequestHandledAction, setWebsiteLeadHandledAction } from "../../actions";
 
-export function HandledButton({ id, handled }: { id: string; handled: boolean }) {
+export function HandledButton({
+  id,
+  handled,
+  kind = "demo",
+}: {
+  id: string;
+  handled: boolean;
+  kind?: "demo" | "lead";
+}) {
   const [pending, start] = useTransition();
   const set = (to: boolean) =>
     start(async () => {
-      const r = await setDemoRequestHandledAction(id, to);
+      const r = await (kind === "demo" ? setDemoRequestHandledAction : setWebsiteLeadHandledAction)(
+        id,
+        to,
+      );
       if (!r.ok) {
         toast.error(r.message);
         return;

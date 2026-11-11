@@ -1104,3 +1104,33 @@ model DemoRequest {
 
   @@index([createdAt])
 }
+
+enum WebsiteLeadKind {
+  /// Asked for a free resource (the Excel lease tracker).
+  RESOURCE
+  /// Applied to the partner programme.
+  PARTNER
+}
+
+/// People who asked for a free resource or applied to be a partner on the website. Propfolio's
+/// own records: only the platform admin sees them. Removed a year after they arrive.
+model WebsiteLead {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  kind         WebsiteLeadKind
+  name         String
+  email        String
+  company      String          @default("")
+  phone        String          @default("")
+  /// Partner applications: broker, property manager, accountant or other.
+  partnerType  String          @default("")
+  /// Resource requests: which resource.
+  resource     String          @default("")
+  message      String          @default("")
+  /// Agreed to receive occasional product news by email.
+  wantsUpdates Boolean         @default(false)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  handledAt    DateTime?       @db.Timestamptz(3)
+  handledById  String?         @db.Uuid
+
+  @@index([kind, createdAt])
+}

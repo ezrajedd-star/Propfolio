@@ -17,6 +17,17 @@ const PAGES: [string, string][] = [
   ["/help", "How can we help?"],
   ["/about", "We built the lease ledger we wished we had"],
   ["/security", "Your tenants trust you. You can trust Propfolio."],
+  ["/for/residential", "Apartments, condos and boarding houses"],
+  ["/for/commercial", "Office and retail leases"],
+  ["/for/industrial", "Warehouse leases, with six months' warning."],
+  ["/compare/excel", "Your spreadsheet got you this far."],
+  ["/resources", "Guides and templates for Philippine lessors"],
+  ["/resources/lease-renewal-checklist", "The lease renewal checklist"],
+  ["/resources/data-privacy-act-for-lessors", "The Data Privacy Act for lessors"],
+  ["/resources/rent-escalation-explained", "Rent escalation, explained"],
+  ["/whats-new", "What's new in Propfolio"],
+  ["/status", "System status"],
+  ["/partners", "Help the lessors you work with"],
 ];
 
 for (const [path, heading] of PAGES) {

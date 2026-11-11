@@ -507,3 +507,20 @@ buildingId)` table; a membership with no rows sees every building (today's behav
   year), emailed to `SUPPORT_EMAIL`, rate-limited to 5 an hour per address, with a hidden field
   to catch bots. A calendar booking link can replace or follow it later.
 - Branding (teal, Inter) and the headline are drafts.
+
+## 32. More website pages (11 Nov 2026)
+
+- **For each kind of property** (`/for/residential`, `/for/commercial`, `/for/industrial`): the
+  reminder lead times shown come from the app's own defaults, so they can't drift.
+- **Propfolio vs Excel** (`/compare/excel`), **What's new** (`/whats-new`), **Guides and
+  templates** (`/resources`, three guides). The guides are general information, not legal
+  advice, and say so.
+- **Free Excel lease tracker:** name and email first (stored as a `WebsiteLead`, news only if
+  they tick the box), then the download. The file holds no customer data.
+- **Partners** (`/partners`): an application form, emailed to `SUPPORT_EMAIL`. The reward is a
+  placeholder until decided.
+- **Status** (`/status`): live checks of the database and the daily reminder job, in words. It
+  runs on the same server, so if the server is down the page is too: an outside status service
+  (e.g. a free uptime monitor) is the next step.
+- Partner applications and template requests are in the platform admin under "Partners and
+  downloads", kept a year.

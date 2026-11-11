@@ -37,6 +37,7 @@ import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
 import { sendTrialReminders } from "../src/server/plans/trial-reminders";
 import { purgeOldDemoRequests } from "../src/server/demo/service";
+import { purgeOldWebsiteLeads } from "../src/server/website-leads/service";
 import { purgeExpiredSignUps } from "../src/server/signup/service";
 import { runSubscriptionCycle } from "../src/server/subscription/service";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
@@ -78,7 +79,7 @@ const JOBS: Job[] = [
     run: async () =>
       `removed ${await purgeOldSessions()} old session(s), ${await purgeOldDrafts()} old draft(s), ` +
       `${await purgeOldTwoStepRows()} old sign-in step(s) and device(s), ${await purgeOldRateLimits()} old rate-limit counter(s), ` +
-      `${await purgeExpiredSignUps()} expired sign-up(s), ${await purgeOldDemoRequests()} old demo request(s)`,
+      `${await purgeExpiredSignUps()} expired sign-up(s), ${await purgeOldDemoRequests()} old demo request(s), ${await purgeOldWebsiteLeads()} old website request(s)`,
   },
   dailyReminders,
   {

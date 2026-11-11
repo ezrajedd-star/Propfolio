@@ -8,7 +8,7 @@ import { FOOTER_COLUMNS } from "@/domain/marketing/content";
 export function SiteFooterFull() {
   return (
     <footer className="bg-muted/40 border-t">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-7">
         <div className="lg:col-span-2">
           <Logo />
           <p className="text-muted-foreground mt-3 max-w-xs">
