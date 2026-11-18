@@ -130,7 +130,7 @@ export function EditableCell({
       type="button"
       onClick={start}
       disabled={disabled}
-      aria-label={`${display ?? "Empty"}. Edit ${label}`}
+      aria-label={`${display ?? (disabled ? "Empty" : "Add…")}. Edit ${label}`}
       className={cn(
         "group hover:bg-muted flex min-h-10 w-full max-w-64 items-center gap-2 rounded-md px-2 text-left disabled:cursor-default disabled:hover:bg-transparent",
         !display && "text-muted-foreground",

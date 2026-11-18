@@ -72,7 +72,7 @@ test.describe("Phase 3 acceptance", () => {
     await expect(page.getByText("Change undone")).toBeVisible();
     await page.reload();
     await expect(
-      page.getByRole("button", { name: /^Empty\. Edit remarks for LSE-E2E-0001/ }),
+      page.getByRole("button", { name: /^Add…\. Edit remarks for LSE-E2E-0001/ }),
     ).toBeVisible();
   });
 

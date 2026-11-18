@@ -119,15 +119,15 @@ export default function HomePage() {
       >
         <ol className="grid gap-4 md:grid-cols-3">
           {HOW_IT_WORKS.map((s, i) => (
-            <Reveal key={s.step} delay={i * 100}>
-              <li className="bg-card h-full rounded-2xl border p-6">
+            <li key={s.step}>
+              <Reveal delay={i * 100} className="bg-card h-full rounded-2xl border p-6">
                 <span className="bg-primary text-primary-foreground inline-flex size-10 items-center justify-center rounded-full text-lg font-semibold">
                   {s.step}
                 </span>
                 <h3 className="mt-4 text-xl font-semibold">{s.title}</h3>
                 <p className="text-muted-foreground mt-2">{s.text}</p>
-              </li>
-            </Reveal>
+              </Reveal>
+            </li>
           ))}
         </ol>
       </Section>

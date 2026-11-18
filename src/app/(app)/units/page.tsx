@@ -108,9 +108,11 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
         buildings.length === 0 ? (
           <EmptyState icon={Building2} title="No buildings or units yet">
             {canDo(actor, "property.manage") ? (
-              <Link href="/settings/buildings" className="text-primary underline">
-                Add your first building →
-              </Link>
+              <Button asChild className="mt-2">
+                <Link href="/settings/buildings">
+                  <Plus aria-hidden /> Add your first building
+                </Link>
+              </Button>
             ) : (
               "An Admin needs to add buildings and units first."
             )}
