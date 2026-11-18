@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  tableFeatures,
+  useTable,
   type ColumnDef,
   type RowSelectionState,
   type SortingState,
@@ -86,6 +89,15 @@ const SORTABLE = new Set<GridColumnId>([
 ]);
 const STATUS_ORDER = Object.fromEntries(LEASE_STATUSES.map((s, i) => [s, i]));
 
+/** The table features the grid uses: sorting and row selection (TanStack Table v9). */
+const GRID_FEATURES = tableFeatures({
+  rowSortingFeature,
+  rowSelectionFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric },
+});
+type GridFeatures = typeof GRID_FEATURES;
+
 export function LeasesGrid({
   rows: initialRows,
   layout: initialLayout,
@@ -162,8 +174,8 @@ export function LeasesGrid({
     return { ok: true };
   };
 
-  const columns = useMemo<ColumnDef<LeaseRow>[]>(() => {
-    const defs: Record<GridColumnId, ColumnDef<LeaseRow>> = {
+  const columns = useMemo<ColumnDef<GridFeatures, LeaseRow, unknown>[]>(() => {
+    const defs: Record<GridColumnId, ColumnDef<GridFeatures, LeaseRow, unknown>> = {
       refNo: {
         id: "refNo",
         accessorFn: (r) => r.refNo,
@@ -177,7 +189,7 @@ export function LeasesGrid({
         ),
       },
       building: { id: "building", accessorFn: (r) => r.building.name },
-      unit: { id: "unit", accessorFn: (r) => r.unit.unitNumber, sortingFn: "alphanumeric" },
+      unit: { id: "unit", accessorFn: (r) => r.unit.unitNumber, sortFn: "alphanumeric" },
       unitType: { id: "unitType", accessorFn: (r) => r.unitType.name },
       tenant: { id: "tenant", accessorFn: (r) => r.tenant.displayName },
       contactPerson: {
@@ -257,7 +269,7 @@ export function LeasesGrid({
       status: {
         id: "status",
         accessorFn: (r) => r.status,
-        sortingFn: (a, b) => STATUS_ORDER[a.original.status]! - STATUS_ORDER[b.original.status]!,
+        sortFn: (a, b) => STATUS_ORDER[a.original.status]! - STATUS_ORDER[b.original.status]!,
         cell: ({ row }) => <LeaseStatusBadge status={row.original.status} />,
       },
       reminderStatus: {
@@ -327,7 +339,8 @@ export function LeasesGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, can]);
 
-  const table = useReactTable({
+  const table = useTable({
+    features: GRID_FEATURES,
     data: rows,
     columns,
     state: { sorting, rowSelection: selection },
@@ -338,8 +351,6 @@ export function LeasesGrid({
     },
     onSortingChange: setSorting,
     onRowSelectionChange: setSelection,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   const selectedIds = Object.keys(selection).filter((k) => selection[k]);
@@ -529,7 +540,7 @@ export function LeasesGrid({
                       row.original.archived && "text-muted-foreground",
                     )}
                   >
-                    {row.getVisibleCells().map((c) => (
+                    {row.getAllCells().map((c) => (
                       <td key={c.id} className="px-3 py-1.5 align-middle">
                         {flexRender(c.column.columnDef.cell, c.getContext())}
                       </td>

@@ -35,8 +35,7 @@ const form = (o: Record<string, unknown> = {}) => ({
   ...o,
 });
 
-const auditRows = (action: string) =>
-  asSystem(() => db.auditLog.findMany({ where: { action } }));
+const auditRows = (action: string) => asSystem(() => db.auditLog.findMany({ where: { action } }));
 
 describe("Book a demo", () => {
   it("keeps the request, audits it without personal details and emails support", async () => {

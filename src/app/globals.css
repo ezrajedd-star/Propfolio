@@ -116,41 +116,32 @@
   }
 }
 
-/* ─── FullCalendar, in Propfolio's look ─────────────────────────────────────── */
-.pf-calendar .fc {
-  --fc-border-color: var(--border);
-  --fc-today-bg-color: var(--primary-soft);
-  --fc-page-bg-color: var(--card);
-  --fc-neutral-bg-color: var(--muted);
-  --fc-list-event-hover-bg-color: var(--muted);
+/* ─── FullCalendar 7 (classic theme), in Propfolio's look ──────────────────── */
+.pf-calendar {
+  --fc-classic-primary: var(--primary);
+  --fc-classic-primary-foreground: var(--primary-foreground);
+  --fc-classic-button: var(--primary);
+  --fc-classic-button-border: var(--primary);
+  --fc-classic-today: var(--primary-soft);
+  --fc-classic-highlight: var(--primary-soft);
+  --fc-classic-background: var(--card);
+  --fc-classic-foreground: var(--foreground);
+  --fc-classic-muted-foreground: var(--muted-foreground);
+  --fc-classic-border: var(--border);
   font-size: 0.95rem;
 }
-.pf-calendar .fc .fc-col-header-cell-cushion,
-.pf-calendar .fc .fc-daygrid-day-number {
-  color: var(--foreground);
-  text-decoration: none;
-  padding: 6px 8px;
-}
-.pf-calendar .fc .fc-col-header-cell-cushion {
+.pf-calendar [role="columnheader"] {
   font-weight: 600;
   color: var(--muted-foreground);
 }
-.pf-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-  font-weight: 700;
-  color: var(--primary);
-}
-.pf-calendar .fc .fc-daygrid-more-link {
-  font-weight: 600;
-  color: var(--primary);
-}
-.pf-calendar .fc-list-event-dot {
-  display: none;
-}
-.pf-calendar .fc-event {
+.pf-calendar .pf-event {
   cursor: pointer;
-}
-.pf-calendar .fc-daygrid-event {
   margin-top: 2px;
+  opacity: 1 !important;
+}
+/* The theme colours the text inside events; ours follows the status colour instead. */
+.pf-calendar .pf-event * {
+  color: inherit !important;
 }
 
 /* Event chips: status colour + status icon + text label */
@@ -161,10 +152,6 @@
   padding: 2px 6px;
   font-size: 0.85rem;
   font-weight: 500;
-}
-.pf-calendar .fc-list .pf-event {
-  border-left: 0 !important;
-  font-size: 0.95rem;
 }
 .pf-status-ACTIVE {
   background: var(--success-soft) !important;
@@ -186,9 +173,6 @@
 .pf-status-TERMINATED {
   background: var(--neutral-soft) !important;
   color: var(--neutral-status) !important;
-}
-.pf-calendar .fc-event .fc-event-main {
-  color: inherit;
 }
 
 /* Guide: briefly highlight the element a note refers to. */

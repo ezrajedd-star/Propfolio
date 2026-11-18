@@ -23,7 +23,7 @@
  * is all they can see). Suspended accounts are skipped. A retry only redoes accounts that still
  * need it: both jobs are idempotent.
  */
-import PgBoss from "pg-boss";
+import { PgBoss } from "pg-boss";
 
 import { BUSINESS_TIME_ZONE } from "../src/domain/time/manila";
 import { forEachActiveAccount } from "../src/server/accounts/each";
@@ -33,6 +33,7 @@ import { reportError } from "../src/server/monitoring/report-error";
 import { checkFailedSignIns } from "../src/server/monitoring/sign-in-alert";
 import { purgeOldRateLimits } from "../src/server/rate-limit";
 import { db } from "../src/server/db";
+import { prepareBossSchema } from "../src/server/jobs/boss-schema";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
 import { sendTrialReminders } from "../src/server/plans/trial-reminders";
@@ -135,13 +136,19 @@ async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
 
+  const schema = await prepareBossSchema("pgboss");
+  if (schema === "reset") {
+    console.info(
+      "[worker] job queue tables from pg-boss 10 replaced (schedules are set again below)",
+    );
+  }
   const boss = new PgBoss({ connectionString, schema: "pgboss" });
-  boss.on("error", (err) => console.error("[worker] pg-boss error:", err.message));
+  boss.on("error", (err: Error) => console.error("[worker] pg-boss error:", err.message));
   await boss.start();
 
   for (const job of JOBS) {
-    await boss.createQueue(job.name, job.retry ? { name: job.name, ...job.retry } : undefined);
-    if (job.retry) await boss.updateQueue(job.name, { name: job.name, ...job.retry });
+    await boss.createQueue(job.name, job.retry);
+    if (job.retry) await boss.updateQueue(job.name, job.retry);
     await boss.schedule(job.name, job.cron, {}, { tz: BUSINESS_TIME_ZONE, ...(job.retry ?? {}) });
     await boss.work(job.name, async () => {
       const started = Date.now();

@@ -582,3 +582,18 @@ off-site backups, UptimeRobot on `/api/health`).
 - **Kept:** the account row, renamed "Closed account", and Propfolio's own payment records for it
   (subscription payment records, checkouts, manual payments, provider messages), which the
   bookkeeper and BIR need. Anonymous sign-up counts stay too.
+
+## 37. Dependency upgrades (18 Nov 2026)
+
+- **TanStack Table 8 → 9** (Dependabot #10): the leases grid uses `useTable` with explicit
+  features (sorting, row selection) and `sortFn`.
+- **pg-boss 10 → 12** (#20): pg-boss 12 can't upgrade pg-boss 10's tables (it starts from 11's).
+  They hold only the job schedule, which the worker writes on every start, and past runs, so on
+  first start the worker replaces an old `pgboss` schema (`src/server/jobs/boss-schema.ts`).
+  Checked against real pg-boss 10 tables: all 7 schedules come back.
+- **FullCalendar 6 → 7** (#21): one package (`@fullcalendar/react` with `/daygrid` and `/list`,
+  plus `temporal-polyfill`), the classic theme recoloured with Propfolio's colours.
+- **Minor and patch updates** (#18): Next.js 16.4.6, AWS SDK, React Hook Form, nodemailer,
+  Tailwind, Prettier and others.
+- **Not yet: Prisma 6 → 7** (#19). It changes how the database client is created (driver
+  adapters, a config file) across every query path and test; it needs its own careful pass.

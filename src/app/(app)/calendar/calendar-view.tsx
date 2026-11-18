@@ -1,15 +1,19 @@
 "use client";
 
-import type {
-  DatesSetArg,
-  EventClickArg,
-  EventContentArg,
-  EventSourceFuncArg,
-  EventInput,
-} from "@fullcalendar/core";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import listPlugin from "@fullcalendar/list";
-import FullCalendar from "@fullcalendar/react";
+import FullCalendar, {
+  type CalendarRef,
+  type DatesSetInfo,
+  type EventClickInfo,
+  type EventDisplayInfo,
+  type EventInput,
+  type EventSourceFuncInfo,
+} from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/react/daygrid";
+import listPlugin from "@fullcalendar/react/list";
+import classicThemePlugin from "@fullcalendar/react/themes/classic";
+import "@fullcalendar/react/skeleton.css";
+import "@fullcalendar/react/themes/classic/theme.css";
+import "@fullcalendar/react/themes/classic/palette.css";
 import {
   Ban,
   Bell,
@@ -89,7 +93,7 @@ export function CalendarView({
   staff: boolean;
   initialDate?: string;
 }) {
-  const calRef = useRef<FullCalendar>(null);
+  const calRef = useRef<CalendarRef>(null);
   const [title, setTitle] = useState("");
   const [view, setView] = useState<ViewName>("dayGridMonth");
   const [buildingId, setBuildingId] = useState("");
@@ -114,7 +118,7 @@ export function CalendarView({
   }, []);
 
   const fetchEvents = useCallback(
-    async (info: EventSourceFuncArg): Promise<EventInput[]> => {
+    async (info: EventSourceFuncInfo): Promise<EventInput[]> => {
       const from = info.startStr.slice(0, 10);
       const to = addDays(info.endStr.slice(0, 10), -1);
       const params = new URLSearchParams({ from, to, types: types.join(",") });
@@ -137,7 +141,7 @@ export function CalendarView({
         title: `${TYPE_SHORT[e.type]}: ${e.tenantName} · ${e.unitLabel}`,
         start: e.date,
         allDay: true,
-        classNames: ["pf-event", `pf-status-${e.status}`, `pf-type-${e.type}`],
+        className: `pf-event pf-status-${e.status} pf-type-${e.type}`,
         extendedProps: { data: e },
       }));
     },
@@ -156,7 +160,7 @@ export function CalendarView({
   const toggleType = (t: CalendarEventType, on: boolean) =>
     setTypes((cur) => (on ? [...new Set([...cur, t])] : cur.filter((x) => x !== t)));
 
-  const renderEvent = (arg: EventContentArg) => {
+  const renderEvent = (arg: EventDisplayInfo) => {
     const e = arg.event.extendedProps.data as CalendarEvent;
     const StatusIcon = STATUS_ICONS[e.status];
     const TypeIcon = TYPE_ICONS[e.type];
@@ -295,7 +299,7 @@ export function CalendarView({
       >
         <FullCalendar
           ref={calRef}
-          plugins={[dayGridPlugin, listPlugin]}
+          plugins={[dayGridPlugin, listPlugin, classicThemePlugin]}
           initialView="dayGridMonth"
           initialDate={initialDate}
           headerToolbar={false}
@@ -305,15 +309,15 @@ export function CalendarView({
           fixedWeekCount={false}
           events={fetchEvents}
           eventContent={renderEvent}
-          eventClick={(arg: EventClickArg) =>
+          eventClick={(arg: EventClickInfo) =>
             setSelected(arg.event.extendedProps.data as CalendarEvent)
           }
-          datesSet={(arg: DatesSetArg) => setTitle(arg.view.title)}
+          datesSet={(arg: DatesSetInfo) => setTitle(arg.view.title)}
           noEventsContent="Nothing on these dates."
           moreLinkText={(n) => `+${n} more`}
           eventTimeFormat={{ hour: "numeric", minute: "2-digit" }}
           listDayFormat={{ weekday: "long", day: "numeric", month: "short", year: "numeric" }}
-          listDaySideFormat={false}
+          listDayAltFormat={false}
         />
       </div>
 

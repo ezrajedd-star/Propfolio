@@ -38,10 +38,12 @@ test.describe("Phase 3 acceptance", () => {
       .getByRole("link", { name: "Calendar" })
       .click();
     await page.getByRole("checkbox", { name: "Rent due" }).check();
-    const day17 = page.locator(`td[data-date="${thisMonthDay(17)}"]`);
+    const day17 = page.locator(`[role="cell"][data-date="${thisMonthDay(17)}"]`);
     await expect(day17.getByText(/Rent due: Calendar Test Co/)).toBeVisible();
     await expect(
-      page.locator(`td[data-date="${thisMonthDay(5)}"]`).getByText(/Rent due: Calendar Test Co/),
+      page
+        .locator(`[role="cell"][data-date="${thisMonthDay(5)}"]`)
+        .getByText(/Rent due: Calendar Test Co/),
     ).toHaveCount(0);
     expect(
       await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
