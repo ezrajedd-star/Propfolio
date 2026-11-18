@@ -3,6 +3,8 @@
  * Excel, the guides, What's new and the partner programme. Facts about Propfolio only; anything
  * still to be decided by the business is marked "[PLACEHOLDER …]" and labelled on the page.
  */
+import { PLAN_CONFIG } from "@/domain/plans/plans";
+
 import type { FeatureKey } from "./content";
 
 export type SegmentSlug = "residential" | "commercial" | "industrial";
@@ -352,7 +354,7 @@ export const PARTNER_PROGRAMME = {
       text: "Clean rent rolls and collection reports, in Excel, every month.",
     },
   ],
-  offer: "[PLACEHOLDER: referral reward, e.g. a share of the first year's subscription]",
+  offer: `For every lessor you refer who becomes a paying customer, you get 3 months of Premium free: every feature, up to ${PLAN_CONFIG.PREMIUM.units} units and ${PLAN_CONFIG.PREMIUM.users} users.`,
   steps: [
     "Apply below: it takes a minute.",
     "We'll call you to agree the details.",

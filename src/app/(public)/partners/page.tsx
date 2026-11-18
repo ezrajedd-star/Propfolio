@@ -1,7 +1,7 @@
 import { Briefcase, Building, Calculator, Gift } from "lucide-react";
 import type { Metadata } from "next";
 
-import { PlaceholderBadge, Section } from "@/components/marketing/section";
+import { Section } from "@/components/marketing/section";
 import { PARTNER_PROGRAMME as P } from "@/domain/marketing/pages";
 import { PartnerForm } from "./partner-form";
 
@@ -60,7 +60,6 @@ export default function PartnersPage() {
             <div className="flex flex-wrap items-center gap-3">
               <Gift className="text-primary size-6" aria-hidden />
               <h3 className="text-xl font-semibold">What you get</h3>
-              <PlaceholderBadge />
             </div>
             <p className="text-muted-foreground mt-3 text-lg">{P.offer}</p>
           </div>

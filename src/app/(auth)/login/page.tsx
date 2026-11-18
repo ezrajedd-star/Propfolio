@@ -18,6 +18,7 @@ const NOTICES: Record<string, { tone: "info" | "success" | "error"; text: string
   inactive: error(signInFailureMessage({ ok: false, reason: "inactive" })),
   "user-limit": error(signInFailureMessage({ ok: false, reason: "user_limit" })),
   suspended: error(signInFailureMessage({ ok: false, reason: "suspended" })),
+  closed: error(signInFailureMessage({ ok: false, reason: "closed" })),
   locked: error(
     "This sign-in is locked for 15 minutes after too many wrong tries. Try again later, or use “Forgot your password?”.",
   ),
@@ -29,6 +30,10 @@ const NOTICES: Record<string, { tone: "info" | "success" | "error"; text: string
     text: "You were signed out after 30 minutes without activity. Please sign in again.",
   },
   "signed-out": { tone: "info", text: "You have been signed out." },
+  "account-closed": {
+    tone: "info",
+    text: "Your account is closed. We've emailed you a link to reopen it if you change your mind.",
+  },
   "password-reset": { tone: "success", text: "Your new password is set. Sign in with it below." },
   "code-expired": {
     tone: "info",

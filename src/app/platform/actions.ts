@@ -20,6 +20,7 @@ import {
 } from "@/server/platform/current";
 import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
+import { platformReopenAccount } from "@/server/accounts/closing";
 import { setDemoRequestHandled } from "@/server/demo/service";
 import { setWebsiteLeadHandled } from "@/server/website-leads/service";
 
@@ -115,5 +116,13 @@ export async function setWebsiteLeadHandledAction(id: string, handled: boolean) 
     setWebsiteLeadHandled(admin, id, handled, await requestMeta()),
   );
   if (r.ok) revalidatePath("/platform/website-leads");
+  return r;
+}
+
+export async function reopenAccountAction(accountId: string) {
+  const r = await asPlatformAdmin(async (admin) =>
+    platformReopenAccount(admin, accountId, await requestMeta()),
+  );
+  revalidatePath(`/platform/accounts/${accountId}`);
   return r;
 }

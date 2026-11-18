@@ -21,6 +21,8 @@ export function signInFailureMessage(
       return "Your company's plan doesn't include your sign-in right now. Ask your account's Owner to upgrade, then try again.";
     case "suspended":
       return "Your company's Propfolio account is paused. Your account's Owner can contact Propfolio to restore it.";
+    case "closed":
+      return "This Propfolio account has been closed. Its Owner can reopen it with the link in the closing email, or contact us.";
     case "google_mismatch":
       return "This email is linked to a different Google account. Sign in with that one, or with your password.";
     case "google_failed":

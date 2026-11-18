@@ -1,6 +1,7 @@
 import {
   Building2,
   BellRing,
+  DatabaseBackup,
   ChevronRight,
   FileUp,
   Gem,
@@ -17,6 +18,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/app/page-header";
 import { availableOnMessage, planIncludes, type Feature } from "@/domain/plans/plans";
+import { canDo } from "@/server/auth/authorize";
 import { requirePageUser } from "@/server/auth/current";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -28,6 +30,8 @@ const SECTIONS: {
   text: string;
   /** Needs a paid plan: shown with a lock, and opens the "Available on …" screen. */
   feature?: Feature;
+  /** Only the Owner sees it. */
+  ownerOnly?: boolean;
 }[] = [
   {
     href: "/plan",
@@ -86,6 +90,13 @@ const SECTIONS: {
     text: "Privacy notice, privacy officer, data retention.",
   },
   {
+    href: "/settings/your-data",
+    icon: DatabaseBackup,
+    title: "Your data",
+    text: "Download everything, or close the account.",
+    ownerOnly: true,
+  },
+  {
     href: "/settings/feedback",
     icon: MessageSquareText,
     title: "Tester feedback",
@@ -99,7 +110,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Only Admins can see and change these." />
       <ul className="grid gap-4 sm:grid-cols-2">
-        {SECTIONS.map((s) => {
+        {SECTIONS.filter((s) => !s.ownerOnly || canDo(actor, "billing.manage")).map((s) => {
           const locked =
             s.feature && !planIncludes(actor.access.plan, s.feature)
               ? availableOnMessage(s.feature)

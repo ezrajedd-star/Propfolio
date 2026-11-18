@@ -33,6 +33,8 @@ export type SignInResult =
   | { ok: false; reason: "inactive" }
   /** Turned on in an account, but the platform admin suspended that account. */
   | { ok: false; reason: "suspended" }
+  /** Their only account(s) were closed by the Owner. */
+  | { ok: false; reason: "closed" }
   /** Turned on, but the account's plan includes fewer users (e.g. after a trial ended). */
   | { ok: false; reason: "user_limit" };
 
@@ -185,7 +187,11 @@ export async function identityConfirmed(
     const turnedOn = await db.membership.count({
       where: { userId: user.id, isActive: true, account: { status: "ACTIVE" } },
     });
-    const reason = suspended > 0 ? "suspended" : turnedOn > 0 ? "user_limit" : "inactive";
+    const closed = await db.membership.count({
+      where: { userId: user.id, isActive: true, account: { status: "CLOSED" } },
+    });
+    const reason =
+      suspended > 0 ? "suspended" : turnedOn > 0 ? "user_limit" : closed > 0 ? "closed" : "inactive";
     await writeAudit({
       actor,
       action: "auth.login_failed",

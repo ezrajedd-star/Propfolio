@@ -563,3 +563,22 @@ off-site backups, UptimeRobot on `/api/health`).
   A first-visit cookie (`pf_landing`) holds only the landing page and source, so a later sign-up
   can be counted against it. No IP addresses or ids are stored; no outside service. Platform
   admin → Website. The Privacy Policy should mention this cookie (for the lawyer).
+
+## 36. Closing an account: 90 days, then deletion (owner's decision 3, 18 Nov 2026)
+
+- **Settings → Your data** (the Owner only): **Download all data** (one Excel file: buildings,
+  units, tenants and leases in the import template's columns, plus charges, payments and the
+  list of documents; audited) and **Close this account** (confirmed by typing the account's name).
+- Closing signs everyone out, cancels the subscription (nothing more is charged, no refund of the
+  current month), withdraws open invitations and stops reminder emails. Sign-in says the account
+  is closed.
+- **Reopen** for 90 days with the link in the closing email (one use), or by the platform admin.
+  A week before the end, a reminder with a fresh link.
+- **After 90 days** the daily `closed-accounts` job deletes the account's data: buildings, units,
+  tenants, leases, charges, payments, documents (files too), settings, sessions, its audit log,
+  and people who belong to no other account. The audit log stays append-only for everything
+  else: the database lets only the system, naming the account in that transaction, delete that
+  account's entries.
+- **Kept:** the account row, renamed "Closed account", and Propfolio's own payment records for it
+  (subscription payment records, checkouts, manual payments, provider messages), which the
+  bookkeeper and BIR need. Anonymous sign-up counts stay too.

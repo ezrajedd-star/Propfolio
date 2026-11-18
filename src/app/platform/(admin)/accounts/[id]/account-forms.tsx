@@ -22,6 +22,7 @@ import {
   changePlanAction,
   extendTrialAction,
   recordManualPaymentAction,
+  reopenAccountAction,
   setAccountSuspendedAction,
 } from "../../../actions";
 
@@ -203,6 +204,26 @@ export function SuspendButton({
         onConfirm={(reason) => setAccountSuspendedAction(accountId, true, { reason })}
       />
     </>
+  );
+}
+
+/** A closed account whose data is still kept: the Owner lost the reopen email. */
+export function ReopenButton({ accountId, name }: { accountId: string; name: string }) {
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const r = await reopenAccountAction(accountId);
+          if (r.ok) toast.success(`${name} is open again ✓`);
+          else toast.error(r.message);
+        })
+      }
+    >
+      {pending ? <Loader2 className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}
+      Reopen account
+    </Button>
   );
 }
 

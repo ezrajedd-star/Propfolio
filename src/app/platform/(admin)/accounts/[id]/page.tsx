@@ -19,7 +19,13 @@ import { NotFoundError } from "@/server/errors";
 import { getAccountDetail } from "@/server/platform/accounts";
 import { requirePlatformPage } from "@/server/platform/current";
 import { AccountStatusBadge, PLAN_LABELS, planLabel } from "../../account-badges";
-import { ChangePlanForm, ExtendTrialForm, ManualPaymentForm, SuspendButton } from "./account-forms";
+import {
+  ChangePlanForm,
+  ExtendTrialForm,
+  ManualPaymentForm,
+  ReopenButton,
+  SuspendButton,
+} from "./account-forms";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -28,6 +34,7 @@ const ACTION_LABELS: Record<string, string> = {
   "platform.manual_payment": "Payment recorded",
   "platform.account_suspended": "Account suspended",
   "platform.account_reactivated": "Account reactivated",
+  "account.reopened": "Account reopened",
   "platform.plan_changed": "Plan changed",
 };
 
@@ -46,7 +53,15 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
       <PageHeader
         title={account.name}
         description={`Joined ${formatDate(account.createdAt)}.`}
-        actions={<SuspendButton accountId={account.id} suspended={suspended} name={account.name} />}
+        actions={
+          account.status === "CLOSED" ? (
+            account.dataDeletedAt ? null : (
+              <ReopenButton accountId={account.id} name={account.name} />
+            )
+          ) : (
+            <SuspendButton accountId={account.id} suspended={suspended} name={account.name} />
+          )
+        }
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -62,6 +77,16 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
                       {
                         label: "Suspended",
                         value: `${formatDateTime(account.suspendedAt)}: ${account.suspendedReason ?? ""}`,
+                      },
+                    ]
+                  : []),
+                ...(account.status === "CLOSED"
+                  ? [
+                      {
+                        label: "Closed",
+                        value: account.dataDeletedAt
+                          ? `Data deleted on ${formatDateTime(account.dataDeletedAt)}`
+                          : `${formatDateTime(account.closedAt)}; data deleted after ${account.deleteAfter ? formatIsoDate(account.deleteAfter) : "?"}`,
                       },
                     ]
                   : []),

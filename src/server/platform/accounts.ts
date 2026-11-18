@@ -140,6 +140,9 @@ export function getAccountDetail(_admin: PlatformActor, id: string, now = new Da
       ...summary(account, c, now),
       suspendedAt: account.suspendedAt,
       suspendedReason: account.suspendedReason,
+      closedAt: account.closedAt,
+      deleteAfter: account.deleteAfter ? fromDbDate(account.deleteAfter) : null,
+      dataDeletedAt: account.dataDeletedAt,
       /** The Owner's name and email, to contact the customer. */
       owner: owner?.user ?? null,
       payments: payments.map((p) => ({

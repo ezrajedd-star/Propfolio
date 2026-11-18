@@ -31,6 +31,9 @@ enum AccountStatus {
   ACTIVE
   /// Turned off by the platform admin: nobody in it can sign in. Nothing is deleted.
   SUSPENDED
+  /// Closed by its Owner: nobody can sign in; reopenable until `deleteAfter`, then its data is
+  /// deleted (the row stays, anonymised, for Propfolio's own payment records).
+  CLOSED
 }
 
 enum Plan {
@@ -43,19 +46,29 @@ enum Plan {
 /// exactly one account. Not filtered by row-level security (only the platform admin lists them),
 /// but customers only ever read their own through their session.
 model Account {
-  id              String        @id @default(uuid(7)) @db.Uuid
+  id                     String        @id @default(uuid(7)) @db.Uuid
   /// The name they lease under, e.g. "Santos Realty Corp." Shown in emails and the privacy notice.
-  name            String
-  status          AccountStatus @default(ACTIVE)
-  plan            Plan          @default(PREMIUM)
+  name                   String
+  status                 AccountStatus @default(ACTIVE)
+  plan                   Plan          @default(PREMIUM)
   /// While set and in the future, the account is on a free Premium trial.
-  trialEndsAt     DateTime?     @db.Timestamptz(3)
+  trialEndsAt            DateTime?     @db.Timestamptz(3)
   /// Paid until this Manila date (inclusive), e.g. after a manual bank transfer.
-  paidUntil       DateTime?     @db.Date
-  suspendedAt     DateTime?     @db.Timestamptz(3)
-  suspendedReason String?
-  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  paidUntil              DateTime?     @db.Date
+  suspendedAt            DateTime?     @db.Timestamptz(3)
+  suspendedReason        String?
+  /// When the Owner closed the account.
+  closedAt               DateTime?     @db.Timestamptz(3)
+  /// A closed account's data is deleted after this Manila date (90 days after closing).
+  deleteAfter            DateTime?     @db.Date
+  /// SHA-256 of the "reopen my account" link's token, while it can be reopened.
+  reopenTokenHash        String?       @unique
+  /// The "your data will be deleted soon" email went out.
+  deletionReminderSentAt DateTime?     @db.Timestamptz(3)
+  /// When its data was deleted.
+  dataDeletedAt          DateTime?     @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @db.Timestamptz(3)
 
   memberships        Membership[]
   sessions           Session[]

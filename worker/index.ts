@@ -36,6 +36,7 @@ import { db } from "../src/server/db";
 import { purgeOldDrafts } from "../src/server/leases/drafts";
 import { syncLeaseStatuses } from "../src/server/leases/service";
 import { sendTrialReminders } from "../src/server/plans/trial-reminders";
+import { runClosedAccounts } from "../src/server/accounts/closing";
 import { purgeOldDemoRequests } from "../src/server/demo/service";
 import { purgeOldWebsiteLeads } from "../src/server/website-leads/service";
 import { purgeExpiredSignUps } from "../src/server/signup/service";
@@ -89,6 +90,15 @@ const JOBS: Job[] = [
     run: async () => {
       const r = await runSubscriptionCycle();
       return `${r.renewalsRequested} renewal(s) requested, ${r.ended} subscription(s) ended, ${r.graceReminders} grace reminder(s)`;
+    },
+  },
+  {
+    name: "closed-accounts",
+    cron: "30 9 * * *",
+    retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
+    run: async () => {
+      const r = await runClosedAccounts();
+      return `${r.reminded} deletion reminder(s), ${r.deleted} closed account(s) deleted`;
     },
   },
   {

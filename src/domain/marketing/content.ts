@@ -231,7 +231,12 @@ export const FAQ: FaqItem[] = [
   {
     category: "Your data",
     q: "Can I get all my data out?",
-    a: "Yes, at any time, in Excel or CSV, on every plan.",
+    a: "Yes, at any time, on every plan: the Owner can download everything in one Excel file from Settings → Your data, in a format Propfolio can import again.",
+  },
+  {
+    category: "Your data",
+    q: "What happens if I close my account?",
+    a: "Everyone is signed out and nothing more is charged. For 90 days you can reopen it, with everything as it was, from the link we email you; we remind you a week before the end. After that, all its data is deleted for good.",
   },
   {
     category: "Using Propfolio",
