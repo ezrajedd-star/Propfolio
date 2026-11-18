@@ -19,6 +19,7 @@ import {
   VALUE_PROPOSITION as V,
 } from "@/domain/marketing/content";
 import { SEGMENT_PAGES } from "@/domain/marketing/pages";
+import { PLANS, PLAN_CONFIG } from "@/domain/plans/plans";
 
 export const metadata: Metadata = {
   title: { absolute: "Propfolio · Never miss a lease renewal again" },
@@ -26,9 +27,30 @@ export const metadata: Metadata = {
 };
 
 /** The website's home page, shown at "/" to anyone not signed in. */
+/** What search engines show about the product (prices from the plan configuration). */
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Propfolio",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web browser",
+  description: V.subhead,
+  offers: PLANS.map((p) => ({
+    "@type": "Offer",
+    name: PLAN_CONFIG[p].label,
+    price: PLAN_CONFIG[p].pricePerMonth,
+    priceCurrency: "PHP",
+  })),
+};
+
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Our own constant data, not user input.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
       {/* Hero: the promise, the action, and the product */}
       <section className="relative overflow-hidden px-4 pt-14 pb-16 sm:pt-20">
         <div

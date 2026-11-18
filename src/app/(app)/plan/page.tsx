@@ -80,7 +80,9 @@ function SubscriptionStatus({ view }: { view: View }) {
   if (!sub) return null;
   let text: string;
   if (sub.status === "PAST_DUE") {
-    text = `This month's payment didn't go through. Pay by ${formatIsoDate(sub.graceEnds!)} to keep ${PLAN_CONFIG[sub.plan].label}; after that the account moves to Free (nothing is deleted).`;
+    text = view.awaitingPayment
+      ? `This month's payment is ready. Pay by ${formatIsoDate(sub.graceEnds!)} to keep ${PLAN_CONFIG[sub.plan].label}; after that the account moves to Free (nothing is deleted).`
+      : `This month's payment didn't go through. Pay by ${formatIsoDate(sub.graceEnds!)} to keep ${PLAN_CONFIG[sub.plan].label}; after that the account moves to Free (nothing is deleted).`;
   } else if (sub.status === "CANCELED") {
     text = "Your paid plan has ended. Choose a plan below to start again.";
   } else if (sub.cancelAtPeriodEnd) {

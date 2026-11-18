@@ -1,7 +1,32 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { SiteFooterFull } from "@/components/marketing/site-footer-full";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { VisitCounter } from "@/components/marketing/visit-counter";
+import { VALUE_PROPOSITION } from "@/domain/marketing/content";
+import { env } from "@/server/env";
+
+/**
+ * Search engines may list the real website, never the test site. Shared links show a preview
+ * card (opengraph-image.tsx) with the page's title and description.
+ */
+export function generateMetadata(): Metadata {
+  const e = env();
+  const indexable = !e.UAT_MODE;
+  return {
+    metadataBase: new URL(e.APP_URL),
+    description: VALUE_PROPOSITION.subhead,
+    robots: indexable ? { index: true, follow: true } : { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      siteName: "Propfolio",
+      locale: "en_PH",
+      // No fixed title here: each page's own title and description are used when shared.
+    },
+    twitter: { card: "summary_large_image" },
+  };
+}
 
 /** The website: anyone can read it, signed in or not (the payment partner checks some pages). */
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +45,7 @@ export default async function PublicLayout({ children }: { children: React.React
         {children}
       </main>
       <SiteFooterFull />
+      <VisitCounter />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-# HTTPS for Propfolio. Caddy gets and renews the certificate from Let's Encrypt by itself.
+# HTTPS for Propfolio. Caddy gets and renews the certificates from Let's Encrypt by itself.
 # No access log is kept (it would record addresses and searches).
 {$SITE_ADDRESS} {
 	encode zstd gzip
@@ -7,4 +7,9 @@
 		max_size 25MB
 	}
 	reverse_proxy web:3000
+}
+
+# www.propfolioph.com (and www. of any address) → the main address.
+www.{$SITE_ADDRESS} {
+	redir https://{$SITE_ADDRESS}{uri} permanent
 }

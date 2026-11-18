@@ -8,6 +8,7 @@ import { writeAudit } from "@/server/audit";
 import { hashPassword } from "@/server/auth/password";
 import { asSystem, db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
+import { countWebsiteStat } from "@/server/website-stats/service";
 import { recordFunnelStep } from "./funnel";
 
 export interface NewAccount {
@@ -105,5 +106,12 @@ export async function createAccountWithOwner(
     }),
   );
   await recordFunnelStep("EMAIL_VERIFIED", result.accountId, now);
+  // Website statistics: one more sign-up for the page this browser first landed on.
+  await countWebsiteStat(
+    "SIGNUP",
+    meta.landing?.path ?? "(not known)",
+    meta.landing?.source ?? "Not known",
+    now,
+  );
   return result;
 }

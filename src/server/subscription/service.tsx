@@ -106,6 +106,8 @@ export interface SubscriptionView {
   state: DisplayState;
   subscription: (SubscriptionFacts & { graceEnds: IsoDate | null }) | null;
   nextCharge: ReturnType<typeof nextCharge>;
+  /** This month's pay-by-link payment is waiting (not a failed charge). */
+  awaitingPayment: boolean;
   canPayOnline: boolean;
   payments: {
     number: string;
@@ -118,13 +120,18 @@ export interface SubscriptionView {
 
 export async function getSubscriptionView(actor: Actor): Promise<SubscriptionView> {
   assertCan(actor, "billing.manage");
-  const [sub, payments] = await asSystem(() =>
+  const [sub, payments, lastRenewal] = await asSystem(() =>
     Promise.all([
       db.subscription.findUnique({ where: { accountId: actor.accountId } }),
       db.subscriptionInvoice.findMany({
         where: { accountId: actor.accountId },
         orderBy: { issuedAt: "desc" },
         take: 24,
+      }),
+      db.checkout.findFirst({
+        where: { accountId: actor.accountId, kind: "RENEWAL" },
+        orderBy: { createdAt: "desc" },
+        select: { payUrl: true, status: true },
       }),
     ]),
   );
@@ -139,6 +146,8 @@ export async function getSubscriptionView(actor: Actor): Promise<SubscriptionVie
       ? { ...f, graceEnds: f.status === "PAST_DUE" ? graceEnd(f.currentPeriodEnd) : null }
       : null,
     nextCharge: f ? nextCharge(f) : null,
+    awaitingPayment:
+      f?.status === "PAST_DUE" && !!lastRenewal?.payUrl && lastRenewal.status !== "FAILED",
     canPayOnline: activeProvider() !== null,
     payments: payments.map((p) => ({
       number: p.number,
@@ -231,7 +240,23 @@ export async function choosePlan(
   }
 
   if (f && f.status === "PAST_DUE") {
-    // Pay the renewal that failed (for the plan they choose now).
+    // A pay-by-link renewal's page is still open for this plan: reopen it rather than make a
+    // second one (two open pages could both be paid).
+    const open = await asSystem(() =>
+      db.checkout.findFirst({
+        where: {
+          accountId: actor.accountId,
+          kind: "RENEWAL",
+          status: "OPEN",
+          plan,
+          payUrl: { not: null },
+          provider: activeProvider()?.name ?? "",
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+    if (open?.payUrl) return { kind: "checkout", url: open.payUrl };
+    // Otherwise pay the renewal now (for the plan they choose now).
     return startCheckout(actor, "RENEWAL", plan, monthlyPrice(plan), now);
   }
   return startCheckout(actor, "SUBSCRIBE", plan, monthlyPrice(plan), now);
@@ -322,7 +347,8 @@ export async function cancelSubscription(
 // ─── Messages from the provider (webhooks) ───────────────────────────────────────────────
 
 export type WebhookOutcome =
-  { status: 401 } | { status: 200; result: "duplicate" | "ignored" | "paid" | "failed" };
+  | { status: 401 }
+  | { status: 200; result: "duplicate" | "ignored" | "paid" | "failed" | "expired" };
 
 /**
  * A provider's message. Checked (signature), logged (always), and applied once: a repeated
@@ -357,8 +383,19 @@ export async function handleProviderWebhook(
       }),
     );
   } catch (err) {
-    if (isUniqueViolation(err)) return { status: 200, result: "duplicate" };
-    throw err;
+    if (!isUniqueViolation(err)) throw err;
+    // A repeat. If the first delivery was logged but never finished (the server stopped or an
+    // error happened half-way), finish it now: applying is safe to repeat (the checkout is
+    // claimed once).
+    const earlier = await asSystem(() =>
+      db.providerEvent.findUnique({
+        where: {
+          provider_providerEventId: { provider: provider.name, providerEventId: msg.eventId },
+        },
+      }),
+    );
+    if (!earlier || earlier.processedAt) return { status: 200, result: "duplicate" };
+    event = earlier;
   }
   const finish = (outcome: string) =>
     asSystem(() =>
@@ -380,6 +417,17 @@ export async function handleProviderWebhook(
     const number = await applyPayment(checkout, msg.method ?? "unknown", now, deps);
     await finish(`paid: ${number}`);
     return { status: 200, result: "paid" };
+  }
+  if (msg.type === "payment.expired") {
+    // An unpaid payment page closed: nothing was charged. The grace period runs on regardless.
+    await asSystem(() =>
+      db.checkout.updateMany({
+        where: { id: checkout.id, status: "OPEN" },
+        data: { status: "EXPIRED", closedAt: now },
+      }),
+    );
+    await finish("expired");
+    return { status: 200, result: "expired" };
   }
   await applyFailure(checkout, now, deps);
   await finish("failed");
@@ -614,7 +662,7 @@ export async function runSubscriptionCycle(
       continue;
     }
     if (f.status === "ACTIVE" && renewalDue(f, today)) {
-      if (await requestRenewal(sub, now)) result.renewalsRequested++;
+      if (await requestRenewal(sub, now, deps)) result.renewalsRequested++;
       continue;
     }
     if (f.status === "PAST_DUE") {
@@ -647,7 +695,11 @@ export async function runSubscriptionCycle(
 }
 
 /** One renewal request per period: an open renewal checkout means it was already asked for. */
-async function requestRenewal(sub: Subscription, now: Date): Promise<boolean> {
+async function requestRenewal(
+  sub: Subscription,
+  now: Date,
+  deps: SubscriptionDeps,
+): Promise<boolean> {
   const provider = providerFor(sub.provider);
   if (!provider) return false;
   const f = facts(sub);
@@ -674,13 +726,24 @@ async function requestRenewal(sub: Subscription, now: Date): Promise<boolean> {
       },
     }),
   );
-  const { providerRef } = await provider.requestRenewal({
+  const { providerRef, payUrl } = await provider.requestRenewal({
     checkoutId: checkout.id,
     amount: monthlyPrice(plan),
     description: `Propfolio ${label(plan)}, one month`,
     subscriptionRef: sub.providerRef,
+    successUrl: appUrl("/plan?payment=paid"),
+    cancelUrl: appUrl("/plan"),
   });
-  await asSystem(() => db.checkout.update({ where: { id: checkout.id }, data: { providerRef } }));
+  await asSystem(() =>
+    db.checkout.update({
+      where: { id: checkout.id },
+      data: { providerRef, payUrl: payUrl ?? null },
+    }),
+  );
+  if (!provider.chargesAutomatically) {
+    await awaitPayment(sub, plan, now, deps);
+    return true;
+  }
   // The demo "card" answers at once, through the same webhook handling as a real provider.
   if (provider.name === DEMO_PROVIDER) {
     const fails = sub.providerRef === DEMO_FAILING_CARD;
@@ -692,6 +755,40 @@ async function requestRenewal(sub: Subscription, now: Date): Promise<boolean> {
     await handleProviderWebhook(DEMO_PROVIDER, hook.raw, hook.headers, now);
   }
   return true;
+}
+
+/**
+ * Pay-by-link renewals: the new month's payment page is ready. The account keeps its plan for the
+ * grace period while the Owner pays (the same days a failed card renewal gets).
+ */
+async function awaitPayment(sub: Subscription, plan: PaidPlan, now: Date, deps: SubscriptionDeps) {
+  const ends = graceEnd(fromDbDate(sub.currentPeriodEnd));
+  const changed = await asSystem(() =>
+    db.$transaction(async (tx) => {
+      const { count } = await tx.subscription.updateMany({
+        where: { id: sub.id, status: "ACTIVE" },
+        data: { status: "PAST_DUE", pastDueSince: now },
+      });
+      if (count !== 1) return false;
+      await tx.account.update({
+        where: { id: sub.accountId },
+        data: { paidUntil: toDbDate(ends) },
+      });
+      await audit(tx, null, "subscription.renewal_due", null, { plan, payBy: ends }, sub.accountId);
+      return true;
+    }),
+  );
+  if (!changed) return;
+  await emailOwner(
+    sub.accountId,
+    "Your Propfolio payment for this month is ready",
+    [
+      `Your ${label(plan)} plan renews today: ${formatPeso(monthlyPrice(plan))} for the next month.`,
+      `Please pay by ${formatIsoDate(ends)} with card, GCash, Maya or another method on the payment page. You keep ${label(plan)} in the meantime; if it isn't paid by then, your account moves to Free. Nothing is deleted.`,
+    ],
+    deps,
+    { text: "Pay now", path: "/plan" },
+  );
 }
 
 async function endSubscription(

@@ -149,3 +149,53 @@ test.describe("more website pages", () => {
     await expect(page.getByText("7 days before the lease ends")).toBeVisible();
   });
 });
+
+test.describe("search engines, previews and statistics", () => {
+  test("the test site asks search engines to stay away; the sitemap lists the pages", async ({
+    request,
+  }) => {
+    const robots = await (await request.get("/robots.txt")).text();
+    expect(robots).toContain("Disallow: /");
+    const sitemap = await (await request.get("/sitemap.xml")).text();
+    expect(sitemap).toContain("/pricing</loc>");
+    expect(sitemap).toContain("/for/industrial</loc>");
+    expect(sitemap).not.toContain("/settings");
+  });
+
+  test("shared links get a preview image", async ({ page, request }) => {
+    await page.goto("/pricing");
+    const og = await page.locator('meta[property="og:image"]').first().getAttribute("content");
+    expect(og).toBeTruthy();
+    const img = await request.get(new URL(og!).pathname);
+    expect(img.status()).toBe(200);
+    expect(img.headers()["content-type"]).toContain("image/png");
+  });
+
+  test("a visit is counted without anything personal, and only for website pages", async ({
+    request,
+  }) => {
+    const before = await db.websiteStat.aggregate({
+      _sum: { count: true },
+      where: { kind: "VISIT", path: "/compare/excel", source: "Facebook" },
+    });
+    const ua = { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/604.1" };
+    const res = await request.post("/api/v1/visit", {
+      headers: ua,
+      data: { path: "/compare/excel", referrer: "https://l.facebook.com/l.php?u=secret" },
+    });
+    expect(res.status()).toBe(204);
+    expect(res.headers()["set-cookie"]).toContain("pf_landing=");
+    // App pages and bots aren't counted.
+    await request.post("/api/v1/visit", { headers: ua, data: { path: "/settings" } });
+    await request.post("/api/v1/visit", {
+      headers: { "user-agent": "Googlebot/2.1" },
+      data: { path: "/compare/excel", referrer: "https://l.facebook.com/" },
+    });
+    const after = await db.websiteStat.aggregate({
+      _sum: { count: true },
+      where: { kind: "VISIT", path: "/compare/excel", source: "Facebook" },
+    });
+    expect((after._sum.count ?? 0) - (before._sum.count ?? 0)).toBe(1);
+    expect(await db.websiteStat.count({ where: { path: "/settings" } })).toBe(0);
+  });
+});

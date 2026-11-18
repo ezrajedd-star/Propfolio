@@ -1,8 +1,20 @@
 import { headers } from "next/headers";
 
+import { LANDING_COOKIE, decodeLanding } from "@/domain/marketing/analytics";
+
 export interface RequestMeta {
   ipAddress: string | null;
   userAgent: string | null;
+  /** Where this browser first landed on the website (for sign-up statistics only). */
+  landing?: { path: string; source: string } | null;
+}
+
+function cookieValue(h: Headers, name: string): string | undefined {
+  for (const part of h.get("cookie")?.split(";") ?? []) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return v.join("=");
+  }
+  return undefined;
 }
 
 /**
@@ -14,6 +26,7 @@ export function metaFromHeaders(h: Headers): RequestMeta {
   return {
     ipAddress: (forwarded || h.get("x-real-ip")) ?? null,
     userAgent: h.get("user-agent")?.slice(0, 300) ?? null,
+    landing: decodeLanding(cookieValue(h, LANDING_COOKIE)),
   };
 }
 

@@ -1,6 +1,6 @@
 /**
  * The payment provider behind subscriptions. Propfolio talks to it only through this interface,
- * so PayMongo (or Xendit later) is one file implementing it. Card details never reach Propfolio:
+ * so each provider (the demo, Xendit) is one file implementing it. Card details never reach Propfolio:
  * people pay on the provider's own hosted checkout page.
  */
 export interface CheckoutRequest {
@@ -25,6 +25,9 @@ export interface RenewalRequest {
   checkoutId: string;
   amount: string;
   description: string;
+  /** Where the provider's page sends the Owner after paying, or giving up (pay-by-link). */
+  successUrl: string;
+  cancelUrl: string;
   /** The subscription's providerRef (saved payment method / provider subscription). */
   subscriptionRef: string | null;
 }
@@ -33,7 +36,8 @@ export interface RenewalRequest {
 export interface ProviderMessage {
   /** The provider's own event id: repeated deliveries carry the same one. */
   eventId: string;
-  type: "payment.paid" | "payment.failed";
+  /** `expired`: an unpaid payment page closed (pay-by-link); nothing was charged. */
+  type: "payment.paid" | "payment.failed" | "payment.expired";
   /** The providerRef of the payment it is about. */
   paymentRef: string;
   /** card, gcash, maya… */
@@ -44,12 +48,18 @@ export interface ProviderMessage {
 
 export interface PaymentProvider {
   readonly name: string;
+  /**
+   * True when the provider charges each month by itself (a saved card). False for pay-by-link
+   * providers: each renewal is a payment page the Owner is asked to pay within the grace period.
+   */
+  readonly chargesAutomatically: boolean;
   createCheckout(req: CheckoutRequest): Promise<CheckoutCreated>;
   /**
-   * Ask for this month's renewal. Providers that charge subscriptions by themselves (PayMongo)
-   * just say which payment to wait for; the result arrives as a webhook message.
+   * Ask for this month's renewal. Providers that charge by themselves just say which payment to
+   * wait for; pay-by-link providers also return the page to pay on. The result arrives as a
+   * webhook message.
    */
-  requestRenewal(req: RenewalRequest): Promise<{ providerRef: string }>;
+  requestRenewal(req: RenewalRequest): Promise<{ providerRef: string; payUrl?: string }>;
   /** Check a webhook's signature and read it. Null when it isn't genuine. */
   verifyWebhook(rawBody: string, headers: Headers): ProviderMessage | null;
 }

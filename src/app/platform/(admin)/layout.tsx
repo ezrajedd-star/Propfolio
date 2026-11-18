@@ -20,7 +20,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
             <Logo />
             <span className="text-muted-foreground font-medium">Platform admin</span>
           </Link>
-          <nav aria-label="Platform" className="flex gap-1">
+          <nav aria-label="Platform" className="flex flex-wrap gap-1">
             <Button asChild variant="ghost">
               <Link href="/platform">Accounts</Link>
             </Button>
@@ -32,6 +32,9 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
             </Button>
             <Button asChild variant="ghost">
               <Link href="/platform/website-leads">Partners and downloads</Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/platform/website">Website</Link>
             </Button>
           </nav>
           <div className="flex items-center gap-3">

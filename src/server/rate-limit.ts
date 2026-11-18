@@ -23,6 +23,8 @@ export const RATE_LIMITS = {
   signUpByIp: { max: 10, windowSeconds: 3600 },
   /** "Book a demo" requests from one IP address. */
   demoRequestByIp: { max: 5, windowSeconds: 3600 },
+  /** Website visits counted from one IP address (more are simply not counted). */
+  visitByIp: { max: 300, windowSeconds: 3600 },
   /** Free-resource requests and partner applications from one IP address. */
   websiteLeadByIp: { max: 10, windowSeconds: 3600 },
   /** Platform admin sign-in attempts from one IP address. */

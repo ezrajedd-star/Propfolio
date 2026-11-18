@@ -524,3 +524,42 @@ buildingId)` table; a membership with no rows sees every building (today's behav
   (e.g. a free uptime monitor) is the next step.
 - Partner applications and template requests are in the platform admin under "Partners and
   downloads", kept a year.
+
+## 33. Xendit instead of PayMongo (18 Nov 2026)
+
+PayMongo is still closed to new merchants, so payments go through **Xendit's Invoices API**
+(`src/server/subscription/providers/xendit.ts`; turn on with `PAYMENT_PROVIDER=xendit`,
+`XENDIT_SECRET_KEY`, `XENDIT_CALLBACK_TOKEN`).
+
+- Each payment is a Xendit invoice paid on Xendit's own page (card, GCash, Maya and whatever is
+  turned on in the Xendit dashboard). Propfolio never sees card details.
+- **Renewals are pay-by-link**: Xendit doesn't charge a saved GCash/Maya account monthly by itself
+  through invoices. On the renewal day Propfolio makes the next month's invoice, emails the Owner
+  "Your payment for this month is ready", and the account keeps its plan for the 7-day grace
+  period (reminders on days 3 and 6). "Pay now" reopens the same invoice. Unpaid after the grace
+  period → Free, nothing deleted. An expired invoice sends no "payment failed" email.
+- Webhooks: `/api/v1/subscription/webhook/xendit`, checked with the dashboard's verification
+  token (`x-callback-token`, compared in constant time). Xendit sends no event id, so the invoice
+  id + status identifies a delivery; "SETTLED" after "PAID" changes nothing.
+- A message that was logged but not finished (server stopped half-way) is now finished when the
+  provider retries, instead of being skipped as a duplicate. This applies to every provider.
+- Later: automatic card renewals (Xendit's recurring API) can be added as a second provider mode.
+
+## 34. The real server at propfolioph.com (18 Nov 2026)
+
+`sudo bash deploy/setup.sh production` sets up a separate server: the domain is checked to point
+at the server first, `UAT_MODE=false` (no test banner, demo payments refused), no demo data,
+support email and Xendit keys asked for. `www.` redirects to the bare domain. Guide:
+`docs/production-setup.md` (Namecheap DNS, Brevo domain authentication, platform admin,
+off-site backups, UptimeRobot on `/api/health`).
+
+## 35. Search engines, link previews and website statistics (18 Nov 2026)
+
+- `sitemap.xml` and `robots.txt`; the real site may be indexed, the app's pages and the test site
+  never. A preview image for shared links; structured data (prices) on the home page.
+- **Statistics without personal data** (`WebsiteStat`): per Manila day, visits per website page
+  and source ("Google", "Facebook", a site's host, "Direct"), and new accounts per landing page.
+  Counted by the page itself (bots, app pages and over 300 an hour from one address are not).
+  A first-visit cookie (`pf_landing`) holds only the landing page and source, so a later sign-up
+  can be counted against it. No IP addresses or ids are stored; no outside service. Platform
+  admin → Website. The Privacy Policy should mention this cookie (for the lawyer).

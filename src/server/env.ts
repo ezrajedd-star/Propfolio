@@ -67,9 +67,13 @@ const schema = z.object({
   /**
    * Who takes subscription payments. `demo`: a simulated checkout (test site and development only;
    * refused on a real production server). `none`: no online payment ("Email us" to upgrade).
-   * `paymongo` will be added when PayMongo accepts the account.
+   * `xendit`: Xendit invoices (card, GCash, Maya and more), with the two settings below.
    */
-  PAYMENT_PROVIDER: z.enum(["demo", "none"]).default("demo"),
+  PAYMENT_PROVIDER: z.enum(["demo", "xendit", "none"]).default("demo"),
+  /** Xendit secret API key (Dashboard → Settings → API keys). Test keys start `xnd_development_`. */
+  XENDIT_SECRET_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  /** Xendit webhook verification token (Dashboard → Settings → Webhooks). */
+  XENDIT_CALLBACK_TOKEN: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   /** Where customers write to upgrade until online payment exists, e.g. hello@propfolio.ph. */
   SUPPORT_EMAIL: z.preprocess((v) => (v === "" ? undefined : v), z.email().optional()),
 });

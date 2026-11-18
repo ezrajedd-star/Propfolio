@@ -124,7 +124,7 @@ model Subscription {
   account            Account            @relation(fields: [accountId], references: [id])
   plan               Plan
   status             SubscriptionStatus
-  /// "demo" (simulated checkout, before a provider is connected) or "paymongo".
+  /// "demo" (simulated checkout, before a provider is connected) or "xendit".
   provider           String
   /// The provider's own id for this subscription or customer, if it has one.
   providerRef        String?
@@ -170,6 +170,9 @@ model Checkout {
   provider    String
   /// The provider's checkout or payment id (set once created there).
   providerRef String?        @unique
+  /// The provider's payment page, for pay-by-link providers (Xendit invoices), so "Pay now"
+  /// reopens the same page instead of creating a second one.
+  payUrl      String?
   status      CheckoutStatus @default(OPEN)
   /// Who started it (the Owner), or null for a renewal.
   createdById String?        @db.Uuid
@@ -1133,4 +1136,24 @@ model WebsiteLead {
   handledById  String?         @db.Uuid
 
   @@index([kind, createdAt])
+}
+
+enum WebsiteStatKind {
+  /// A visit to a website page.
+  VISIT
+  /// A new account, counted against the page its Owner first landed on.
+  SIGNUP
+}
+
+/// Website statistics: counts only, per Manila day. No IP addresses, no ids, nothing personal.
+model WebsiteStat {
+  day    DateTime        @db.Date
+  kind   WebsiteStatKind
+  /// The page visited, or (for sign-ups) first landed on.
+  path   String
+  /// Where people came from: "Google", "Facebook", a site's host, or "Direct".
+  source String
+  count  Int             @default(0)
+
+  @@id([day, kind, path, source])
 }

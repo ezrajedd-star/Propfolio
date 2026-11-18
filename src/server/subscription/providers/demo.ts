@@ -43,6 +43,7 @@ export function demoWebhook(type: DemoEventBody["type"], payment: string, method
 
 export const demoProvider: PaymentProvider = {
   name: DEMO_PROVIDER,
+  chargesAutomatically: true,
 
   async createCheckout(req) {
     const providerRef = `demo_pay_${randomToken().slice(0, 24)}`;
