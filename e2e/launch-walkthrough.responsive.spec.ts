@@ -107,7 +107,7 @@ test("sign up, import, trial, upgrade, downgrade and cancel on a phone", async (
 
   // 5. Downgrade from next month.
   await page.getByRole("button", { name: "Switch at the end of the month" }).click();
-  await expect(page.getByText(/your plan will be Pro/)).toBeVisible();
+  await expect(page.getByRole("note").filter({ hasText: /your plan will be Pro/ })).toBeVisible();
 
   // 6. Cancel.
   await page.getByRole("button", { name: "Cancel my plan" }).click();

@@ -35,6 +35,7 @@ export async function updateSettings(
   actor: Actor,
   input: unknown,
   meta: RequestMeta,
+  now = new Date(),
 ): Promise<Settings> {
   assertCan(actor, "settings.manage");
   const data = parseInput(updateSettingsSchema, input);
@@ -71,6 +72,6 @@ export async function updateSettings(
     }
   });
   // New default reminder settings move the future reminder dates of every lease that uses them.
-  if (changes.reminderDefaults) await syncReminders("all");
+  if (changes.reminderDefaults) await syncReminders("all", now);
   return getSettings();
 }

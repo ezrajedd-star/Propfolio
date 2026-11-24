@@ -114,6 +114,7 @@ describe("reminder schedule records", () => {
         },
       },
       meta,
+      CREATED,
     );
     expect(await pendingDates(l.id)).toEqual(["2026-11-16"]);
   });
