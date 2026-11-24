@@ -24,9 +24,10 @@ import { createSession } from "@/server/auth/session";
 import { identityConfirmed, type SignInResult } from "@/server/auth/sign-in";
 import { appSecret } from "@/server/env";
 import { asSystem, db } from "@/server/db";
-import { ValidationError } from "@/server/errors";
+import { ConflictError, ValidationError } from "@/server/errors";
 import { SignUpCodeEmail } from "@/server/mail/templates/account-emails";
 import { deliver, type OutgoingMail } from "@/server/mail/transport";
+import { reportError } from "@/server/monitoring/report-error";
 import { hitRateLimit, waitText } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
@@ -57,11 +58,19 @@ const EMAIL_TAKEN = "That email already has an account. Sign in instead?";
 async function sendCode(deps: SignUpDeps, to: { name: string; email: string }, code: string) {
   const element = <SignUpCodeEmail name={to.name} code={code} validMinutes={SIGNUP_CODE_MINUTES} />;
   const [html, text] = await Promise.all([render(element), render(element, { plainText: true })]);
-  await deps.send(
-    // The code is only in the body: subjects appear in mail logs.
-    { to: [to.email], subject: "Your Propfolio sign-up code", html, text },
-    "Propfolio",
-  );
+  try {
+    await deps.send(
+      // The code is only in the body: subjects appear in mail logs.
+      { to: [to.email], subject: "Your Propfolio sign-up code", html, text },
+      "Propfolio",
+    );
+  } catch (err) {
+    // Logged with the mail server's codes (no address); the person gets a plain message.
+    reportError(err, "signup-code-email");
+    throw new ConflictError(
+      "We couldn't send your code email just now. Please try again in a few minutes, or contact us if it keeps happening.",
+    );
+  }
 }
 
 export type StartResult =

@@ -283,3 +283,17 @@ describe("legal documents", () => {
     ]);
   });
 });
+
+describe("when the code email can't be sent", () => {
+  it("says so plainly instead of failing silently", async () => {
+    const deps: SignUpDeps = {
+      botCheck: async () => true,
+      send: async () => {
+        throw Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" });
+      },
+    };
+    await expect(startSignUp(form(), meta, T0, deps)).rejects.toThrow(
+      /couldn't send your code email/,
+    );
+  });
+});

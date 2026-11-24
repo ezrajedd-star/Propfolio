@@ -22,6 +22,11 @@ function smtp(): Transporter {
     port: e.SMTP_PORT,
     secure: e.SMTP_SECURE,
     auth: e.SMTP_USER ? { user: e.SMTP_USER, pass: e.SMTP_PASSWORD } : undefined,
+    // Give up quickly when the mail server can't be reached (e.g. a blocked port), so a page
+    // waiting on an email shows a message instead of spinning for minutes.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
   return transporter;
 }
@@ -40,7 +45,26 @@ export async function deliver(mail: OutgoingMail, fromName?: string): Promise<vo
     return;
   }
   const from = fromName ? withName(e.MAIL_FROM, fromName) : e.MAIL_FROM;
-  await smtp().sendMail({ from, ...mail, to });
+  try {
+    await smtp().sendMail({ from, ...mail, to });
+  } catch (err) {
+    throw new MailDeliveryError(err);
+  }
+}
+
+/**
+ * Sending failed. The name carries the mail server's codes only (e.g. "MailDeliveryError
+ * EAUTH 535"), which say what went wrong without any address or message text, so the log is
+ * useful and still holds no personal data.
+ */
+export class MailDeliveryError extends Error {
+  constructor(cause: unknown) {
+    const c = cause as { code?: unknown; responseCode?: unknown };
+    const code = typeof c?.code === "string" ? c.code.replace(/[^A-Z0-9_]/g, "") : "";
+    const status = typeof c?.responseCode === "number" ? String(c.responseCode) : "";
+    super("The email could not be sent.");
+    this.name = ["MailDeliveryError", code, status].filter(Boolean).join(" ");
+  }
 }
 
 /**
