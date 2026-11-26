@@ -166,5 +166,7 @@ export const APPROVALS = {
 export const AGENT_SESSION_RETENTION_DAYS = 30;
 /** Tagalog and Cebuano replies stay at Draft for this many days after the Support agent starts. */
 export const NON_ENGLISH_DRAFT_DAYS = 30;
+/** The Monday digest: 7 AM Manila every Monday. */
+export const DIGEST_CRON = "0 7 * * 1";
 /** Housekeeping: deleting old sessions, daily. */
 export const AGENT_HOUSEKEEPING_CRON = "50 3 * * *";

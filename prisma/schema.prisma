@@ -1615,3 +1615,11 @@ model HelpArticle {
 
   @@index([status, category])
 }
+
+/// The Monday digest: the week's numbers (kept to compare with next week) and when it was sent.
+model DigestSnapshot {
+  /// The Monday the digest covers up to (Manila date).
+  weekOf  DateTime  @id @db.Date
+  metrics Json
+  sentAt  DateTime? @db.Timestamptz(3)
+}

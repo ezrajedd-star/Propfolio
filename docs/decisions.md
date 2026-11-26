@@ -821,3 +821,17 @@ playbooks/, evals/}`, changed only by pull request, published with `pnpm agent:s
   threat, asking for a person, a bug, a feature request, three prompt-injection attempts, a tax
   question, never asking for ID numbers). A test checks every eval file uses made-up data only.
 - The other agents' role and rules files are in place too (growth, digest, engineering).
+
+## 45. Operations console, phase 9: the Monday digest (27 Nov 2026)
+
+- **Mondays at 7:00 AM Manila** (`DIGEST_CRON` in `src/config/agents.ts`) the worker emails every
+  active Platform Owner: what needs them this week (open incidents, approvals waiting, open
+  tickets, trials ending), links into the console (Approvals, Tickets, System health, Agents),
+  last week's numbers against the week before (sign-ups, paying customers, MRR, trials ending,
+  cancellations, tickets, approvals, incidents), and what each agent did last week (items by
+  kind and status, tool calls and refusals) with its spend this month against its cap.
+- Built from Propfolio's own data. The **Digest agent** (Haiku, $5 cap) only writes a
+  three-sentence summary on top when it is switched on; otherwise the email goes without it.
+- Each week's numbers are kept (`DigestSnapshot`) to compare with the next; the first digest has
+  no comparisons. Sent once per week (a retry or a restart doesn't send it twice). No customer
+  names or details in it.

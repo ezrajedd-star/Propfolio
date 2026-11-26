@@ -47,7 +47,8 @@ import { MONITORING } from "../src/config/ops";
 import { recordHeartbeat, retryAlerts } from "../src/server/monitoring/incidents";
 import { PIPELINE } from "../src/config/ops";
 import { runPipelineHousekeeping } from "../src/server/pipeline/service";
-import { AGENT_HOUSEKEEPING_CRON, APPROVALS } from "../src/config/agents";
+import { AGENT_HOUSEKEEPING_CRON, APPROVALS, DIGEST_CRON } from "../src/config/agents";
+import { sendMondayDigest } from "../src/server/digest/service";
 import { remindWaitingApprovals } from "../src/server/agents/approvals";
 import { deleteOldAgentSessions } from "../src/server/agents/runner";
 import { bugFollowUps, runQueuedSupportTickets } from "../src/server/agents/support";
@@ -161,6 +162,13 @@ const JOBS: Job[] = [
     name: "bug-follow-ups",
     cron: "20 10 * * *",
     run: async () => `${await bugFollowUps()} fix-is-out reply/replies drafted`,
+  },
+  {
+    // Mondays 7 AM Manila: last week's numbers, approvals, incidents, agents and costs.
+    name: "monday-digest",
+    cron: DIGEST_CRON,
+    retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
+    run: async () => `Monday digest: ${await sendMondayDigest()}`,
   },
   {
     name: "failed-sign-in-alert",
