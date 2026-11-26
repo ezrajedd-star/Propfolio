@@ -47,6 +47,9 @@ import { MONITORING } from "../src/config/ops";
 import { recordHeartbeat, retryAlerts } from "../src/server/monitoring/incidents";
 import { PIPELINE } from "../src/config/ops";
 import { runPipelineHousekeeping } from "../src/server/pipeline/service";
+import { AGENT_HOUSEKEEPING_CRON, APPROVALS } from "../src/config/agents";
+import { remindWaitingApprovals } from "../src/server/agents/approvals";
+import { deleteOldAgentSessions } from "../src/server/agents/runner";
 
 type Job = {
   name: string;
@@ -133,6 +136,18 @@ const JOBS: Job[] = [
       const r = await runPipelineHousekeeping();
       return `${r.deleted} old lost lead(s) deleted, ${r.unsubscribed} unsubscribe(s), ${r.synced} synced`;
     },
+  },
+  {
+    // Platform Owners hear about approvals waiting longer than the configured hours.
+    name: "approval-reminders",
+    cron: APPROVALS.reminderCron,
+    run: async () => `${await remindWaitingApprovals()} approval(s) waiting too long`,
+  },
+  {
+    // Managed Agents session history is deleted after 30 days.
+    name: "agent-housekeeping",
+    cron: AGENT_HOUSEKEEPING_CRON,
+    run: async () => `${await deleteOldAgentSessions()} old agent session(s) deleted`,
   },
   {
     name: "failed-sign-in-alert",

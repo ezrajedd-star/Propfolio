@@ -543,3 +543,87 @@ export async function openTicketCounts(now = new Date()) {
   }
   return counts;
 }
+
+/**
+ * A reply drafted by the Support agent, sent after approval (or straight away under "Act").
+ * Shown to the customer as from Propfolio support; the staff view says the agent drafted it.
+ */
+export async function postAgentReply(
+  ticketId: string,
+  body: string,
+  opts: { approvedByName?: string | null; resolve?: boolean },
+  now = new Date(),
+  deps: TicketDeps = defaultDeps,
+): Promise<{ emailed: boolean }> {
+  const ticket = await asSystem(() =>
+    db.$transaction(async (tx) => {
+      const t = await tx.ticket.findUnique({ where: { id: ticketId } });
+      if (!t) throw new NotFoundError("We couldn't find that ticket.");
+      const m = await tx.ticketMessage.create({
+        data: {
+          ticketId,
+          author: "AGENT",
+          authorName: opts.approvedByName
+            ? `Propfolio support (checked by ${opts.approvedByName})`
+            : "Propfolio support",
+          body,
+          createdAt: now,
+        },
+      });
+      const status = opts.resolve ? "RESOLVED" : nextTicketStatus(t.status, "staff_reply");
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: { status, lastReplyAt: now, resolvedAt: status === "RESOLVED" ? now : null },
+      });
+      return { ...t, status, messageId: m.id };
+    }),
+  );
+  const customer = await asSystem(() =>
+    db.user.findUnique({ where: { id: ticket.userId }, select: { name: true, email: true } }),
+  );
+  if (!customer) return { emailed: false };
+  const number = ticketNumber(ticket.number);
+  const sent = await email(
+    deps,
+    customer.email,
+    `Reply to your request ${number}`,
+    <TicketReplyEmail
+      name={customer.name}
+      number={number}
+      reply={body}
+      from="Propfolio support"
+      url={requestUrl(ticket.id)}
+      resolved={ticket.status === "RESOLVED"}
+    />,
+    "ticket-agent-reply-email",
+  );
+  if (sent) {
+    await asSystem(() =>
+      db.ticketMessage.update({ where: { id: ticket.messageId }, data: { emailedAt: now } }),
+    );
+  }
+  return { emailed: sent };
+}
+
+/** The Support agent hands a ticket to a person: a staff-only note with what it found. */
+export async function addAgentNote(ticketId: string, body: string, now = new Date()) {
+  await asSystem(() =>
+    db.$transaction(async (tx) => {
+      const t = await tx.ticket.findUnique({ where: { id: ticketId } });
+      if (!t) throw new NotFoundError("We couldn't find that ticket.");
+      await tx.ticketMessage.create({
+        data: {
+          ticketId,
+          author: "AGENT",
+          authorName: "Support agent",
+          body,
+          internal: true,
+          createdAt: now,
+        },
+      });
+      if (t.status === "NEW") {
+        await tx.ticket.update({ where: { id: ticketId }, data: { status: "WAITING_ON_US" } });
+      }
+    }),
+  );
+}

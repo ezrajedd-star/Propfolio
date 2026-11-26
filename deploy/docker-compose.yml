@@ -41,6 +41,19 @@ x-app-env: &app-env
   # The sales pipeline's Brevo marketing list (docs/ops-console/pipeline-setup.md).
   BREVO_API_KEY: ${BREVO_API_KEY:-}
   BREVO_MARKETING_LIST_ID: ${BREVO_MARKETING_LIST_ID:-}
+  MARKETING_MAIL_FROM: ${MARKETING_MAIL_FROM:-}
+  # AI agents (docs/ops-console/agents-setup.md): each has its own keys.
+  ANTHROPIC_API_KEY_SUPPORT: ${ANTHROPIC_API_KEY_SUPPORT:-}
+  ANTHROPIC_API_KEY_GROWTH: ${ANTHROPIC_API_KEY_GROWTH:-}
+  ANTHROPIC_API_KEY_DIGEST: ${ANTHROPIC_API_KEY_DIGEST:-}
+  AGENT_KEY_SUPPORT: ${AGENT_KEY_SUPPORT:-}
+  AGENT_KEY_GROWTH: ${AGENT_KEY_GROWTH:-}
+  AGENT_KEY_DIGEST: ${AGENT_KEY_DIGEST:-}
+  AGENT_KEY_ENGINEERING: ${AGENT_KEY_ENGINEERING:-}
+  MANAGED_AGENTS_ENVIRONMENT_ID: ${MANAGED_AGENTS_ENVIRONMENT_ID:-}
+  MANAGED_AGENT_ID_SUPPORT: ${MANAGED_AGENT_ID_SUPPORT:-}
+  MANAGED_AGENT_ID_GROWTH: ${MANAGED_AGENT_ID_GROWTH:-}
+  GITHUB_ISSUES_TOKEN: ${GITHUB_ISSUES_TOKEN:-}
   PUSHOVER_APP_TOKEN: ${PUSHOVER_APP_TOKEN:-}
   PUSHOVER_USER_KEY: ${PUSHOVER_USER_KEY:-}
   PUSHOVER_SECOND_USER_KEY: ${PUSHOVER_SECOND_USER_KEY:-}
@@ -143,6 +156,25 @@ services:
     environment: *app-env
     depends_on:
       migrate: { condition: service_completed_successfully }
+    restart: "no"
+
+  # AI agents: publish their instructions to Claude, and run their evaluations.
+  #   docker compose run --rm agent-setup support      docker compose run --rm agent-eval support
+  agent-setup:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    profiles: ["tools"]
+    entrypoint:
+      ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "scripts/agent-setup.ts"]
+    environment: *app-env
+    restart: "no"
+  agent-eval:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    profiles: ["tools"]
+    entrypoint:
+      ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "scripts/agent-eval.ts"]
+    environment: *app-env
     restart: "no"
 
   # Demo data for testers: `docker compose run --rm seed` (refuses to run twice).

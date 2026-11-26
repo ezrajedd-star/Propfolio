@@ -94,6 +94,32 @@ const schema = z.object({
     (v) => (v === "" ? undefined : v),
     z.coerce.number().int().positive().optional(),
   ),
+  /** Sender for marketing email, on its own subdomain, e.g. "Propfolio <hello@news.propfolioph.com>". */
+  MARKETING_MAIL_FROM: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(3).optional(),
+  ),
+  /** A GitHub token that can only open issues, for the agents' "create a GitHub issue". */
+  GITHUB_ISSUES_TOKEN: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  GITHUB_REPOSITORY: z.string().default("ezrajedd-star/propfolio"),
+  /** Each agent's own Anthropic key and gateway key (see src/config/agents.ts). */
+  ANTHROPIC_API_KEY_SUPPORT: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  ANTHROPIC_API_KEY_GROWTH: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  ANTHROPIC_API_KEY_DIGEST: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  AGENT_KEY_SUPPORT: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(32).optional()),
+  AGENT_KEY_GROWTH: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(32).optional()),
+  AGENT_KEY_DIGEST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(32).optional()),
+  AGENT_KEY_ENGINEERING: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(32).optional(),
+  ),
+  /** Managed Agents: the environment and each agent's id (made by `pnpm agent:setup`). */
+  MANAGED_AGENTS_ENVIRONMENT_ID: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().optional(),
+  ),
+  MANAGED_AGENT_ID_SUPPORT: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  MANAGED_AGENT_ID_GROWTH: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   MONITORING_WEBHOOK_TOKEN: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.string().min(24).optional(),

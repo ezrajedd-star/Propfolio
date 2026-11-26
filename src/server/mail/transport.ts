@@ -8,6 +8,9 @@ export interface OutgoingMail {
   html: string;
   text: string;
   replyTo?: string;
+  /** Only for marketing email, which goes from its own subdomain (MARKETING_MAIL_FROM). */
+  from?: string;
+  headers?: Record<string, string>;
 }
 
 /** Messages "sent" with MAIL_TRANSPORT=log. Tests read this; nothing is printed with PII. */

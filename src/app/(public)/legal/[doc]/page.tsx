@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { LEGAL_DOCUMENTS, LEGAL_INFO, type LegalDocumentName } from "@/domain/legal/documents";
 import { formatIsoDate } from "@/domain/time/manila";
-import { COMPANY } from "@/domain/legal/company";
+import { COMPANY, SUB_PROCESSORS } from "@/domain/legal/company";
 import { env } from "@/server/env";
 
 const BY_SLUG: Record<string, LegalDocumentName> = Object.fromEntries(
@@ -55,6 +55,26 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
           ))}
         </dl>
       </section>
+      {d === "PRIVACY" || d === "DPA" ? (
+        <section aria-labelledby="subprocessors" className="mt-8">
+          <h2 id="subprocessors" className="text-xl font-semibold">
+            Companies that help us (sub-processors)
+          </h2>
+          <ul className="mt-3 divide-y rounded-xl border">
+            {SUB_PROCESSORS.map((p) => (
+              <li key={p.name} className="grid gap-1 p-3 sm:grid-cols-3">
+                <span className="font-medium">
+                  {p.name}
+                  {p.note ? (
+                    <span className="text-warning block text-sm font-medium">{p.note}</span>
+                  ) : null}
+                </span>
+                <span className="sm:col-span-2">{p.purpose}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <nav aria-label="Legal documents" className="mt-10 flex flex-wrap gap-x-6 gap-y-2">
         {LEGAL_DOCUMENTS.filter((o) => o !== d).map((o) => (
           <Link

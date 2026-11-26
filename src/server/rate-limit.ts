@@ -29,6 +29,8 @@ export const RATE_LIMITS = {
   websiteLeadByIp: { max: 10, windowSeconds: 3600 },
   /** Help requests and replies from one person. */
   ticketByUser: { max: 20, windowSeconds: 3600 },
+  /** Agent API calls per agent (each agent also has its own limit in src/config/agents.ts). */
+  agentCallsByAgent: { max: 300, windowSeconds: 3600 },
   /** Platform admin sign-in attempts from one IP address. */
   platformSignInByIp: { max: 10, windowSeconds: 600 },
 } as const;

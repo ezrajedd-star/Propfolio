@@ -37,6 +37,8 @@ import {
   updateLead,
 } from "@/server/pipeline/service";
 import { readLeadSheet } from "@/server/pipeline/import-file";
+import { setAgentEnabled, setAutonomy } from "@/server/agents/state";
+import { approve as approveItem, reject as rejectItem } from "@/server/agents/approvals";
 import { ValidationError } from "@/server/errors";
 import {
   correctBillingDetails,
@@ -331,4 +333,41 @@ export async function importLeadsAction(form: FormData) {
     const rows = await readLeadSheet(new Uint8Array(await file.arrayBuffer()), file.name);
     return importLeads(admin, rows, await requestMeta());
   });
+}
+
+// ─── Agents and approvals ────────────────────────────────────────────────────────────────
+
+export async function setAgentEnabledAction(key: string, enabled: boolean) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await setAgentEnabled(admin, key, enabled, await requestMeta());
+    return null;
+  });
+  revalidatePath("/platform/agents");
+  return r;
+}
+
+export async function setAutonomyAction(key: string, type: string, level: string) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await setAutonomy(admin, key, type, level, await requestMeta());
+    return null;
+  });
+  revalidatePath("/platform/agents");
+  return r;
+}
+
+export async function approveAction(id: string, input: { editedText?: string; note?: string }) {
+  const r = await asPlatformAdmin(async (admin) =>
+    approveItem(admin, id, input, await requestMeta()),
+  );
+  revalidatePath("/platform/approvals");
+  return r;
+}
+
+export async function rejectAction(id: string, input: { reason: string }) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await rejectItem(admin, id, String(input?.reason ?? ""), await requestMeta());
+    return null;
+  });
+  revalidatePath("/platform/approvals");
+  return r;
 }

@@ -78,7 +78,9 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
     "Accounts",
     "Pipeline",
     "Tickets",
+    "Approvals",
     "Billing",
+    "Agents",
     "System health",
     "Staff log",
     "Staff",
@@ -120,6 +122,13 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   await expect(customer.getByText("Open the lease and choose Print summary.")).toBeVisible();
   await expect(customer.getByText("Waiting for your reply")).toBeVisible();
   await customer.close();
+  await page.goto("/platform/agents");
+  await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeVisible();
+  await expect(page.getByText("Support agent", { exact: true })).toBeVisible();
+  await axe(page, "Agents");
+  await page.goto("/platform/approvals");
+  await expect(page.getByText("Nothing is waiting.")).toBeVisible();
+  await axe(page, "Approvals");
   await page.goto("/platform/health");
   await expect(page.getByRole("heading", { level: 1, name: "System health" })).toBeVisible();
   await expect(page.getByText("All systems normal")).toBeVisible();

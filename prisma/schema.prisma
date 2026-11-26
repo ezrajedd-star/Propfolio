@@ -1464,3 +1464,119 @@ model LeadActivity {
 
   @@index([leadId, createdAt])
 }
+
+enum AutonomyLevel {
+  DRAFT
+  ACT_AND_TELL
+  ACT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  /// Approved, but carrying it out failed (the error is kept).
+  FAILED
+  /// Done by the agent under "Act and tell": shown for information.
+  TOLD
+}
+
+/// Whether each AI agent is switched on (key from src/config/agents.ts). System only.
+model AgentState {
+  agentKey       String    @id
+  enabled        Boolean   @default(false)
+  /// The first time it was switched on (Tagalog/Cebuano stay at Draft for 30 days after).
+  firstEnabledAt DateTime? @db.Timestamptz(3)
+  /// Why it stopped by itself, e.g. "Monthly cap reached".
+  stoppedReason  String?
+  updatedById    String?   @db.Uuid
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+/// Autonomy per agent and action type, changed only by a Platform Owner. Missing = Draft.
+model AgentAutonomy {
+  agentKey    String
+  actionType  String
+  level       AutonomyLevel @default(DRAFT)
+  updatedById String?       @db.Uuid
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@id([agentKey, actionType])
+}
+
+/// Every call an agent makes to the agent API. No personal data: a short summary only.
+model AgentActionLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  agentKey   String
+  action     String
+  ok         Boolean
+  /// The error type or plain reason when refused.
+  error      String?
+  summary    String   @default("")
+  entityType String?
+  entityId   String?
+  durationMs Int      @default(0)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([agentKey, createdAt])
+}
+
+/// What each agent used and cost, per month (YYYY-MM).
+model AgentUsage {
+  agentKey         String
+  month            String
+  inputTokens      BigInt  @default(0)
+  outputTokens     BigInt  @default(0)
+  cacheReadTokens  BigInt  @default(0)
+  cacheWriteTokens BigInt  @default(0)
+  sessionSeconds   Int     @default(0)
+  costUsd          Decimal @default(0) @db.Decimal(12, 4)
+
+  @@id([agentKey, month])
+}
+
+/// A Managed Agents session (its history is deleted after 30 days).
+model AgentSession {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  agentKey   String
+  externalId String?   @unique
+  purpose    String
+  entityId   String?
+  status     String    @default("running")
+  costUsd    Decimal   @default(0) @db.Decimal(12, 4)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  endedAt    DateTime? @db.Timestamptz(3)
+  /// When the session's history was deleted from Anthropic.
+  deletedAt  DateTime? @db.Timestamptz(3)
+
+  @@index([createdAt])
+}
+
+/// Something an agent wants to do that waits for a person (or was done and is reported).
+model Approval {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  agentKey       String
+  actionType     String
+  title          String
+  /// What will be sent or changed, as a person reads it.
+  preview        String
+  payload        Json
+  status         ApprovalStatus @default(PENDING)
+  /// Why it waits even if the setting allows more (e.g. "Billing tickets always wait").
+  lockedBecause  String?
+  entityType     String?
+  entityId       String?
+  decidedById    String?        @db.Uuid
+  decidedByName  String?
+  decidedAt      DateTime?      @db.Timestamptz(3)
+  /// The reason for a rejection (and a note on an edit).
+  reason         String?
+  /// The text as approved, when a person edited it.
+  editedPreview  String?
+  executedAt     DateTime?      @db.Timestamptz(3)
+  executionError String?
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([agentKey, createdAt])
+}

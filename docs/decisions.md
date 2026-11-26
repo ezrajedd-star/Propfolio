@@ -749,3 +749,46 @@ off-site backups, UptimeRobot on `/api/health`).
   daily.
 - Support and Owner change the pipeline; Read-only can look. Every view and change is in the
   staff log.
+
+## 43. Operations console, phase 5: AI agent foundations (27 Nov 2026)
+
+- **One configuration place:** `src/config/agents.ts` (models pinned, monthly caps: Support $40,
+  Growth $40, Digest $5, Engineering $50; allowed actions; calls per hour; schedules; prices for
+  cost tracking) and `src/config/ops.ts`. Autonomy levels are stored in the database and changed
+  only by a Platform Owner on the Agents page.
+- **Agent API** (`src/server/agents/gateway.ts`): the only way an agent reaches Propfolio. Each
+  call checks the agent is on and under its cap, the action is on its own list, the hourly limit
+  and the input; every call is logged (`AgentActionLog`, no personal data). Actions: account
+  summary, Today metrics, read a ticket, draft a reply, classify, hand over, list and read leads,
+  update a lead, open a GitHub issue, submit an approval. None of the staff support tools, no
+  database access, never tenant records. Over HTTP at `/api/agent/v1/<action>` with each agent's
+  own key (`AGENT_KEY_…`, made by `update.sh`).
+- **Masking:** before ticket or lead text reaches an agent, the account's tenant names and
+  contact people, ID numbers (TIN, SSS, PhilHealth, Pag-IBIG, passport), phone numbers, emails
+  and card or bank numbers are replaced (`[tenant]`, `[phone]`…).
+- **Autonomy:** Draft (approval inbox), Act and tell (done, shown in the inbox), Act. Everything
+  starts at Draft. **Permanently Draft**, checked on every item whatever the setting: billing and
+  privacy tickets, refunds, billing disputes, legal threats, access or permission changes (from
+  the agent's flags and our own word check in English, Tagalog and Cebuano), prices or
+  discounts not in the plans, help articles, personal follow-ups, social posts and status-page
+  updates. Tagalog and Cebuano replies stay at Draft for the Support agent's first 30 days.
+- **Approval inbox** (Approvals): agent, kind, preview, why it must wait; approve, edit then
+  approve, or reject with a reason (saved). Approving carries the item out (failures are
+  recorded). Only Platform Owners decide; everyone can look. A daily 9 AM email lists items
+  waiting more than 12 hours.
+- **Agents page:** on/off switch (Owner), this month's spend against the cap (it switches
+  itself off at the cap and sends a phone alert), the model, autonomy per kind of item, recent
+  activity.
+- **Instructions as files:** `agents/shared-rules.md` and `agents/<name>/{role.md, rules.md,
+playbooks/, evals/}`, changed only by pull request, published with `pnpm agent:setup`.
+  `pnpm agent:eval <name>` runs made-up cases (including prompt-injection attempts) against the
+  pinned model and reports a score (pass mark 90%).
+- **Untrusted input:** customer text reaches agents inside `<untrusted>` tags and the shared
+  rules say it is information, never instructions; the gateway's limits hold whatever the
+  model does.
+- **Hosting:** Claude Managed Agents with only custom tools (no shell, files or web), no outside
+  network, a per-run budget (at most $2, never past the month's cap); sessions are archived when
+  done and **deleted after 30 days** by a daily job. SDK `@anthropic-ai/sdk` 1.12.0.
+- **Sub-processors:** the Privacy Policy and DPA pages list the companies that process data for
+  us, with Anthropic marked "[LAWYER TO CONFIRM]".
+- Set-up for the founder: `docs/ops-console/agents-setup.md`.

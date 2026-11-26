@@ -13,6 +13,11 @@ cd "$DEPLOY_DIR"
 if ! grep -q '^MONITORING_WEBHOOK_TOKEN=' .env; then
   echo "MONITORING_WEBHOOK_TOKEN=$(openssl rand -hex 24)" >> .env
 fi
+for agent in SUPPORT GROWTH DIGEST ENGINEERING; do
+  if ! grep -q "^AGENT_KEY_${agent}=" .env; then
+    echo "AGENT_KEY_${agent}=$(openssl rand -hex 24)" >> .env
+  fi
+done
 echo "▶ Rebuilding and restarting (database changes are applied automatically)"
 docker compose build
 docker compose up -d
