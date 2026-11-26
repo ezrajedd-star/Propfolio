@@ -792,3 +792,32 @@ playbooks/, evals/}`, changed only by pull request, published with `pnpm agent:s
 - **Sub-processors:** the Privacy Policy and DPA pages list the companies that process data for
   us, with Anthropic marked "[LAWYER TO CONFIRM]".
 - Set-up for the founder: `docs/ops-console/agents-setup.md`.
+
+## 44. Operations console, phase 6: the Support agent and the help centre (27 Nov 2026)
+
+- **Help centre:** public articles at `/help/articles` (search, by category) and
+  `/help/articles/<slug>`; the Help page lists them under "Guides". Written and published in the
+  console (**More → Help centre**; Support and Owner edit, everyone can look). A simple text
+  format (paragraphs, "- " lists, "## " headings), never HTML. Articles can be in English,
+  Tagalog or Cebuano.
+- **Trigger:** a new ticket or a customer reply queues the ticket for the Support agent (only
+  while it is switched on); the worker runs it every minute, a few tickets at a time, each taken
+  off the queue first so a failure never loops.
+- **Asking for a person** (English, Tagalog, Cebuano) hands over at once: a staff-only note, a
+  phone alert, no agent run, and the ticket stays with people from then on.
+- **What the agent does** (`agents/support/`): reads the masked ticket, the account summary and
+  the help centre (published articles and the website FAQ), fixes the category, then drafts one
+  reply in the ticket's language or hands over (summary, what was tried, reason, next step,
+  plus a phone alert). It always hands over refunds, billing disputes, privacy, legal and access
+  changes; never promises features or dates, gives legal or tax advice, sees tenant records or
+  changes accounts.
+- **Bugs:** a GitHub issue labelled `bug` with steps to reproduce (personal details masked),
+  linked to the ticket; a daily job drafts a "the fix is out" reply for approval once the issue
+  is closed as done.
+- **Article proposals:** the agent proposes new articles to the approval inbox; approving
+  publishes them (marked "written by the Support agent").
+- Tagalog/Cebuano replies stay at Draft for the first month (phase 5 rule).
+- **Evals:** 13 made-up cases (how-to in English and Tagalog, refund, privacy, a Cebuano legal
+  threat, asking for a person, a bug, a feature request, three prompt-injection attempts, a tax
+  question, never asking for ID numbers). A test checks every eval file uses made-up data only.
+- The other agents' role and rules files are in place too (growth, digest, engineering).

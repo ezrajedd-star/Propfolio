@@ -37,6 +37,7 @@ import {
   updateLead,
 } from "@/server/pipeline/service";
 import { readLeadSheet } from "@/server/pipeline/import-file";
+import { saveArticle, setArticleStatus } from "@/server/help/service";
 import { setAgentEnabled, setAutonomy } from "@/server/agents/state";
 import { approve as approveItem, reject as rejectItem } from "@/server/agents/approvals";
 import { ValidationError } from "@/server/errors";
@@ -369,5 +370,29 @@ export async function rejectAction(id: string, input: { reason: string }) {
     return null;
   });
   revalidatePath("/platform/approvals");
+  return r;
+}
+
+// ─── Help centre ─────────────────────────────────────────────────────────────────────────
+
+export async function saveArticleAction(id: string | null, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    const a = await saveArticle(admin, id, input, await requestMeta());
+    return a.id;
+  });
+  if (r.ok && !id) redirect(`/platform/help/${r.data}`);
+  revalidatePath("/platform/help");
+  return r;
+}
+
+export async function setArticleStatusAction(
+  id: string,
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED",
+) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await setArticleStatus(admin, id, status, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/help/${id}`);
   return r;
 }

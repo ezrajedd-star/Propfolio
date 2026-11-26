@@ -84,6 +84,7 @@ export const AGENTS: Record<AgentKey, AgentConfig> = {
       "ticket_draft_reply",
       "ticket_classify",
       "ticket_handover",
+      "help_search",
       "github_issue_create",
       "approval_submit",
     ],

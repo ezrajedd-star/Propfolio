@@ -50,6 +50,7 @@ import { runPipelineHousekeeping } from "../src/server/pipeline/service";
 import { AGENT_HOUSEKEEPING_CRON, APPROVALS } from "../src/config/agents";
 import { remindWaitingApprovals } from "../src/server/agents/approvals";
 import { deleteOldAgentSessions } from "../src/server/agents/runner";
+import { bugFollowUps, runQueuedSupportTickets } from "../src/server/agents/support";
 
 type Job = {
   name: string;
@@ -148,6 +149,18 @@ const JOBS: Job[] = [
     name: "agent-housekeeping",
     cron: AGENT_HOUSEKEEPING_CRON,
     run: async () => `${await deleteOldAgentSessions()} old agent session(s) deleted`,
+  },
+  {
+    // The Support agent answers queued tickets (new ones and customer replies).
+    name: "support-agent",
+    cron: "* * * * *",
+    run: async () => `${await runQueuedSupportTickets()} ticket(s) handled by the Support agent`,
+  },
+  {
+    // Customers whose reported bug is fixed get a "the fix is out" reply (for approval).
+    name: "bug-follow-ups",
+    cron: "20 10 * * *",
+    run: async () => `${await bugFollowUps()} fix-is-out reply/replies drafted`,
   },
   {
     name: "failed-sign-in-alert",

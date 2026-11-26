@@ -385,17 +385,33 @@ export const ACTIONS: AgentAction[] = [
     summary: () => "lead update",
   }),
   define({
+    name: "help_search",
+    description:
+      "Search the published help-centre articles. Answer customers from these and link the article.",
+    input: z.object({
+      query: z.string().trim().min(2).max(200),
+      language: z.enum(["EN", "TL", "CEB"]).optional(),
+    }),
+    run: async (i: { query: string; language?: "EN" | "TL" | "CEB" }) => {
+      const { searchHelpForAgent } = await import("@/server/help/service");
+      return searchHelpForAgent(i.query, i.language);
+    },
+    summary: () => "searched the help centre",
+  }),
+  define({
     name: "github_issue_create",
     description:
       "Open a GitHub issue (e.g. a bug with steps to reproduce). No customer names, emails or tenant details in it.",
     input: z.object({
       title: z.string().trim().min(5).max(200),
       body: z.string().trim().min(10).max(20_000),
+      /** The ticket this bug came from, so the customer hears when it's fixed. */
+      ticketId: uuid.optional(),
       labels: z
         .array(z.enum(["bug", "enhancement", "support", "dependencies", "security"]))
         .default([]),
     }),
-    run: async (i: { title: string; body: string; labels: string[] }, ctx) =>
+    run: async (i: { title: string; body: string; labels: string[]; ticketId?: string }, ctx) =>
       propose(
         {
           agentKey: ctx.agentKey,

@@ -3,6 +3,7 @@
 import {
   Activity,
   BarChart3,
+  BookOpen,
   Bot,
   Building2,
   Handshake,
@@ -53,6 +54,7 @@ export const CONSOLE_NAV: NavItem[] = [
 
 /** Older pages, kept as quieter links until the pipeline takes them over. */
 export const CONSOLE_MORE: NavItem[] = [
+  { href: "/platform/help", label: "Help centre", icon: BookOpen, permission: "console.view" },
   {
     href: "/platform/website-leads",
     label: "Partners and downloads",

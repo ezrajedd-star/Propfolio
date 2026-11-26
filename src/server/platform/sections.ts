@@ -16,4 +16,5 @@ export const ENABLED_SECTIONS: readonly string[] = [
   "/platform/demo-requests",
   "/platform/website-leads",
   "/platform/website",
+  "/platform/help",
 ];

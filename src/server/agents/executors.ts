@@ -39,6 +39,15 @@ const EXECUTORS: Partial<Record<ActionType, Executor>> = {
   async GITHUB_ISSUE(p) {
     const labels = Array.isArray(p.labels) ? p.labels.filter((l) => typeof l === "string") : [];
     const issue = await createGithubIssue({ title: str(p.title), body: str(p.body), labels });
+    // A bug from a ticket: remembered, so the customer is told when it is fixed.
+    if (str(p.ticketId)) {
+      await asSystem(() =>
+        db.ticket.updateMany({
+          where: { id: str(p.ticketId) },
+          data: { bugIssueNumber: issue.number },
+        }),
+      );
+    }
     return `GitHub issue #${issue.number} opened`;
   },
   async LEAD_UPDATE(p, ctx) {
@@ -48,6 +57,10 @@ const EXECUTORS: Partial<Record<ActionType, Executor>> = {
   async NURTURE_EMAIL(p, ctx) {
     const { sendNurtureEmail } = await import("@/server/pipeline/agent");
     return sendNurtureEmail(p, ctx.now);
+  },
+  async HELP_ARTICLE(p, ctx) {
+    const { publishArticleFromAgent } = await import("@/server/help/service");
+    return publishArticleFromAgent(p, ctx.approvedByName, ctx.now);
   },
   async WEEKLY_REPORT(p) {
     const { emailOwners } = await import("@/server/agents/notify");

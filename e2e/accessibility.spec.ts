@@ -28,6 +28,7 @@ const PUBLIC = [
   "/pricing",
   "/customers",
   "/help",
+  "/help/articles",
   "/about",
   "/security",
   "/contact",

@@ -151,6 +151,8 @@ export async function createTicket(
     }),
   );
   const number = ticketNumber(ticket.number);
+  const { queueTicketForAgent } = await import("@/server/agents/support");
+  await queueTicketForAgent(ticket.id, data.description, now);
   await email(
     deps,
     actor.email,
@@ -279,6 +281,8 @@ export async function replyToMyTicket(
       );
     }),
   );
+  const { queueTicketForAgent } = await import("@/server/agents/support");
+  await queueTicketForAgent(id, body, now);
 }
 
 /** A screenshot on the person's own request. */

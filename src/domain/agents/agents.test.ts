@@ -6,6 +6,7 @@ import {
   detectSensitive,
   draftLockReason,
   effectiveLevel,
+  asksForPerson,
   mentionsOffListPrice,
   type AutonomyContext,
 } from "./autonomy";
@@ -133,5 +134,20 @@ describe("cost", () => {
 
   it("formats dollars", () => {
     expect(formatUsd("3.456")).toBe("$3.46");
+  });
+});
+
+describe("asksForPerson", () => {
+  it.each([
+    ["Can I talk to a person please?", true],
+    ["I want to speak with a real human", true],
+    ["Human please", true],
+    ["Gusto ko ng tao, hindi bot", true],
+    ["Pwede ba makausap ang tao?", true],
+    ["Gusto ko makig-istorya sa tawo", true],
+    ["How do I add a person to my team?", false],
+    ["My tenant is a real person", false],
+  ])("%s", (text, yes) => {
+    expect(asksForPerson(text)).toBe(yes);
   });
 });

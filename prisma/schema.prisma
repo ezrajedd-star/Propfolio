@@ -1336,6 +1336,13 @@ model Ticket {
   /// The page they were on when they asked (no query string).
   pagePath              String?
   assignedToId          String?        @db.Uuid
+  /// Waiting for the Support agent (set on a new ticket or a customer reply).
+  agentQueuedAt         DateTime?      @db.Timestamptz(3)
+  /// Handed to a person (by the agent, or because the customer asked for one).
+  handedOverAt          DateTime?      @db.Timestamptz(3)
+  /// A GitHub issue opened for this ticket's bug, and when the customer was told it's fixed.
+  bugIssueNumber        Int?
+  bugFollowedUpAt       DateTime?      @db.Timestamptz(3)
   lastCustomerMessageAt DateTime       @default(now()) @db.Timestamptz(3)
   lastReplyAt           DateTime?      @db.Timestamptz(3)
   resolvedAt            DateTime?      @db.Timestamptz(3)
@@ -1347,6 +1354,7 @@ model Ticket {
   @@index([status, createdAt])
   @@index([accountId, createdAt])
   @@index([userId, createdAt])
+  @@index([agentQueuedAt])
 }
 
 model TicketMessage {
@@ -1579,4 +1587,31 @@ model Approval {
 
   @@index([status, createdAt])
   @@index([agentKey, createdAt])
+}
+
+enum HelpArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// A public help-centre article, managed in the console. The Support agent answers from these and
+/// proposes new ones through the approval inbox.
+model HelpArticle {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  slug        String            @unique
+  title       String
+  /// Plain text with blank lines between paragraphs; lines starting "- " are a list.
+  body        String
+  category    String            @default("Getting started")
+  language    TicketLanguage    @default(EN)
+  status      HelpArticleStatus @default(DRAFT)
+  /// "staff" or "agent".
+  source      String            @default("staff")
+  publishedAt DateTime?         @db.Timestamptz(3)
+  updatedById String?           @db.Uuid
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([status, category])
 }

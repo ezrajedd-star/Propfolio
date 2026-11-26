@@ -122,6 +122,30 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   await expect(customer.getByText("Open the lease and choose Print summary.")).toBeVisible();
   await expect(customer.getByText("Waiting for your reply")).toBeVisible();
   await customer.close();
+  // The help centre: write an article, publish it, see it on the website.
+  await page.goto("/platform/help/new");
+  await page.getByLabel("Title").fill("How do I add a building?");
+  await page
+    .getByLabel("Article")
+    .fill(
+      "Go to Settings, then Buildings and units, then Add building.\n\n- Give it a name\n- Save",
+    );
+  await page.getByRole("button", { name: "Save as a draft" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "How do I add a building?" }),
+  ).toBeVisible();
+  await axe(page, "Help article");
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText("Published ✓")).toBeVisible();
+  const visitor = await page.context().browser()!.newPage();
+  await visitor.goto("/help/articles");
+  await visitor.getByRole("link", { name: /How do I add a building/ }).click();
+  await expect(
+    visitor.getByRole("heading", { level: 1, name: "How do I add a building?" }),
+  ).toBeVisible();
+  await expect(visitor.getByRole("listitem").filter({ hasText: "Give it a name" })).toBeVisible();
+  await visitor.close();
+
   await page.goto("/platform/agents");
   await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeVisible();
   await expect(page.getByText("Support agent", { exact: true })).toBeVisible();

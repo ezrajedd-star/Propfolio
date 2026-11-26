@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { Section } from "@/components/marketing/section";
 import { FAQ } from "@/domain/marketing/content";
+import { listPublishedArticles } from "@/server/help/service";
 import { FaqSearch } from "./faq-search";
 
 export const metadata: Metadata = {
@@ -12,7 +13,10 @@ export const metadata: Metadata = {
   description: "Answers about getting started, plans and payments, your data and using Propfolio.",
 };
 
-export default function HelpPage() {
+export const dynamic = "force-dynamic";
+
+export default async function HelpPage() {
+  const articles = await listPublishedArticles().catch(() => []);
   return (
     <>
       <section className="from-primary-soft bg-gradient-to-b to-transparent px-4 pt-14 pb-6 text-center sm:pt-20">
@@ -29,6 +33,28 @@ export default function HelpPage() {
           <FaqSearch items={FAQ} />
         </div>
       </Section>
+      {articles.length > 0 ? (
+        <Section title="Guides">
+          <ul className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
+            {articles.slice(0, 8).map((a) => (
+              <li key={a.slug}>
+                <Link
+                  href={`/help/articles/${a.slug}`}
+                  className="bg-card hover:border-primary block h-full rounded-xl border p-4"
+                >
+                  <span className="block font-semibold">{a.title}</span>
+                  <span className="text-muted-foreground block">{a.excerpt}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-center">
+            <Link href="/help/articles" className="text-primary font-semibold underline">
+              All help articles
+            </Link>
+          </p>
+        </Section>
+      ) : null}
       <Section title="Still stuck?" className="bg-muted/40">
         <div className="grid gap-4 md:grid-cols-3">
           {[

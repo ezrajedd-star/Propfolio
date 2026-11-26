@@ -108,3 +108,10 @@ export function mentionsOffListPrice(text: string, allowedPesos: readonly string
   const percent = /\b\d{1,2}\s?%\s?(off|discount)/i.test(text);
   return percent || amounts.some((a) => !allowed.has(a));
 }
+
+/** The customer asks for a person: the agent hands over at once, without replying. */
+export function asksForPerson(text: string): boolean {
+  return /\b(talk|speak|chat)\s+(to|with)\s+(a\s+)?(real\s+)?(person|human|someone|somebody|agent|staff)\b|\b(human|real person|real agent),?\s+please\b|\b(kausapin|makausap)\s+(ang\s+|ng\s+)?(tao|totoong tao|staff)\b|\bgusto ko ng tao\b|\b(makig-?istorya|makigsulti)\s+sa\s+(usa ka\s+)?tawo\b|\bdili bot\b|\bhindi bot\b/i.test(
+    text,
+  );
+}
