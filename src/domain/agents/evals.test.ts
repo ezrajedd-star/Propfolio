@@ -56,6 +56,24 @@ describe("checkEval", () => {
       0,
     ],
     [
+      "neverCallWith hit",
+      { neverCallWith: [{ tool: "approval_submit", input: { actionType: "NURTURE_EMAIL" } }] },
+      {
+        calls: [{ name: "approval_submit", input: { actionType: "NURTURE_EMAIL" } }],
+        finalText: "",
+      },
+      1,
+    ],
+    [
+      "neverCallWith miss",
+      { neverCallWith: [{ tool: "approval_submit", input: { actionType: "NURTURE_EMAIL" } }] },
+      {
+        calls: [{ name: "approval_submit", input: { actionType: "FOLLOW_UP_DRAFT" } }],
+        finalText: "",
+      },
+      0,
+    ],
+    [
       "reply doesn't mention",
       { replyIncludesAny: ["settings"] },
       { calls: [{ name: "ticket_draft_reply", input: { body: "Sorry" } }], finalText: "" },

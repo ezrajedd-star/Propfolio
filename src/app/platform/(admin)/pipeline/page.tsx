@@ -29,11 +29,13 @@ import { fromDbDate } from "@/domain/time/calendar-date";
 import { formatIsoDate, manilaToday } from "@/domain/time/manila";
 import { requirePlatformPage } from "@/server/platform/current";
 import { listLeads } from "@/server/pipeline/service";
+import { talkTodayForConsole } from "@/server/pipeline/talk-today";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Pipeline" };
 
 const VIEWS = [
+  { id: "talk", label: "Talk to today" },
   { id: "board", label: "Board" },
   { id: "list", label: "List" },
   { id: "today", label: "Follow up today" },
@@ -53,20 +55,24 @@ export default async function PipelinePage({
   searchParams: Promise<{ view?: string; q?: string; stage?: string; source?: string }>;
 }) {
   const sp = await searchParams;
-  const view = VIEWS.find((v) => v.id === sp.view)?.id ?? "board";
+  const view = VIEWS.find((v) => v.id === sp.view)?.id ?? "talk";
   const admin = await requirePlatformPage("pipeline.view", {
     action: "console.pipeline_viewed",
     metadata: { view },
   });
   const stage = LEAD_STAGES.find((s) => s === sp.stage) as LeadStage | undefined;
   const source = LEAD_SOURCES.find((s) => s === sp.source) as LeadSource | undefined;
-  const leads = await listLeads(admin, {
-    q: sp.q?.slice(0, 100),
-    stage: view === "list" ? stage : undefined,
-    source: view === "list" ? source : undefined,
-    followUpToday: view === "today",
-  });
+  const leads =
+    view === "talk"
+      ? []
+      : await listLeads(admin, {
+          q: sp.q?.slice(0, 100),
+          stage: view === "list" ? stage : undefined,
+          source: view === "list" ? source : undefined,
+          followUpToday: view === "today",
+        });
   const today = manilaToday();
+  const talk = view === "talk" ? await talkTodayForConsole(admin) : [];
   const canManage = platformCan(admin.role, "pipeline.manage");
 
   return (
@@ -110,7 +116,43 @@ export default async function PipelinePage({
         ))}
       </nav>
 
-      {view === "board" ? (
+      {view === "talk" ? (
+        <>
+          <p className="text-muted-foreground mb-4">
+            Who is most worth a conversation today, from the buying signals (trial ending, stuck
+            before their first lease, a demo request, a follow-up due, portfolio size…). The Growth
+            agent drafts follow-ups for the top ones in Approvals.
+          </p>
+          {talk.length === 0 ? (
+            <p className="bg-card text-muted-foreground rounded-xl border p-6 text-center">
+              Nobody stands out today.
+            </p>
+          ) : (
+            <ol className="bg-card divide-y rounded-xl border">
+              {talk.map((l, i) => (
+                <li key={l.leadId} className="flex flex-wrap items-start gap-4 px-4 py-3">
+                  <span className="text-muted-foreground w-6 text-right text-lg font-semibold tabular-nums">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <Link
+                      href={`/platform/pipeline/${l.leadId}`}
+                      className="text-primary font-medium underline-offset-4 hover:underline"
+                    >
+                      {l.name}
+                    </Link>
+                    {l.company ? (
+                      <span className="text-muted-foreground"> · {l.company}</span>
+                    ) : null}
+                    <span className="block">{l.reasons.join(" · ")}</span>
+                  </span>
+                  <span className="text-muted-foreground">{LEAD_STAGE_LABELS[l.stage]}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      ) : view === "board" ? (
         <div
           className="flex gap-4 overflow-x-auto pb-4"
           role="region"

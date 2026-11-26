@@ -276,6 +276,26 @@ export const ACTIONS: AgentAction[] = [
     summary: () => "handed over",
   }),
   define({
+    name: "talk_today_list",
+    description:
+      "Today's ranked 'talk to today' list: the leads most worth a conversation, with the reasons (buying signals).",
+    input: z.object({}),
+    run: async (_i, ctx) => {
+      const { talkTodayList } = await import("@/server/pipeline/talk-today");
+      const list = await talkTodayList(ctx.now);
+      return list.map((l) => ({
+        leadId: l.leadId,
+        name: l.name,
+        company: l.company,
+        stage: l.stage,
+        score: l.score,
+        reasons: l.reasons,
+        marketingConsent: l.marketingConsent,
+      }));
+    },
+    summary: () => "talk-to-today list",
+  }),
+  define({
     name: "leads_list",
     description: "Leads in the pipeline (no notes), optionally only those due for a follow-up.",
     input: z.object({ followUpToday: z.boolean().default(false), stage: z.string().optional() }),
@@ -454,6 +474,7 @@ export const ACTIONS: AgentAction[] = [
       if (!AGENTS[ctx.agentKey].actionTypes.includes(i.actionType)) {
         throw new NotFoundError("This agent doesn't do that.");
       }
+      await checkOutreachRules(i.actionType, i.details);
       return propose(
         {
           agentKey: ctx.agentKey,
@@ -472,6 +493,42 @@ export const ACTIONS: AgentAction[] = [
     summary: (i: { actionType: string }) => `submitted ${i.actionType}`,
   }),
 ];
+
+/**
+ * Outreach rules the gateway enforces whatever the model says: nurture emails only to leads who
+ * agreed to marketing; personal follow-ups and nurture emails name their lead; posts never go to
+ * Facebook groups.
+ */
+async function checkOutreachRules(
+  type: ActionType,
+  details: Record<string, string | number | boolean>,
+) {
+  const { ValidationError } = await import("@/server/errors");
+  if (type === "NURTURE_EMAIL" || type === "FOLLOW_UP_DRAFT") {
+    const leadId = typeof details.leadId === "string" ? details.leadId : "";
+    if (!uuid.safeParse(leadId).success)
+      throw new ValidationError("Say which lead (details.leadId).");
+    const lead = await asSystem(() => db.lead.findUnique({ where: { id: leadId } }));
+    if (!lead) throw new NotFoundError("No such lead.");
+    if (
+      type === "NURTURE_EMAIL" &&
+      (!lead.marketingConsent || lead.unsubscribedAt || !lead.email)
+    ) {
+      throw new ValidationError(
+        "This lead hasn't agreed to marketing emails. Draft a personal follow-up instead.",
+      );
+    }
+  }
+  if (type === "CONTENT_POST") {
+    const channel = String(details.channel ?? "").toLowerCase();
+    if (channel.includes("group")) throw new ValidationError("Posts never go to Facebook groups.");
+    if (!["linkedin page", "facebook page", "blog"].includes(channel)) {
+      throw new ValidationError(
+        "details.channel must be 'LinkedIn page', 'Facebook page' or 'Blog'.",
+      );
+    }
+  }
+}
 
 export function actionByName(name: string): AgentAction | undefined {
   return ACTIONS.find((a) => a.name === name);

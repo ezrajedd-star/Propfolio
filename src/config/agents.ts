@@ -101,6 +101,7 @@ export const AGENTS: Record<AgentKey, AgentConfig> = {
     runsOn: "managed-agents",
     actions: [
       "today_metrics",
+      "talk_today_list",
       "leads_list",
       "lead_read",
       "lead_update",

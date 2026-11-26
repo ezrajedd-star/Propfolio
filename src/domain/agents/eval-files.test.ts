@@ -48,6 +48,7 @@ describe.each(files)("$agent: $path", ({ agent, path }) => {
         ...(c.expect.calls ?? []),
         ...(c.expect.neverCalls ?? []),
         ...(c.expect.callWith ?? []).map((w) => w.tool),
+        ...(c.expect.neverCallWith ?? []).map((w) => w.tool),
         ...Object.keys(c.toolResults ?? {}),
       ];
       for (const t of named) expect(tools.has(t), `${c.name}: ${t}`).toBe(true);

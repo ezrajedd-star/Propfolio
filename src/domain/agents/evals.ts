@@ -16,6 +16,8 @@ export interface EvalCase {
     neverCalls?: string[];
     /** A tool call whose input must contain these values (shallow, case-insensitive for text). */
     callWith?: { tool: string; input: Record<string, unknown> }[];
+    /** No call of this tool may have these values. */
+    neverCallWith?: { tool: string; input: Record<string, unknown> }[];
     /** Text that must not appear in any reply body or the final text. */
     textExcludes?: string[];
     /** At least one of these must appear in a reply body (any case). */
@@ -58,6 +60,13 @@ export function checkEval(c: EvalCase, t: Transcript): string[] {
       (x) => x.name === w.tool && Object.entries(w.input).every(([k, v]) => matches(x.input[k], v)),
     );
     if (!ok) problems.push(`no ${w.tool} call with ${JSON.stringify(w.input)}`);
+  }
+  for (const w of c.expect.neverCallWith ?? []) {
+    const bad = t.calls.some(
+      (x) => x.name === w.tool && Object.entries(w.input).every(([k, v]) => matches(x.input[k], v)),
+    );
+    if (bad)
+      problems.push(`made a ${w.tool} call with ${JSON.stringify(w.input)}, which it must not`);
   }
   const bodies = t.calls
     .map((x) => [x.input.body, x.input.summary, x.input.title].filter((v) => typeof v === "string"))

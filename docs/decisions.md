@@ -835,3 +835,26 @@ playbooks/, evals/}`, changed only by pull request, published with `pnpm agent:s
 - Each week's numbers are kept (`DigestSnapshot`) to compare with the next; the first digest has
   no comparisons. Sent once per week (a retry or a restart doesn't send it twice). No customer
   names or details in it.
+
+## 46. Operations console, phase 8: the Growth agent (27 Nov 2026)
+
+- **"Talk to today"** (the Pipeline's first view, and the agent's `talk_today_list`): leads still
+  in play ranked by buying signals with plain reasons. Signals and weights live in
+  `src/config/ops.ts` (`BUYING_SIGNALS`): trial ending within 7 days, units but no leases, a demo
+  request in the last 7 days, follow-up due, used Propfolio in the last 3 days, no contact for
+  14 days, referral, and portfolio size (capped). Paying and lost leads are left out.
+- **Weekdays 8:10 AM Manila** (`GROWTH_SCHEDULE`): the agent tidies the pipeline (suggests
+  follow-up dates and stage moves, never to Paying or Lost), drafts **personal follow-ups**
+  (email, LinkedIn or Viber) for the top five — always Draft, sent by the founder — and drafts
+  **trial nurture emails** only for leads with marketing consent.
+- **Mondays 8:40 AM:** a **content calendar** of three draft posts (LinkedIn page, Facebook
+  page or blog; tax topics like the BIR 2307 and the rent-increase cap explained in general
+  terms with "Check with your accountant or lawyer for your own case.") and the **weekly
+  report** (emailed to Platform Owners when approved).
+- **Enforced by the gateway, whatever the model says:** nurture emails need a lead with
+  marketing consent (checked when drafted and again when sent), personal follow-ups and nurture
+  emails name their lead, posts never go to Facebook groups, prices or discounts not in the
+  plans always wait. Nurture emails go from the marketing subdomain (`MARKETING_MAIL_FROM`) with
+  a List-Unsubscribe header. No LinkedIn automation, no bought lists.
+- Instructions and 5 made-up eval cases (follow-ups, consent, no discounts, injection in lead
+  notes, posts) in `agents/growth/`.

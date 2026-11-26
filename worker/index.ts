@@ -49,6 +49,8 @@ import { PIPELINE } from "../src/config/ops";
 import { runPipelineHousekeeping } from "../src/server/pipeline/service";
 import { AGENT_HOUSEKEEPING_CRON, APPROVALS, DIGEST_CRON } from "../src/config/agents";
 import { sendMondayDigest } from "../src/server/digest/service";
+import { GROWTH_SCHEDULE } from "../src/config/ops";
+import { runGrowthDaily, runGrowthWeekly } from "../src/server/agents/growth";
 import { remindWaitingApprovals } from "../src/server/agents/approvals";
 import { deleteOldAgentSessions } from "../src/server/agents/runner";
 import { bugFollowUps, runQueuedSupportTickets } from "../src/server/agents/support";
@@ -169,6 +171,28 @@ const JOBS: Job[] = [
     cron: DIGEST_CRON,
     retry: { retryLimit: 3, retryDelay: 600, retryBackoff: true },
     run: async () => `Monday digest: ${await sendMondayDigest()}`,
+  },
+  {
+    // Weekdays: pipeline upkeep, the "talk to today" list and follow-up drafts.
+    name: "growth-daily",
+    cron: GROWTH_SCHEDULE.dailyCron,
+    run: async () => {
+      const r = await runGrowthDaily();
+      return r.ran
+        ? `Growth agent ran (${r.toolCalls} tool calls)`
+        : `Growth agent skipped: ${r.reason}`;
+    },
+  },
+  {
+    // Mondays: content calendar with draft posts, and the weekly report.
+    name: "growth-weekly",
+    cron: GROWTH_SCHEDULE.weeklyCron,
+    run: async () => {
+      const r = await runGrowthWeekly();
+      return r.ran
+        ? `Growth agent weekly run (${r.toolCalls} tool calls)`
+        : `Growth weekly skipped: ${r.reason}`;
+    },
   },
   {
     name: "failed-sign-in-alert",
