@@ -91,6 +91,7 @@ APP_URL=https://$SITE
 UAT_MODE=$UAT
 POSTGRES_PASSWORD=$(openssl rand -hex 24)
 APP_SECRET=$(openssl rand -hex 32)
+MONITORING_WEBHOOK_TOKEN=$(openssl rand -hex 24)
 MAIL_FROM="$COMPANY_FROM <$SENDER>"
 SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587

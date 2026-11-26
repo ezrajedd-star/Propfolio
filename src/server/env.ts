@@ -76,6 +76,21 @@ const schema = z.object({
   XENDIT_CALLBACK_TOKEN: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   /** Where customers write to upgrade until online payment exists, e.g. hello@propfolio.ph. */
   SUPPORT_EMAIL: z.preprocess((v) => (v === "" ? undefined : v), z.email().optional()),
+  /**
+   * Urgent alerts to a phone with Pushover (pushover.net): the application's API token and the
+   * user key of the person to alert. The second key is optional (a second contact).
+   */
+  PUSHOVER_APP_TOKEN: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  PUSHOVER_USER_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  PUSHOVER_SECOND_USER_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  /**
+   * A long random secret that Better Stack and Sentry add to the alert links they call
+   * (`?token=…`). Without it, alerts from them are refused.
+   */
+  MONITORING_WEBHOOK_TOKEN: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(24).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof schema>;

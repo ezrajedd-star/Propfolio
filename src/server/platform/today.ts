@@ -7,6 +7,7 @@ import { toDbDate } from "@/domain/time/calendar-date";
 import { asSystem, db } from "@/server/db";
 import type { PlatformActor } from "./auth";
 import { getSignUpFunnel, type FunnelCounts } from "./accounts";
+import { countOpenIncidents } from "@/server/monitoring/incidents";
 import { assertPlatformCan } from "./staff-log";
 
 /**
@@ -56,7 +57,7 @@ export async function getTodayMetrics(
   assertPlatformCan(admin, "console.view");
   const p = manilaPeriods(now);
   const in7 = new Date(now.getTime() + 7 * 86_400_000);
-  const [counts, funnel] = await Promise.all([
+  const [counts, funnel, openIncidents] = await Promise.all([
     asSystem(async () => {
       const [today, thisWeek, lastWeek, trials, paying, cancels] = await Promise.all([
         db.account.count({ where: { createdAt: { gte: p.todayStart } } }),
@@ -79,6 +80,7 @@ export async function getTodayMetrics(
       return { today, thisWeek, lastWeek, trials, paying, cancels: cancels.length };
     }),
     getSignUpFunnel(admin, Math.max(1, Number(p.today.slice(8, 10))), now),
+    countOpenIncidents(),
   ]);
   const plans = [...counts.paying.values()] as PlanName[];
   const payingByPlan = Object.fromEntries(PLANS.map((pl) => [pl, 0])) as Record<PlanName, number>;
@@ -91,5 +93,6 @@ export async function getTodayMetrics(
     mrr: moneyString(monthlyRecurringRevenue(plans)),
     cancellationsThisMonth: counts.cancels,
     funnel,
+    openIncidents,
   };
 }

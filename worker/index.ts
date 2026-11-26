@@ -43,6 +43,8 @@ import { purgeOldWebsiteLeads } from "../src/server/website-leads/service";
 import { purgeExpiredSignUps } from "../src/server/signup/service";
 import { runSubscriptionCycle } from "../src/server/subscription/service";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
+import { MONITORING } from "../src/config/ops";
+import { recordHeartbeat, retryAlerts } from "../src/server/monitoring/incidents";
 
 type Job = {
   name: string;
@@ -112,6 +114,16 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Proves the worker is alive (System health, and the deep health check Better Stack watches).
+    name: "heartbeat",
+    cron: MONITORING.heartbeatCron,
+    run: async () => {
+      await recordHeartbeat("worker");
+      const retried = await retryAlerts();
+      return retried ? `heartbeat; ${retried} alert(s) retried` : "heartbeat";
+    },
+  },
+  {
     name: "failed-sign-in-alert",
     cron: "*/10 * * * *",
     run: async () => {
@@ -176,6 +188,7 @@ async function main() {
     );
   }
 
+  await recordHeartbeat("worker");
   console.info("[worker] started");
 
   const shutdown = async (signal: string) => {

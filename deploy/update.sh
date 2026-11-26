@@ -9,6 +9,10 @@ bash "$DEPLOY_DIR/backup.sh"
 echo "▶ Getting the newest version"
 git pull --ff-only
 cd "$DEPLOY_DIR"
+# Newer versions need a few more settings; add any that are missing (secrets are made here).
+if ! grep -q '^MONITORING_WEBHOOK_TOKEN=' .env; then
+  echo "MONITORING_WEBHOOK_TOKEN=$(openssl rand -hex 24)" >> .env
+fi
 echo "▶ Rebuilding and restarting (database changes are applied automatically)"
 docker compose build
 docker compose up -d

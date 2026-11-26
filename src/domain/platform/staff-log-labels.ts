@@ -1,0 +1,38 @@
+/** Plain words in the staff log for common actions; anything else shows its code. */
+export const STAFF_ACTIONS: Record<string, string> = {
+  "console.health_viewed": "Opened System health",
+  "console.payments_viewed": "Opened Billing",
+  "console.demo_requests_viewed": "Opened demo requests",
+  "console.website_leads_viewed": "Opened partners and downloads",
+  "console.website_viewed": "Opened website visits",
+  "incident.resolved": "Marked an incident resolved",
+  "alerts.test_sent": "Sent a test alert",
+  "platform.demo_request_handled": "Marked a demo request handled",
+  "platform.website_lead_handled": "Marked a website request handled",
+  "console.today_viewed": "Opened Today",
+  "console.accounts_listed": "Opened the accounts list",
+  "console.account_viewed": "Opened an account",
+  "console.staff_viewed": "Opened Staff",
+  "console.stafflog_viewed": "Opened the staff log",
+  "platform.login": "Signed in",
+  "platform.logout": "Signed out",
+  "platform.login_failed": "Failed sign-in",
+  "platform.setup_link_issued": "Set-up link made",
+  "platform.setup_completed": "Finished set-up",
+  "platform.trial_extended": "Extended a trial",
+  "platform.manual_payment": "Recorded a bank transfer",
+  "platform.account_suspended": "Suspended an account",
+  "platform.account_reactivated": "Reactivated an account",
+  "platform.plan_changed": "Changed a plan",
+  "platform.account_reopened": "Reopened an account",
+  "platform.payments_export": "Exported payments",
+  "staff.added": "Added a staff member",
+  "staff.role_changed": "Changed a staff role",
+  "staff.deactivated": "Turned off a staff member",
+  "staff.reactivated": "Turned a staff member back on",
+  "staff.sign_in_reset": "Reset a staff member's sign-in",
+};
+
+export function staffActionLabel(action: string): string {
+  return STAFF_ACTIONS[action] ?? action;
+}

@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PLATFORM_ROLE_LABELS } from "@/domain/platform/roles";
+import { staffActionLabel } from "@/domain/platform/staff-log-labels";
 import { formatDateTime } from "@/domain/time/manila";
 import { isUuid } from "@/server/db-errors";
 import { requirePlatformPage } from "@/server/platform/current";
@@ -34,32 +35,6 @@ const KIND_LABEL = Object.fromEntries(KINDS.map((k) => [k.value, k.label])) as R
   StaffLogKind,
   string
 >;
-
-/** Plain words for common actions; anything else shows its code. */
-const ACTIONS: Record<string, string> = {
-  "console.today_viewed": "Opened Today",
-  "console.accounts_listed": "Opened the accounts list",
-  "console.account_viewed": "Opened an account",
-  "console.staff_viewed": "Opened Staff",
-  "console.stafflog_viewed": "Opened the staff log",
-  "platform.login": "Signed in",
-  "platform.logout": "Signed out",
-  "platform.login_failed": "Failed sign-in",
-  "platform.setup_link_issued": "Set-up link made",
-  "platform.setup_completed": "Finished set-up",
-  "platform.trial_extended": "Extended a trial",
-  "platform.manual_payment": "Recorded a bank transfer",
-  "platform.account_suspended": "Suspended an account",
-  "platform.account_reactivated": "Reactivated an account",
-  "platform.plan_changed": "Changed a plan",
-  "platform.account_reopened": "Reopened an account",
-  "platform.payments_export": "Exported payments",
-  "staff.added": "Added a staff member",
-  "staff.role_changed": "Changed a staff role",
-  "staff.deactivated": "Turned off a staff member",
-  "staff.reactivated": "Turned a staff member back on",
-  "staff.sign_in_reset": "Reset a staff member's sign-in",
-};
 
 export default async function StaffLogPage({
   searchParams,
@@ -154,7 +129,7 @@ export default async function StaffLogPage({
                     ) : null}
                   </TableCell>
                   <TableCell>{KIND_LABEL[r.kind]}</TableCell>
-                  <TableCell>{ACTIONS[r.action] ?? r.action}</TableCell>
+                  <TableCell>{staffActionLabel(r.action)}</TableCell>
                   <TableCell>
                     {r.accountId ? (
                       <Link

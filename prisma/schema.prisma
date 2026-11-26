@@ -1210,3 +1210,57 @@ model WebsiteStat {
 
   @@id([day, kind, path, source])
 }
+
+enum IncidentSource {
+  /// Better Stack (uptime checks from outside).
+  UPTIME
+  /// Sentry (an alert rule fired).
+  ERROR_TRACKER
+  /// Propfolio's own checks (e.g. the worker stopped).
+  HEALTH_CHECK
+  /// Opened by staff.
+  MANUAL
+}
+
+enum IncidentSeverity {
+  URGENT
+  NORMAL
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+/// Something wrong with Propfolio itself (never a customer's data). Titles and details hold monitor
+/// names, error types and links only: no personal data.
+model Incident {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  source       IncidentSource
+  severity     IncidentSeverity
+  status       IncidentStatus   @default(OPEN)
+  title        String
+  /// The monitoring tool's own id, so repeated messages update one incident.
+  externalId   String?
+  /// A link into the monitoring tool.
+  link         String?
+  details      Json?
+  startedAt    DateTime         @default(now()) @db.Timestamptz(3)
+  resolvedAt   DateTime?        @db.Timestamptz(3)
+  resolvedById String?          @db.Uuid
+  resolvedNote String?
+  /// When the push alert went out (null: not yet, or not needed).
+  alertedAt    DateTime?        @db.Timestamptz(3)
+  alertTries   Int              @default(0)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([source, externalId])
+  @@index([status, startedAt])
+}
+
+/// When each background process last checked in ("worker").
+model SystemHeartbeat {
+  name String   @id
+  at   DateTime @db.Timestamptz(3)
+}

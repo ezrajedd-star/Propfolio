@@ -35,6 +35,12 @@ x-app-env: &app-env
   CLAMAV_HOST: clamav
   # Optional error tracking (see README → Monitoring).
   SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+  # Monitoring and phone alerts (see docs/ops-console/monitoring-setup.md).
+  MONITORING_WEBHOOK_TOKEN: ${MONITORING_WEBHOOK_TOKEN:-}
+  PUSHOVER_APP_TOKEN: ${PUSHOVER_APP_TOKEN:-}
+  PUSHOVER_USER_KEY: ${PUSHOVER_USER_KEY:-}
+  PUSHOVER_SECOND_USER_KEY: ${PUSHOVER_SECOND_USER_KEY:-}
 
 services:
   postgres:

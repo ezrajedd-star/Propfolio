@@ -62,7 +62,7 @@ test("a wrong code is refused with the same message as a wrong password", async 
 test("Today shows the numbers; the menu has the console sections", async ({ page }) => {
   await platformSignIn(page);
   const nav = page.getByRole("navigation", { name: "Console" }).first();
-  for (const section of ["Today", "Accounts", "Billing", "Staff log", "Staff"]) {
+  for (const section of ["Today", "Accounts", "Billing", "System health", "Staff log", "Staff"]) {
     await expect(nav.getByRole("link", { name: section, exact: true })).toBeVisible();
   }
   await expect(page.getByText("Monthly recurring revenue")).toBeVisible();
@@ -72,6 +72,10 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   await axe(page, "Accounts");
   await page.goto("/platform/payments");
   await axe(page, "Billing");
+  await page.goto("/platform/health");
+  await expect(page.getByRole("heading", { level: 1, name: "System health" })).toBeVisible();
+  await expect(page.getByText("All systems normal")).toBeVisible();
+  await axe(page, "System health");
   await page.goto("/platform");
   await page.getByRole("link", { name: "Staff log", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Staff log" })).toBeVisible();

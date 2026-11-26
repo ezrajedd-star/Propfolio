@@ -23,6 +23,7 @@ import { requestMeta } from "@/server/request-meta";
 import { platformReopenAccount } from "@/server/accounts/closing";
 import { setDemoRequestHandled } from "@/server/demo/service";
 import { setWebsiteLeadHandled } from "@/server/website-leads/service";
+import { resolveIncident, sendTestAlert } from "@/server/monitoring/incidents";
 import {
   addStaff,
   changeStaffRole,
@@ -161,4 +162,17 @@ export async function resetStaffSignInAction(id: string) {
   );
   revalidatePath("/platform/staff");
   return r;
+}
+
+export async function resolveIncidentAction(id: string, input: { note: string }) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await resolveIncident(admin, id, String(input?.note ?? ""), await requestMeta());
+    return null;
+  });
+  revalidatePath("/platform/health");
+  return r;
+}
+
+export async function sendTestAlertAction() {
+  return asPlatformAdmin(async (admin) => sendTestAlert(admin, await requestMeta()));
 }
