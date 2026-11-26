@@ -29,7 +29,7 @@ export default async function WebsitePage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  const admin = await requirePlatformPage();
+  const admin = await requirePlatformPage("console.view", { action: "console.website_viewed" });
   const asked = Number((await searchParams).days);
   const days = (RANGES as readonly number[]).includes(asked) ? asked : 30;
   const r = await websiteReport(admin, days);

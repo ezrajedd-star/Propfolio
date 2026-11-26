@@ -300,7 +300,7 @@ export function UsersTable({
                 <AlertDialogTitle>Make {confirm.user.name} the Owner?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {confirm.user.name} will control the plan and payments, and can&apos;t be removed.
-                  You&apos;ll stay on the team as an Admin. Only they can hand it back.
+                  You&apos;ll stay on the team as a User Admin. Only they can hand it back.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

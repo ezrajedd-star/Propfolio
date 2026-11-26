@@ -16,6 +16,8 @@ import { hitRateLimit } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 import { decryptSecret, encryptSecret } from "@/server/auth/secrets";
+import type { PlatformRole } from "@/domain/platform/roles";
+import { writeStaffLog } from "./staff-log";
 
 /**
  * Sign-in for Propfolio's own staff (the platform admin). Separate from customer sign-in: its
@@ -33,15 +35,26 @@ export interface PlatformActor {
   id: string;
   name: string;
   email: string;
+  role: PlatformRole;
   sessionId: string;
 }
 
-function audit(
+/** Sign-in events go to the audit log (as before) and the staff log. */
+async function audit(
   action: string,
-  admin: { id: string; name: string } | null,
+  admin: { id: string; name: string; role: PlatformRole } | null,
   meta: RequestMeta | null,
   metadata?: Record<string, unknown>,
 ) {
+  await writeStaffLog({
+    actor: admin ? { id: admin.id, name: admin.name, role: admin.role } : null,
+    kind: action.startsWith("platform.setup") ? "CHANGE" : "SIGN_IN",
+    action,
+    entityType: "PlatformAdmin",
+    entityId: admin?.id ?? null,
+    metadata,
+    meta,
+  });
   return writeAudit({
     actor: admin ? { id: admin.id, name: admin.name, role: null } : null,
     action,
@@ -59,7 +72,7 @@ function audit(
  * server's command line only (scripts/platform-admin.ts).
  */
 export function issuePlatformSetupLink(
-  input: { email: string; name?: string },
+  input: { email: string; name?: string; role?: PlatformRole },
   now = new Date(),
 ): Promise<string> {
   return asSystem(async () => {
@@ -79,8 +92,17 @@ export function issuePlatformSetupLink(
     };
     const admin = await db.platformAdmin.upsert({
       where: { email },
-      create: { email, name: input.name?.trim() || email, ...reset },
-      update: { ...reset, ...(input.name ? { name: input.name.trim() } : {}) },
+      create: {
+        email,
+        name: input.name?.trim() || email,
+        role: input.role ?? "PLATFORM_READONLY",
+        ...reset,
+      },
+      update: {
+        ...reset,
+        ...(input.name ? { name: input.name.trim() } : {}),
+        ...(input.role ? { role: input.role } : {}),
+      },
     });
     await db.platformSession.updateMany({
       where: { adminId: admin.id, revokedAt: null },
@@ -278,7 +300,13 @@ export function validatePlatformSession(
       await db.platformSession.update({ where: { id: session.id }, data: { lastSeenAt: now } });
     }
     const { admin } = session;
-    return { id: admin.id, name: admin.name, email: admin.email, sessionId: session.id };
+    return {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      sessionId: session.id,
+    };
   });
 }
 

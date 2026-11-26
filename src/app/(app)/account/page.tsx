@@ -52,7 +52,7 @@ export default async function AccountPage() {
     <>
       <PageHeader
         title="My account"
-        description="To change your name, email or role, ask an Admin."
+        description="To change your name, email or role, ask a User Admin."
         actions={
           <Button asChild>
             <Link href="/change-password">

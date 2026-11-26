@@ -79,14 +79,14 @@ export default async function ReminderEmailsPage() {
           <CardHeader>
             <CardTitle>Who receives them</CardTitle>
             <CardDescription>
-              Every active Admin and Leasing Staff user. Property Management never receives
+              Every active User Admin and Leasing Staff user. Property Management never receives
               reminders.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {recipients.length === 0 ? (
               <p className="text-danger">
-                Nobody. Add an active Admin or Leasing Staff user so reminders can be sent.
+                Nobody. Add an active User Admin or Leasing Staff user so reminders can be sent.
               </p>
             ) : (
               <ul className="divide-y">

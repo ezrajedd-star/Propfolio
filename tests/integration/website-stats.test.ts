@@ -14,6 +14,7 @@ const admin: PlatformActor = {
   id: "0190f0a0-0000-7000-8000-000000000001",
   name: "A",
   email: "a@x.example",
+  role: "PLATFORM_OWNER",
   sessionId: "s",
 };
 const NOW = new Date("2026-11-18T02:00:00Z");

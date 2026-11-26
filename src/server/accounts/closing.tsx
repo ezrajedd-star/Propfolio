@@ -14,6 +14,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { SubscriptionEmail } from "@/server/mail/templates/account-emails";
 import { deliver, type OutgoingMail } from "@/server/mail/transport";
 import type { PlatformActor } from "@/server/platform/auth";
+import { assertPlatformCan, writeStaffLog } from "@/server/platform/staff-log";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 import { closeAccountSchema } from "@/schemas/account";
@@ -163,7 +164,7 @@ export async function reopenableAccount(token: string, now = new Date()) {
 
 async function reopen(
   accountId: string,
-  actor: { id: string; name: string; role: null } | null,
+  admin: PlatformActor | null,
   how: "link" | "platform",
   meta: RequestMeta,
 ) {
@@ -180,16 +181,29 @@ async function reopen(
         },
       });
       if (count !== 1) return false;
+      if (admin) {
+        await writeStaffLog(
+          {
+            actor: admin,
+            kind: "CHANGE",
+            action: "platform.account_reopened",
+            entityType: "Account",
+            entityId: accountId,
+            accountId,
+            meta,
+          },
+          tx,
+        );
+      }
       await writeAudit(
         {
-          actor,
+          actor: admin ? { id: admin.id, name: admin.name, role: null } : null,
           action: "account.reopened",
           entityType: "Account",
           entityId: accountId,
           metadata: { how, ...(how === "platform" ? { platform: true } : {}) },
           meta,
-          // Platform actions are recorded with no account, against the account (as elsewhere).
-          accountId: how === "platform" ? null : accountId,
+          accountId,
         },
         tx,
       );
@@ -215,13 +229,9 @@ export async function platformReopenAccount(
   accountId: string,
   meta: RequestMeta,
 ) {
+  assertPlatformCan(admin, "billing.manage");
   if (!isUuid(accountId)) throw new NotFoundError("We couldn't find that account.");
-  const ok = await reopen(
-    accountId,
-    { id: admin.id, name: admin.name, role: null },
-    "platform",
-    meta,
-  );
+  const ok = await reopen(accountId, admin, "platform", meta);
   if (!ok)
     throw new ConflictError("Only a closed account whose data is still kept can be reopened.");
 }

@@ -18,7 +18,7 @@ export default function PageError({ reset }: { error: Error; reset: () => void }
       }
     >
       Your work up to the last save is safe. Please try again. If it keeps happening, tell your
-      Admin which page you were on.
+      User Admin which page you were on.
     </EmptyState>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { formatPeso, money } from "@/domain/money/money";
 import { formatDate } from "@/domain/time/manila";
+import { platformCan } from "@/domain/platform/roles";
 import { requirePlatformPage } from "@/server/platform/current";
 import { listPaymentsForPlatform, paymentRange } from "@/server/subscription/export";
 
@@ -26,7 +27,7 @@ export default async function PlatformPaymentsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  const admin = await requirePlatformPage();
+  const admin = await requirePlatformPage("billing.view", { action: "console.payments_viewed" });
   const sp = await searchParams;
   const range = paymentRange(sp.from, sp.to);
   const rows = await listPaymentsForPlatform(admin, range);
@@ -35,14 +36,16 @@ export default async function PlatformPaymentsPage({
   return (
     <>
       <PageHeader
-        title="Payments"
+        title="Billing"
         description="Subscription payments received. Payment records, not BIR official invoices: export them for the bookkeeper."
         actions={
-          <Button asChild>
-            <a href={`/platform/payments-export?from=${range.from}&to=${range.to}`}>
-              <Download aria-hidden /> Export for the bookkeeper
-            </a>
-          </Button>
+          !platformCan(admin.role, "data.export") ? null : (
+            <Button asChild>
+              <a href={`/platform/payments-export?from=${range.from}&to=${range.to}`}>
+                <Download aria-hidden /> Export for the bookkeeper
+              </a>
+            </Button>
+          )
         }
       />
       <form className="mb-6 flex flex-wrap items-end gap-3">

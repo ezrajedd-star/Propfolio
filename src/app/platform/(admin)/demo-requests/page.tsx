@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/domain/time/manila";
 import { listDemoRequests } from "@/server/demo/service";
+import { platformCan } from "@/domain/platform/roles";
 import { requirePlatformPage } from "@/server/platform/current";
 import { HandledButton } from "./handled-button";
 
@@ -24,7 +25,9 @@ export default async function DemoRequestsPage({
 }: {
   searchParams: Promise<{ all?: string }>;
 }) {
-  const admin = await requirePlatformPage();
+  const admin = await requirePlatformPage("pipeline.view", {
+    action: "console.demo_requests_viewed",
+  });
   const all = (await searchParams).all === "1";
   const rows = await listDemoRequests(admin, { includeHandled: all });
   return (
@@ -84,7 +87,9 @@ export default async function DemoRequestsPage({
                   <TableCell className="whitespace-nowrap">{r.units}</TableCell>
                   <TableCell className="max-w-sm whitespace-pre-wrap">{r.message || "—"}</TableCell>
                   <TableCell>
-                    <HandledButton id={r.id} handled={r.handledAt !== null} />
+                    {platformCan(admin.role, "pipeline.manage") ? (
+                      <HandledButton id={r.id} handled={r.handledAt !== null} />
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

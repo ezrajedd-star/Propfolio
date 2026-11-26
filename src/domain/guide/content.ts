@@ -36,7 +36,7 @@ export const GUIDE_HINTS: Record<string, GuideHint> = {
   "nav-reports": { title: "Reports", body: "Six ready-made reports, each downloadable for Excel." },
   "nav-settings": {
     title: "Settings",
-    body: "Users, buildings and units, reminder emails, privacy and the audit log (Admins).",
+    body: "Users, buildings and units, reminder emails, privacy and the audit log (User Admins).",
   },
   "guide-button": {
     title: "Guide",
@@ -181,7 +181,7 @@ export const GUIDE_HINTS: Record<string, GuideHint> = {
   },
   "tenant-contact": {
     title: "Contact details",
-    body: "Only Leasing Staff and Admins can see these.",
+    body: "Only Leasing Staff and User Admins can see these.",
   },
   "building-add": {
     title: "Add building",
@@ -202,7 +202,7 @@ export const GUIDE_HINTS: Record<string, GuideHint> = {
   "report-table": { title: "Details", body: "One line per lease, tenant or payment, with totals." },
   "tenant-privacy": {
     title: "Privacy",
-    body: "When the tenant received the privacy notice. Admins can download or anonymise the tenant's data here.",
+    body: "When the tenant received the privacy notice. User Admins can download or anonymise the tenant's data here.",
   },
 };
 
@@ -234,7 +234,7 @@ const PAGE_INTROS: [RegExp, string, string][] = [
   [/^\/payments/, "Payments", "Record payments and see who is overdue."],
   [/^\/reports\/.+/, "Report", "Filter, read and download."],
   [/^\/reports/, "Reports", "Choose a report."],
-  [/^\/settings/, "Settings", "Set-up for Admins."],
+  [/^\/settings/, "Settings", "Set-up for User Admins."],
 ];
 
 export function pageIntro(pathname: string): { title: string; body: string } {
@@ -405,7 +405,7 @@ export const TASK_TOURS: Record<TaskTourId, { title: string; steps: TourStep[] }
       {
         target: "tenant-contact",
         title: "Contact details",
-        body: "Who to call or email about the lease. Only Leasing Staff and Admins can see these.",
+        body: "Who to call or email about the lease. Only Leasing Staff and User Admins can see these.",
       },
       {
         target: "tenant-privacy",

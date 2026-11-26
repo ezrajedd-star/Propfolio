@@ -149,6 +149,8 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
                       <div className="text-muted-foreground text-sm">
                         {ROLE_LABELS[row.actorRole]}
                       </div>
+                    ) : isPlatformEntry(row.metadata) ? (
+                      <div className="text-muted-foreground text-sm">Propfolio staff</div>
                     ) : null}
                   </TableCell>
                   <TableCell>{auditActionLabel(row.action)}</TableCell>
@@ -194,5 +196,13 @@ export default async function AuditLogPage({ searchParams }: { searchParams: Pro
         </div>
       </nav>
     </>
+  );
+}
+
+function isPlatformEntry(metadata: unknown): boolean {
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    (metadata as Record<string, unknown>).platform === true
   );
 }

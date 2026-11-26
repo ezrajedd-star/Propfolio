@@ -121,7 +121,7 @@ export const FEATURES: Feature[] = [
   {
     key: "teams",
     title: "Your whole team, the right access",
-    summary: "Owner, Admin, Leasing Staff and a read-only role for property managers.",
+    summary: "Owner, User Admin, Leasing Staff and a read-only role for property managers.",
     details: [
       "Invite people by email; they set their own password or use Google.",
       "Read-only people never see tenant contact or money details.",
@@ -241,7 +241,7 @@ export const FAQ: FaqItem[] = [
   {
     category: "Using Propfolio",
     q: "Who gets the reminder emails?",
-    a: "Your Owner, Admins and Leasing Staff, in one email each morning at 6:00 AM (Philippine time) on days a reminder is due.",
+    a: "Your Owner, User Admins and Leasing Staff, in one email each morning at 6:00 AM (Philippine time) on days a reminder is due.",
   },
   {
     category: "Using Propfolio",

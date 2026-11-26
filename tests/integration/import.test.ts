@@ -168,7 +168,13 @@ describe("Excel import", () => {
   it("counts the first unit and the first lease for the platform admin's sign-up numbers", async () => {
     const o = await owner();
     await runImport(o, await goodFile(), meta);
-    const funnel = await getSignUpFunnel({ id: "x", name: "x", email: "x", sessionId: "x" });
+    const funnel = await getSignUpFunnel({
+      id: "x",
+      name: "x",
+      email: "x",
+      role: "PLATFORM_READONLY",
+      sessionId: "x",
+    });
     expect(funnel).toMatchObject({ firstUnit: 1, firstLease: 1 });
   });
 });

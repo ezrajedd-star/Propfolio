@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/table";
 import { formatPeso } from "@/domain/money/money";
 import { formatDate, formatDateTime, formatIsoDate } from "@/domain/time/manila";
+import { ROLE_LABELS } from "@/domain/auth/roles";
+import { platformCan } from "@/domain/platform/roles";
+import { isUuid } from "@/server/db-errors";
 import { NotFoundError } from "@/server/errors";
 import { getAccountDetail } from "@/server/platform/accounts";
 import { requirePlatformPage } from "@/server/platform/current";
@@ -39,8 +42,16 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default async function PlatformAccountPage({ params }: { params: Promise<{ id: string }> }) {
-  const admin = await requirePlatformPage();
   const { id } = await params;
+  if (!isUuid(id)) notFound();
+  const admin = await requirePlatformPage("accounts.view", {
+    action: "console.account_viewed",
+    entityType: "Account",
+    entityId: id,
+    accountId: id,
+  });
+  const canBilling = platformCan(admin.role, "billing.manage");
+  const canSupport = platformCan(admin.role, "accounts.support");
   const account = await getAccountDetail(admin, id).catch((err: unknown) => {
     if (err instanceof NotFoundError) notFound();
     throw err;
@@ -49,12 +60,12 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
 
   return (
     <>
-      <BackLink href="/platform">All accounts</BackLink>
+      <BackLink href="/platform/accounts">All accounts</BackLink>
       <PageHeader
         title={account.name}
         description={`Joined ${formatDate(account.createdAt)}.`}
         actions={
-          account.status === "CLOSED" ? (
+          !canBilling ? null : account.status === "CLOSED" ? (
             account.dataDeletedAt ? null : (
               <ReopenButton accountId={account.id} name={account.name} />
             )
@@ -114,37 +125,81 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
                       : `${account.activeUsers} active of ${account.userLimit}`,
                 },
                 { label: "Units", value: String(account.units) },
+                { label: "Leases", value: String(account.leases) },
+                {
+                  label: "Last active",
+                  value: account.lastActive ? formatDateTime(account.lastActive) : "Never",
+                },
               ]}
             />
           </CardContent>
         </Card>
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Change plan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ChangePlanForm accountId={account.id} current={account.plan} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Extend the free trial</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExtendTrialForm accountId={account.id} current={account.trialEndsOn} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Record a bank transfer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ManualPaymentForm accountId={account.id} />
-            </CardContent>
-          </Card>
+          {canBilling ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Change plan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChangePlanForm accountId={account.id} current={account.plan} />
+              </CardContent>
+            </Card>
+          ) : null}
+          {canSupport ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Extend the free trial</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ExtendTrialForm accountId={account.id} current={account.trialEndsOn} />
+              </CardContent>
+            </Card>
+          ) : null}
+          {canBilling ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Record a bank transfer</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ManualPaymentForm accountId={account.id} />
+              </CardContent>
+            </Card>
+          ) : null}
+          {!canBilling && !canSupport ? (
+            <p className="text-muted-foreground">Your console role can look but not change.</p>
+          ) : null}
         </div>
       </div>
+
+      <h2 className="mt-10 mb-4 text-xl font-semibold">People</h2>
+      <Card className="overflow-x-auto p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last sign-in</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {account.users.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell className="font-medium">{u.name}</TableCell>
+                <TableCell>{ROLE_LABELS[u.role]}</TableCell>
+                <TableCell>
+                  {!u.isActive
+                    ? "Turned off"
+                    : u.locked
+                      ? "Locked (too many wrong tries)"
+                      : "Active"}
+                </TableCell>
+                <TableCell>{u.lastSignIn ? formatDateTime(u.lastSignIn) : "Never"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
       <h2 className="mt-10 mb-4 text-xl font-semibold">Payments recorded by hand</h2>
       <Card className="overflow-x-auto p-0">

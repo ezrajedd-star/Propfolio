@@ -236,7 +236,7 @@ export function DocumentsPanel({
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}
         title="Remove this document?"
-        description={`"${removing?.fileName ?? ""}" will be hidden from this list. It stays on record for Admins, with your reason.`}
+        description={`"${removing?.fileName ?? ""}" will be hidden from this list. It stays on record for User Admins, with your reason.`}
         confirmLabel="Remove document"
         done="Document removed"
         onConfirm={async (reason) => {

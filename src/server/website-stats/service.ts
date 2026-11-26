@@ -5,6 +5,7 @@ import { manilaToday } from "@/domain/time/manila";
 import { addDays } from "@/domain/time/calendar-date";
 import { asSystem, db } from "@/server/db";
 import type { PlatformActor } from "@/server/platform/auth";
+import { assertPlatformCan } from "@/server/platform/staff-log";
 
 /** Add one to today's count (Manila day). Statistics never stop a page or a sign-up. */
 export async function countWebsiteStat(
@@ -38,10 +39,11 @@ export interface WebsiteReport {
 
 /** The last `days` days, for the platform admin. */
 export async function websiteReport(
-  _admin: PlatformActor,
+  admin: PlatformActor,
   days = 30,
   now = new Date(),
 ): Promise<WebsiteReport> {
+  assertPlatformCan(admin, "console.view");
   const to = manilaToday(now);
   const from = addDays(to, -(days - 1));
   const rows = await asSystem(() =>

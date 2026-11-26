@@ -3,7 +3,9 @@ import ExcelJS from "exceljs";
 import { isIsoDate, type IsoDate } from "@/domain/time/calendar-date";
 import { manilaToday } from "@/domain/time/manila";
 import { writeAudit } from "@/server/audit";
+import { asSystem } from "@/server/db";
 import type { PlatformActor } from "@/server/platform/auth";
+import { assertPlatformCan, writeStaffLog } from "@/server/platform/staff-log";
 import type { RequestMeta } from "@/server/request-meta";
 import { listPaymentRecords } from "./service";
 
@@ -16,9 +18,10 @@ export function paymentRange(from?: string | null, to?: string | null, now = new
 }
 
 export async function listPaymentsForPlatform(
-  _admin: PlatformActor,
+  admin: PlatformActor,
   range: { from: IsoDate; to: IsoDate },
 ) {
+  assertPlatformCan(admin, "billing.view");
   return listPaymentRecords(range);
 }
 
@@ -28,6 +31,8 @@ export async function exportPayments(
   range: { from: IsoDate; to: IsoDate },
   meta: RequestMeta,
 ): Promise<Buffer> {
+  assertPlatformCan(admin, "billing.view");
+  assertPlatformCan(admin, "data.export");
   const rows = await listPaymentRecords(range);
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Payments");
@@ -65,13 +70,23 @@ export async function exportPayments(
   ws.getColumn("amount").numFmt = "#,##0.00";
   ws.addRow([]);
   ws.addRow(["Payment records, not BIR official invoices."]);
-  await writeAudit({
-    actor: { id: admin.id, name: admin.name, role: null },
-    action: "platform.payments_export",
-    entityType: "SubscriptionInvoice",
-    metadata: { platform: true, ...range, rows: rows.length },
-    meta,
-    accountId: null,
+  await asSystem(async () => {
+    await writeStaffLog({
+      actor: admin,
+      kind: "EXPORT",
+      action: "platform.payments_export",
+      entityType: "SubscriptionInvoice",
+      metadata: { ...range, rows: rows.length },
+      meta,
+    });
+    await writeAudit({
+      actor: { id: admin.id, name: admin.name, role: null },
+      action: "platform.payments_export",
+      entityType: "SubscriptionInvoice",
+      metadata: { platform: true, ...range, rows: rows.length },
+      meta,
+      accountId: null,
+    });
   });
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

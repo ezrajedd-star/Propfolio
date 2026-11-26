@@ -370,27 +370,67 @@ model ManualPayment {
 /// Propfolio's own staff. Separate from customer users: no membership in any account, so no
 /// access to tenant records. Two-step sign-in (authenticator app) is always required.
 model PlatformAdmin {
-  id                  String    @id @default(uuid(7)) @db.Uuid
+  id                  String       @id @default(uuid(7)) @db.Uuid
   name                String
   /// Always stored lower-cased and trimmed.
-  email               String    @unique
+  email               String       @unique
   /// Null until the admin finishes set-up with their one-time link.
   passwordHash        String?
   /// Authenticator secret, encrypted with APP_SECRET (AES-256-GCM).
   totpSecretEnc       String?
-  totpConfirmedAt     DateTime? @db.Timestamptz(3)
+  totpConfirmedAt     DateTime?    @db.Timestamptz(3)
   /// The last 30-second step used, so a code can't be used twice.
   totpLastStep        BigInt?
-  setupTokenHash      String?   @unique
-  setupTokenExpiresAt DateTime? @db.Timestamptz(3)
-  isActive            Boolean   @default(true)
-  failedLoginCount    Int       @default(0)
-  lockedUntil         DateTime? @db.Timestamptz(3)
-  lastLoginAt         DateTime? @db.Timestamptz(3)
-  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+  setupTokenHash      String?      @unique
+  setupTokenExpiresAt DateTime?    @db.Timestamptz(3)
+  isActive            Boolean      @default(true)
+  /// What they may do in the operations console. New staff start read-only.
+  role                PlatformRole @default(PLATFORM_READONLY)
+  failedLoginCount    Int          @default(0)
+  lockedUntil         DateTime?    @db.Timestamptz(3)
+  lastLoginAt         DateTime?    @db.Timestamptz(3)
+  createdAt           DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime     @updatedAt @db.Timestamptz(3)
 
   sessions PlatformSession[]
+}
+
+enum PlatformRole {
+  PLATFORM_OWNER
+  PLATFORM_SUPPORT
+  PLATFORM_READONLY
+}
+
+enum StaffLogKind {
+  VIEW
+  CHANGE
+  EXPORT
+  SETTING
+  SIGN_IN
+}
+
+/// Everything Propfolio staff see and do in the console. Append-only (a trigger refuses
+/// updates and deletes), separate from customers' audit logs, never reachable from customer work.
+model StaffLog {
+  seq        BigInt        @id @default(autoincrement())
+  at         DateTime      @default(now()) @db.Timestamptz(3)
+  /// Null for the system (e.g. a scheduled job) and failed sign-ins for unknown staff.
+  adminId    String?       @db.Uuid
+  adminName  String?
+  adminRole  PlatformRole?
+  kind       StaffLogKind
+  action     String
+  entityType String?
+  entityId   String?
+  /// The customer account concerned, if any.
+  accountId  String?       @db.Uuid
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([at])
+  @@index([adminId, at])
+  @@index([accountId, at])
 }
 
 model PlatformSession {

@@ -58,3 +58,15 @@ export const changePlanSchema = z.object({
   plan: z.enum(["FREE", "PRO", "PREMIUM"], { error: "Choose a plan." }),
   reason: requiredText(500, "Say why the plan is being changed."),
 });
+
+const platformRoleSchema = z.enum(["PLATFORM_OWNER", "PLATFORM_SUPPORT", "PLATFORM_READONLY"], {
+  error: "Choose a role.",
+});
+
+export const addStaffSchema = z.object({
+  name: requiredText(120, "Enter their name."),
+  email: emailSchema,
+  role: platformRoleSchema,
+});
+
+export const staffRoleSchema = z.object({ role: platformRoleSchema });

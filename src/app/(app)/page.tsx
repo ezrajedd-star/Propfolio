@@ -291,7 +291,7 @@ export default async function HomePage() {
       {dash.buildings.length === 0 && !isAdminRole(user.role) ? (
         <div className="mt-8">
           <EmptyState icon={FileSpreadsheet} title="Nothing here yet">
-            An Admin needs to add buildings and units first.
+            A User Admin needs to add buildings and units first.
           </EmptyState>
         </div>
       ) : null}

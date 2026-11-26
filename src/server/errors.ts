@@ -32,7 +32,7 @@ export class TwoStepSetupRequiredError extends AppError {
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message = "You don't have access to this. Ask an Admin if you need it.") {
+  constructor(message = "You don't have access to this. Ask a User Admin if you need it.") {
     super(message, 403, "FORBIDDEN");
   }
 }

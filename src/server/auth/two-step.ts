@@ -288,7 +288,7 @@ export async function turnOffTwoStep(
   return asSystem(async () => {
     if (await requiredAnywhere(actor.id)) {
       throw new ValidationError(
-        "Owners and Admins must keep two-step sign-in on, to protect the whole company's data.",
+        "Owners and User Admins must keep two-step sign-in on, to protect the whole company's data.",
       );
     }
     const user = await db.user.findUniqueOrThrow({ where: { id: actor.id } });

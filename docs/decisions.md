@@ -597,3 +597,37 @@ off-site backups, UptimeRobot on `/api/health`).
   Tailwind, Prettier and others.
 - **Not yet: Prisma 6 → 7** (#19). It changes how the database client is created (driver
   adapters, a config file) across every query path and test; it needs its own careful pass.
+
+## 38. Operations console, phase 1: staff roles and the staff log (26 Nov 2026)
+
+- **Customer role rename:** "Admin" is shown as **"User Admin"** everywhere on screens and in
+  emails. The internal code stays `ADMIN` (no data migration).
+- **Staff roles** (`src/domain/platform/roles.ts`, the single source of truth):
+  **Platform Owner** (everything), **Platform Support** (accounts, support tools, tickets,
+  pipeline; no billing changes, staff, agent settings, approvals or staff log),
+  **Platform Read-only** (views only). Every console service starts with
+  `assertPlatformCan`; pages use `requirePlatformPage(permission, view)` and actions
+  `requirePlatformActor(permission)`. Customer roles never grant console access.
+- Everyone who was a platform admin before roles existed became a Platform Owner. New staff start
+  read-only unless the Owner picks a role. The command-line script makes the first person an
+  Owner. The console never ends up without an active Owner, and nobody can demote or turn off
+  themselves.
+- **Billing vs support:** manual payments, plan changes, suspending and reopening need
+  `billing.manage` (Owner). Extending a trial is a support tool (Support and Owner).
+- **Staff log** (`StaffLog` table): every console page view, change, export, staff/setting change
+  and sign-in, with who, role, account, IP and browser. Append-only in the database (a trigger
+  refuses updates, deletes and truncation) and unreachable from customer work. Passwords, tokens,
+  codes and secrets are redacted.
+- **Console changes to an account** are now written to the staff log *and* to the customer's own
+  audit log (shown as "Propfolio staff"), in the same transaction. Before, they were kept outside
+  the customer's log. Staff sign-ins never appear in a customer's log.
+- **Console layout:** a sidebar with Today, Accounts, Pipeline, Tickets, Approvals, Billing,
+  Agents, System health, Staff log and Staff (each shown only once built, and only to roles that
+  may open it). The older Demo requests, Partners and Website pages sit under "More".
+- **Today** shows sign-ups (today, this week vs last week), trials ending in 7 days, paying
+  customers by plan, MRR (list prices of paying customers, decimal), cancellations this month
+  (accounts that asked to cancel or closed) and the sign-up funnel for this month. Tickets,
+  incidents and approvals appear once those phases exist.
+- **Accounts** filter by name, plan, status and trial (on a trial, ending in 7 days, ended,
+  never). The account page adds people (names and roles only, active or locked, last sign-in),
+  lease count and last active. Never tenant records.

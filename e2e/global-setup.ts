@@ -22,10 +22,12 @@ export default async function globalSetup() {
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
     await db.$transaction([
       db.$executeRawUnsafe(`ALTER TABLE "AuditLog" DISABLE TRIGGER USER`),
+      db.$executeRawUnsafe(`ALTER TABLE "StaffLog" DISABLE TRIGGER USER`),
       db.$executeRawUnsafe(
         `TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`,
       ),
       db.$executeRawUnsafe(`ALTER TABLE "AuditLog" ENABLE TRIGGER USER`),
+      db.$executeRawUnsafe(`ALTER TABLE "StaffLog" ENABLE TRIGGER USER`),
     ]);
     await db.account.createMany({
       data: [
@@ -83,6 +85,7 @@ export default async function globalSetup() {
         passwordHash: await hash(PLATFORM_ADMIN.password),
         totpSecretEnc: encryptSecret(PLATFORM_ADMIN.totpSecret),
         totpConfirmedAt: new Date(),
+        role: "PLATFORM_OWNER",
       },
     });
 

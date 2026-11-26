@@ -85,7 +85,7 @@ test.describe("Task tours, adding units, not-found pages", () => {
   test("Leasing Staff are told who can add units", async ({ page }) => {
     await signInAs(page, "staff");
     await page.goto("/units");
-    await expect(page.getByText("New building or units? Ask an Admin to add them.")).toBeVisible();
+    await expect(page.getByText("New building or units? Ask a User Admin to add them.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Add a building or units" })).toHaveCount(0);
   });
 

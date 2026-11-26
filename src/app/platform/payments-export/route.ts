@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   let admin;
   try {
-    admin = await requirePlatformActor();
+    admin = await requirePlatformActor("data.export");
   } catch {
     return new Response(null, { status: 401 });
   }

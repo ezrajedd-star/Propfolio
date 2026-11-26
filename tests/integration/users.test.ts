@@ -74,9 +74,9 @@ describe("Admin manages users", () => {
     await setUserActive(lone, admin.id, false, meta);
     // An inactive Admin's own session is gone, but the service rule must hold regardless of caller.
     await expect(updateUser(admin, lone.id, { role: "VIEWER" }, meta)).rejects.toThrow(
-      /only active Admin/,
+      /only active User Admin/,
     );
-    await expect(setUserActive(admin, lone.id, false, meta)).rejects.toThrow(/only active Admin/);
+    await expect(setUserActive(admin, lone.id, false, meta)).rejects.toThrow(/only active User Admin/);
   });
 
   it("signs a user out everywhere when their role changes or they are turned off", async () => {

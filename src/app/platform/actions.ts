@@ -23,6 +23,12 @@ import { requestMeta } from "@/server/request-meta";
 import { platformReopenAccount } from "@/server/accounts/closing";
 import { setDemoRequestHandled } from "@/server/demo/service";
 import { setWebsiteLeadHandled } from "@/server/website-leads/service";
+import {
+  addStaff,
+  changeStaffRole,
+  resetStaffSignIn,
+  setStaffActive,
+} from "@/server/platform/staff";
 
 /** Platform actions need a platform session; without one, back to the platform sign-in. */
 async function asPlatformAdmin<T>(
@@ -124,5 +130,35 @@ export async function reopenAccountAction(accountId: string) {
     platformReopenAccount(admin, accountId, await requestMeta()),
   );
   revalidatePath(`/platform/accounts/${accountId}`);
+  return r;
+}
+
+export async function addStaffAction(input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => addStaff(admin, input, await requestMeta()));
+  revalidatePath("/platform/staff");
+  return r;
+}
+
+export async function changeStaffRoleAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) =>
+    changeStaffRole(admin, id, input, await requestMeta()),
+  );
+  revalidatePath("/platform/staff");
+  return r;
+}
+
+export async function setStaffActiveAction(id: string, active: boolean) {
+  const r = await asPlatformAdmin(async (admin) =>
+    setStaffActive(admin, id, active, await requestMeta()),
+  );
+  revalidatePath("/platform/staff");
+  return r;
+}
+
+export async function resetStaffSignInAction(id: string) {
+  const r = await asPlatformAdmin(async (admin) =>
+    resetStaffSignIn(admin, id, await requestMeta()),
+  );
+  revalidatePath("/platform/staff");
   return r;
 }

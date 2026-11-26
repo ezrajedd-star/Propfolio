@@ -1,4 +1,4 @@
-import type { AccountStatus, Plan } from "@prisma/client";
+import type { AccountStatus, Plan, Prisma } from "@prisma/client";
 
 import { moneyString } from "@/domain/money/money";
 import { fromDbDate, toDbDate, type IsoDate } from "@/domain/time/calendar-date";
@@ -18,6 +18,7 @@ import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 import { planFacts } from "@/server/plans/access";
 import type { PlatformActor } from "./auth";
+import { assertPlatformCan, writeStaffLog } from "./staff-log";
 
 /**
  * The platform admin's view of customer accounts: account-level facts only (plan, trial,
@@ -100,15 +101,46 @@ function summary(a: AccountRow, c: Awaited<ReturnType<typeof counts>>, now: Date
   };
 }
 
-export function listAccounts(
-  _admin: PlatformActor,
-  opts: { q?: string } = {},
+export const TRIAL_FILTERS = ["on-trial", "ending-7", "ended", "never"] as const;
+export type TrialFilter = (typeof TRIAL_FILTERS)[number];
+
+export interface AccountFilters {
+  q?: string;
+  plan?: Plan;
+  status?: AccountStatus;
+  trial?: TrialFilter;
+}
+
+function trialWhere(trial: TrialFilter | undefined, now: Date): Prisma.AccountWhereInput {
+  switch (trial) {
+    case "on-trial":
+      return { trialEndsAt: { gt: now } };
+    case "ending-7":
+      return { trialEndsAt: { gt: now, lte: new Date(now.getTime() + 7 * 86_400_000) } };
+    case "ended":
+      return { trialEndsAt: { lte: now } };
+    case "never":
+      return { trialEndsAt: null };
+    default:
+      return {};
+  }
+}
+
+export async function listAccounts(
+  admin: PlatformActor,
+  opts: AccountFilters = {},
   now = new Date(),
 ): Promise<AccountSummary[]> {
+  assertPlatformCan(admin, "accounts.view");
   return asSystem(async () => {
     const q = opts.q?.trim();
     const accounts = await db.account.findMany({
-      where: q ? { name: { contains: q, mode: "insensitive" } } : {},
+      where: {
+        ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+        ...(opts.plan ? { plan: opts.plan } : {}),
+        ...(opts.status ? { status: opts.status } : {}),
+        ...trialWhere(opts.trial, now),
+      },
       orderBy: { createdAt: "desc" },
       take: 500,
     });
@@ -117,20 +149,36 @@ export function listAccounts(
   });
 }
 
-export function getAccountDetail(_admin: PlatformActor, id: string, now = new Date()) {
+export async function getAccountDetail(admin: PlatformActor, id: string, now = new Date()) {
+  assertPlatformCan(admin, "accounts.view");
   return asSystem(async () => {
     if (!isUuid(id)) throw new NotFoundError("We couldn't find that account.");
     const account = await db.account.findUnique({ where: { id } });
     if (!account) throw new NotFoundError("We couldn't find that account.");
-    const [c, owner, payments, history] = await Promise.all([
+    const [c, owner, members, leases, lastSeen, payments, history] = await Promise.all([
       counts([id]),
       db.membership.findFirst({
         where: { accountId: id, role: "OWNER" },
         select: { user: { select: { name: true, email: true } } },
       }),
+      db.membership.findMany({
+        where: { accountId: id },
+        orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
+        select: {
+          role: true,
+          isActive: true,
+          user: { select: { id: true, name: true, lastLoginAt: true, lockedUntil: true } },
+        },
+      }),
+      db.lease.count({ where: { accountId: id, archivedAt: null } }),
+      db.session.aggregate({ where: { accountId: id }, _max: { lastSeenAt: true } }),
       db.manualPayment.findMany({ where: { accountId: id }, orderBy: { recordedAt: "desc" } }),
       db.auditLog.findMany({
-        where: { accountId: null, entityType: "Account", entityId: id },
+        where: {
+          entityType: "Account",
+          entityId: id,
+          metadata: { path: ["platform"], equals: true },
+        },
         orderBy: { seq: "desc" },
         take: 50,
         select: { seq: true, at: true, actorName: true, action: true, metadata: true },
@@ -145,6 +193,17 @@ export function getAccountDetail(_admin: PlatformActor, id: string, now = new Da
       dataDeletedAt: account.dataDeletedAt,
       /** The Owner's name and email, to contact the customer. */
       owner: owner?.user ?? null,
+      /** People: names and roles only. */
+      users: members.map((m) => ({
+        id: m.user.id,
+        name: m.user.name,
+        role: m.role,
+        isActive: m.isActive,
+        lastSignIn: m.user.lastLoginAt,
+        locked: m.user.lockedUntil !== null && m.user.lockedUntil > now,
+      })),
+      leases,
+      lastActive: lastSeen._max.lastSeenAt,
       payments: payments.map((p) => ({
         id: p.id,
         amount: moneyString(p.amount),
@@ -158,8 +217,11 @@ export function getAccountDetail(_admin: PlatformActor, id: string, now = new Da
   });
 }
 
-/** Platform actions are recorded with no account, against the account they changed. */
-function auditAccount(
+/**
+ * Console changes to an account go in the staff log and in the customer's audit log (with
+ * `platform: true`), in the same transaction as the change.
+ */
+export async function auditAccount(
   tx: Tx,
   admin: PlatformActor,
   action: string,
@@ -168,7 +230,20 @@ function auditAccount(
   changes: Record<string, unknown>,
   metadata: Record<string, unknown> = {},
 ) {
-  return writeAudit(
+  await writeStaffLog(
+    {
+      actor: admin,
+      kind: "CHANGE",
+      action,
+      entityType: "Account",
+      entityId: accountId,
+      accountId,
+      metadata: { changes, ...metadata },
+      meta,
+    },
+    tx,
+  );
+  await writeAudit(
     {
       actor: { id: admin.id, name: admin.name, role: null },
       action,
@@ -177,7 +252,7 @@ function auditAccount(
       changes,
       metadata: { platform: true, ...metadata },
       meta,
-      accountId: null,
+      accountId,
     },
     tx,
   );
@@ -198,6 +273,7 @@ export async function extendTrial(
   meta: RequestMeta,
   now = new Date(),
 ) {
+  assertPlatformCan(admin, "accounts.support");
   const data = parseInput(extendTrialSchema, input);
   if (data.trialEndsOn < manilaToday(now)) {
     throw new ValidationError("Please check the date.", {
@@ -235,6 +311,7 @@ export async function recordManualPayment(
   input: unknown,
   meta: RequestMeta,
 ) {
+  assertPlatformCan(admin, "billing.manage");
   const data = parseInput(manualPaymentSchema, input);
   return asSystem(() =>
     db.$transaction(async (tx) => {
@@ -281,6 +358,7 @@ export async function setAccountSuspended(
   meta: RequestMeta,
   now = new Date(),
 ) {
+  assertPlatformCan(admin, "billing.manage");
   const reason = suspended ? parseInput(suspendAccountSchema, input).reason : null;
   return asSystem(() =>
     db.$transaction(async (tx) => {
@@ -321,6 +399,7 @@ export async function changePlan(
   input: unknown,
   meta: RequestMeta,
 ) {
+  assertPlatformCan(admin, "billing.manage");
   const data = parseInput(changePlanSchema, input);
   return asSystem(() =>
     db.$transaction(async (tx) => {
@@ -362,10 +441,11 @@ export interface FunnelCounts {
  * unit and added a lease. Counts only: no names or emails.
  */
 export async function getSignUpFunnel(
-  _admin: PlatformActor,
+  admin: PlatformActor,
   days = 30,
   now = new Date(),
 ): Promise<FunnelCounts> {
+  assertPlatformCan(admin, "console.view");
   const since = new Date(now.getTime() - days * 86_400_000);
   const rows = await asSystem(() =>
     db.funnelEvent.groupBy({

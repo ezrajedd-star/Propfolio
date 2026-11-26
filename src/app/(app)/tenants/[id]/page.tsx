@@ -150,7 +150,7 @@ export default async function TenantPage({ params }: { params: Promise<{ id: str
               />
             ) : (
               <p className="text-muted-foreground mt-3 text-sm">
-                Admins can export or anonymise this tenant&apos;s data. To correct it, use Edit.
+                User Admins can export or anonymise this tenant&apos;s data. To correct it, use Edit.
               </p>
             )}
           </CardContent>

@@ -20,13 +20,13 @@ export function isAdminRole(role: Role): boolean {
 
 export const ROLE_LABELS: Record<Role, string> = {
   OWNER: "Owner",
-  ADMIN: "Admin",
+  ADMIN: "User Admin",
   LEASING_STAFF: "Leasing Staff",
   VIEWER: "Property Management (Viewer)",
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  OWNER: "Everything an Admin can do. Controls the subscription and can't be removed.",
+  OWNER: "Everything a User Admin can do. Controls the subscription and can't be removed.",
   ADMIN: "Everything Leasing Staff can do, plus users, buildings, settings, audit log and privacy.",
   LEASING_STAFF: "Creates and renews leases, manages tenants, records payments and runs reports.",
   VIEWER: "Read-only view of units, occupancy and lease dates. Sees tenant names only.",

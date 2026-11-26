@@ -20,7 +20,7 @@ export default async function SetupTwoStepPage() {
       <h1 className="text-2xl font-semibold">Set up two-step sign-in</h1>
       <p className="text-muted-foreground mt-1.5 mb-6">
         {summary.required
-          ? "As an Owner or Admin you can see and change all of your company's records, so signing in needs two steps: your password, and a code from an app on your phone. It takes about two minutes."
+          ? "As an Owner or User Admin you can see and change all of your company's records, so signing in needs two steps: your password, and a code from an app on your phone. It takes about two minutes."
           : "Signing in will need two steps: your password, and a code from an app on your phone. Someone who learns your password still can't get in."}
       </p>
       <SetupTwoStepForm secret={setup.secret} qrSvg={setup.qrSvg} />

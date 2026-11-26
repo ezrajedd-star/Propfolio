@@ -59,6 +59,13 @@ const LABELS: Record<string, string> = {
   "payment.record": "Recorded a payment",
   "payment.void": "Voided a payment",
   "payment.apply_credit": "Used credit to pay charges",
+  "platform.trial_extended": "Propfolio extended the trial",
+  "platform.manual_payment": "Propfolio recorded a subscription payment",
+  "platform.account_suspended": "Propfolio suspended the account",
+  "platform.account_reactivated": "Propfolio reactivated the account",
+  "platform.plan_changed": "Propfolio changed the plan",
+  "platform.account_reopened": "Propfolio reopened the account",
+  "account.reopened": "Reopened the account",
 };
 
 export function auditActionLabel(action: string): string {

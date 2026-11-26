@@ -1,5 +1,8 @@
 import type { Role } from "@prisma/client";
 
+import type { PlatformRole } from "@/domain/platform/roles";
+import type { PlatformActor } from "@/server/platform/auth";
+
 import type { Actor } from "@/server/auth/authorize";
 import { hashPassword } from "@/server/auth/password";
 import { asSystem, db, setTestScope } from "@/server/db";
@@ -22,10 +25,12 @@ export async function resetDb() {
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   await db.$transaction([
     db.$executeRawUnsafe(`ALTER TABLE "AuditLog" DISABLE TRIGGER USER`),
+    db.$executeRawUnsafe(`ALTER TABLE "StaffLog" DISABLE TRIGGER USER`),
     db.$executeRawUnsafe(
       `TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`,
     ),
     db.$executeRawUnsafe(`ALTER TABLE "AuditLog" ENABLE TRIGGER USER`),
+    db.$executeRawUnsafe(`ALTER TABLE "StaffLog" ENABLE TRIGGER USER`),
   ]);
   await db.account.create({ data: { id: TEST_ACCOUNT_ID, name: "Test Leasing Co." } });
   logOutbox.length = 0;
@@ -164,3 +169,15 @@ export const terms = (o: Record<string, unknown> = {}) => ({
   remarks: "",
   ...o,
 });
+
+/** A Propfolio staff member with a console role (set-up done, no session needed). */
+export async function makeStaff(
+  role: PlatformRole,
+  name = `${role} person`,
+): Promise<PlatformActor> {
+  const email = `${role.toLowerCase()}.${Math.random().toString(36).slice(2, 8)}@propfolio.test`;
+  const row = await asSystem(() =>
+    db.platformAdmin.create({ data: { name, email, role, totpConfirmedAt: new Date() } }),
+  );
+  return { id: row.id, name: row.name, email: row.email, role: row.role, sessionId: "test" };
+}

@@ -31,7 +31,7 @@ export function IdleTimeoutToggle({ initial }: { initial: boolean }) {
       />
       <Label htmlFor="admin-idle-timeout" className="block font-normal">
         <span className="block font-medium">
-          Sign Owners and Admins out after 30 minutes without activity
+          Sign Owners and User Admins out after 30 minutes without activity
         </span>
         <span className="text-muted-foreground block text-sm">
           Even when they ticked &ldquo;Keep me signed in&rdquo;. Recommended on shared office

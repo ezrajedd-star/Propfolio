@@ -43,7 +43,10 @@ const codeFor = (secret: string, at: Date) => totpCode(base32Decode(secret), tot
 
 /** A platform admin who has finished set-up; returns their authenticator secret. */
 async function setUpAdmin(email = "ana@propfolio.ph") {
-  const link = await issuePlatformSetupLink({ email, name: "Ana Platform" }, T0);
+  const link = await issuePlatformSetupLink(
+    { email, name: "Ana Platform", role: "PLATFORM_OWNER" },
+    T0,
+  );
   const setup = (await getPlatformSetup(tokenOf(link), T0))!;
   const secret = setup.secret.replace(/ /g, "");
   await completePlatformSetup(
@@ -343,7 +346,7 @@ describe("platform accounts", () => {
     expect((await signIn(user.email, DEFAULT_PASSWORD, meta, T0)).ok).toBe(true);
   });
 
-  it("every platform action is audited, outside the customer's own audit log", async () => {
+  it("every console change goes in the staff log and in the customer's own audit log", async () => {
     const owner = await makeUser("OWNER");
     const admin = await signedInAdmin();
     await extendTrial(
@@ -374,7 +377,16 @@ describe("platform accounts", () => {
     const platformRows = await asSystem(() =>
       db.auditLog.findMany({ where: { action: { startsWith: "platform." } } }),
     );
-    expect(platformRows.every((r) => r.accountId === null)).toBe(true);
+    const accountRows = platformRows.filter((r) => r.entityType === "Account");
+    expect(accountRows).toHaveLength(4);
+    expect(accountRows.every((r) => r.accountId === TEST_ACCOUNT_ID)).toBe(true);
+    const staffRows = await asSystem(() =>
+      db.staffLog.findMany({ where: { kind: "CHANGE", accountId: TEST_ACCOUNT_ID } }),
+    );
+    expect(staffRows.map((r) => r.action).sort()).toEqual(accountRows.map((r) => r.action).sort());
+    expect(staffRows.every((r) => r.adminId === admin.id && r.adminRole === "PLATFORM_OWNER")).toBe(
+      true,
+    );
     expect(platformRows.map((r) => r.action)).toEqual(
       expect.arrayContaining(["platform.setup_completed", "platform.login"]),
     );
@@ -383,6 +395,10 @@ describe("platform accounts", () => {
       JSON.stringify(platformRows, (_k, v: unknown) => (typeof v === "bigint" ? String(v) : v)),
     ).not.toMatch(/passphrase|argon2|totp/i);
     const customerLog = (await listAuditLog(owner, {})).rows.map((r) => r.action);
-    expect(customerLog.some((a) => a.startsWith("platform."))).toBe(false);
+    expect(customerLog).toEqual(
+      expect.arrayContaining(["platform.trial_extended", "platform.manual_payment"]),
+    );
+    // Sign-ins are only in the staff log and Propfolio's own entries, never the customer's.
+    expect(customerLog).not.toContain("platform.login");
   });
 });

@@ -108,7 +108,7 @@ export default async function SettingsPage() {
   const actor = await requirePageUser("settings.manage", { duringReadOnly: true });
   return (
     <>
-      <PageHeader title="Settings" description="Only Admins can see and change these." />
+      <PageHeader title="Settings" description="Only User Admins can see and change these." />
       <ul className="grid gap-4 sm:grid-cols-2">
         {SECTIONS.filter((s) => !s.ownerOnly || canDo(actor, "billing.manage")).map((s) => {
           const locked =

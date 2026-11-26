@@ -2,43 +2,35 @@ import { LogOut } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "@/components/app/logo";
+import { ConsoleMobileNav, ConsoleNav } from "@/components/platform/console-nav";
 import { Button } from "@/components/ui/button";
+import { PLATFORM_ROLE_LABELS } from "@/domain/platform/roles";
 import { requirePlatformPage } from "@/server/platform/current";
+import { ENABLED_SECTIONS } from "@/server/platform/sections";
 import { platformSignOutAction } from "../actions";
 
 /**
- * Propfolio's back office. Separate from the customer app: its own sign-in, and it shows
- * account-level information only (never tenants, leases or documents).
+ * Propfolio's operations console. Separate from the customer app: its own sign-in and staff
+ * roles, and it shows account-level information only (never tenants, leases or documents).
  */
 export default async function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requirePlatformPage();
   return (
-    <div className="bg-muted/30 min-h-dvh">
+    <div className="bg-muted/30 flex min-h-dvh flex-col">
       <header className="bg-card border-b">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/platform" className="flex items-center gap-3">
-            <Logo />
-            <span className="text-muted-foreground font-medium">Platform admin</span>
-          </Link>
-          <nav aria-label="Platform" className="flex flex-wrap gap-1">
-            <Button asChild variant="ghost">
-              <Link href="/platform">Accounts</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/platform/payments">Payments</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/platform/demo-requests">Demo requests</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/platform/website-leads">Partners and downloads</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href="/platform/website">Website</Link>
-            </Button>
-          </nav>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="text-muted-foreground hidden sm:inline">{admin.name}</span>
+            <ConsoleMobileNav role={admin.role} enabled={ENABLED_SECTIONS} />
+            <Link href="/platform" className="flex items-center gap-3">
+              <Logo />
+              <span className="text-muted-foreground font-medium">Console</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground hidden text-right sm:block">
+              <span className="text-foreground block font-medium">{admin.name}</span>
+              <span className="block text-sm">{PLATFORM_ROLE_LABELS[admin.role]}</span>
+            </span>
             <form action={platformSignOutAction}>
               <Button type="submit" variant="outline">
                 <LogOut aria-hidden /> Sign out
@@ -47,9 +39,12 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
           </div>
         </div>
       </header>
-      <main id="main" className="mx-auto max-w-6xl px-4 py-8">
-        {children}
-      </main>
+      <div className="flex flex-1">
+        <ConsoleNav role={admin.role} enabled={ENABLED_SECTIONS} />
+        <main id="main" className="mx-auto w-full max-w-6xl min-w-0 px-4 py-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

@@ -16,7 +16,7 @@ export function signInFailureMessage(
     case "rate_limited":
       return `Too many sign-in attempts. For your security, please wait ${waitText(r.retryAfterSeconds)} and try again.`;
     case "inactive":
-      return "Your sign-in has been turned off by your company's Owner or Admin. Please ask them.";
+      return "Your sign-in has been turned off by your company's Owner or User Admin. Please ask them.";
     case "user_limit":
       return "Your company's plan doesn't include your sign-in right now. Ask your account's Owner to upgrade, then try again.";
     case "suspended":

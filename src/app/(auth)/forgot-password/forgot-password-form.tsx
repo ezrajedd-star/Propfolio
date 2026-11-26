@@ -35,7 +35,7 @@ export function ForgotPasswordForm() {
           </p>
           <p className="mt-1">
             If that address has an account, a link is on its way. It works for 60 minutes.
-            Don&apos;t see it? Check your spam folder, or ask an Admin to reset your password.
+            Don&apos;t see it? Check your spam folder, or ask a User Admin to reset your password.
           </p>
         </FormAlert>
         <Button asChild variant="outline" className="w-full">

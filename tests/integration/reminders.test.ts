@@ -365,7 +365,7 @@ describe("daily digest", () => {
       data: { isActive: false },
     });
     await expect(sendDailyDigest(at6am("2026-10-02"))).rejects.toThrow(
-      /no active Admin or Leasing Staff/,
+      /no active User Admin or Leasing Staff/,
     );
   });
 

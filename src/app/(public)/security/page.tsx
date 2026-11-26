@@ -30,7 +30,7 @@ const PROTECTIONS = [
   {
     icon: KeyRound,
     title: "Two-step sign-in",
-    text: "A code from an authenticator app, required for Owners and Admins and available to everyone. Ten recovery codes for a lost phone.",
+    text: "A code from an authenticator app, required for Owners and User Admins and available to everyone. Ten recovery codes for a lost phone.",
   },
   {
     icon: Lock,
@@ -40,7 +40,7 @@ const PROTECTIONS = [
   {
     icon: UserCheck,
     title: "The right access for each person",
-    text: "Owner, Admin, Leasing Staff and a read-only role. Read-only people never receive tenant contact details, money or documents.",
+    text: "Owner, User Admin, Leasing Staff and a read-only role. Read-only people never receive tenant contact details, money or documents.",
   },
   {
     icon: FileLock2,

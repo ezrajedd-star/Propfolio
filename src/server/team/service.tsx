@@ -452,7 +452,7 @@ export async function transferOwnership(
   assertCan(actor, "billing.manage", { duringReadOnly: true });
   if (actor.role !== "OWNER")
     throw new ValidationError("Only the Owner can hand over the account.");
-  if (!isUuid(userId) || userId === actor.id) throw new NotFoundError("Choose another Admin.");
+  if (!isUuid(userId) || userId === actor.id) throw new NotFoundError("Choose another User Admin.");
   await asSystem(() =>
     db.$transaction(async (tx) => {
       const target = await tx.membership.findUnique({
@@ -461,7 +461,7 @@ export async function transferOwnership(
       });
       if (!target || !target.isActive || target.role !== "ADMIN") {
         throw new ValidationError(
-          "Make them an Admin first: only an active Admin can become the Owner.",
+          "Make them a User Admin first: only an active User Admin can become the Owner.",
         );
       }
       await tx.membership.update({

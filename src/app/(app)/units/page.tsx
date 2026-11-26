@@ -74,7 +74,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
             </Button>
           ) : staff ? (
             <span className="text-muted-foreground text-sm">
-              New building or units? Ask an Admin to add them.
+              New building or units? Ask a User Admin to add them.
             </span>
           ) : null
         }
@@ -114,7 +114,7 @@ export default async function UnitsPage({ searchParams }: { searchParams: Promis
                 </Link>
               </Button>
             ) : (
-              "An Admin needs to add buildings and units first."
+              "A User Admin needs to add buildings and units first."
             )}
           </EmptyState>
         ) : (

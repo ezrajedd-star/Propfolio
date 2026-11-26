@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/domain/time/manila";
 import { cn } from "@/lib/utils";
+import { platformCan } from "@/domain/platform/roles";
 import { requirePlatformPage } from "@/server/platform/current";
 import { listWebsiteLeads } from "@/server/website-leads/service";
 import { RESOURCES, type ResourceSlug } from "@/schemas/website-lead";
@@ -26,7 +27,9 @@ export default async function WebsiteLeadsPage({
 }: {
   searchParams: Promise<{ kind?: string; all?: string }>;
 }) {
-  const admin = await requirePlatformPage();
+  const admin = await requirePlatformPage("pipeline.view", {
+    action: "console.website_leads_viewed",
+  });
   const sp = await searchParams;
   const kind = sp.kind === "RESOURCE" ? "RESOURCE" : "PARTNER";
   const all = sp.all === "1";
@@ -111,7 +114,9 @@ export default async function WebsiteLeadsPage({
                     {kind === "PARTNER" ? r.message || "—" : r.wantsUpdates ? "Yes" : "No"}
                   </TableCell>
                   <TableCell>
-                    <HandledButton id={r.id} handled={r.handledAt !== null} kind="lead" />
+                    {platformCan(admin.role, "pipeline.manage") ? (
+                      <HandledButton id={r.id} handled={r.handledAt !== null} kind="lead" />
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

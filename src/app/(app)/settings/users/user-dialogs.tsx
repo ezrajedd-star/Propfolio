@@ -132,7 +132,7 @@ export function EditUserDialog({
     user.role === "OWNER"
       ? "This is the account's Owner. The Owner's role can't be changed."
       : isSelf
-        ? "You can't change your own role. Ask another Admin."
+        ? "You can't change your own role. Ask another User Admin."
         : undefined;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

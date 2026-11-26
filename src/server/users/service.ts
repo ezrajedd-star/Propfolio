@@ -162,7 +162,7 @@ async function assertOtherActiveAdmin(tx: Tx, exceptUserId: string) {
   });
   if (others === 0) {
     throw new ValidationError(
-      "This is the only active Admin. Make someone else an Admin first, so nobody gets locked out.",
+      "This is the only active User Admin. Make someone else a User Admin first, so nobody gets locked out.",
     );
   }
 }
@@ -196,7 +196,7 @@ export async function updateUser(
           });
         }
         if (before.userId === actor.id) {
-          throw new ValidationError("You can't change your own role. Ask another Admin.", {
+          throw new ValidationError("You can't change your own role. Ask another User Admin.", {
             role: "You can't change your own role.",
           });
         }

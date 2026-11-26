@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { PrismaClient } from "@prisma/client";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { E2E_DATABASE_URL } from "../playwright.config";
@@ -13,9 +14,23 @@ test.describe.configure({ mode: "serial" });
 /** A code for the next 30-second step, so a code is never reused within a run. */
 let lastStep = 0;
 function nextCode(secret: string = PLATFORM_ADMIN.totpSecret) {
+  // Another person's fresh authenticator: today's code is fine.
+  if (secret !== PLATFORM_ADMIN.totpSecret)
+    return totpCode(base32Decode(secret), totpStep(new Date()));
   const step = Math.max(totpStep(new Date()), lastStep + 1);
   lastStep = step;
   return totpCode(base32Decode(secret), step);
+}
+
+/** Automated WCAG 2.1 AA check of the console page that is open. */
+async function axe(page: Page, label: string) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.waitForLoadState("networkidle");
+  const r = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const problems = r.violations.map((v) => `${label}: ${v.id} (${v.nodes.length}×)`);
+  expect(problems, problems.join("\n")).toEqual([]);
 }
 
 async function platformSignIn(page: Page) {
@@ -24,7 +39,7 @@ async function platformSignIn(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill(PLATFORM_ADMIN.password);
   await page.getByRole("textbox", { name: "6-digit code" }).fill(nextCode());
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
 }
 
 test("signed-out visitors and customers can't open the platform area", async ({ page }) => {
@@ -44,8 +59,41 @@ test("a wrong code is refused with the same message as a wrong password", async 
   await expect(page.getByRole("alert").filter({ hasText: "That didn't work" })).toBeVisible();
 });
 
+test("Today shows the numbers; the menu has the console sections", async ({ page }) => {
+  await platformSignIn(page);
+  const nav = page.getByRole("navigation", { name: "Console" }).first();
+  for (const section of ["Today", "Accounts", "Billing", "Staff log", "Staff"]) {
+    await expect(nav.getByRole("link", { name: section, exact: true })).toBeVisible();
+  }
+  await expect(page.getByText("Monthly recurring revenue")).toBeVisible();
+  await expect(page.getByText("Trials ending in 7 days")).toBeVisible();
+  await axe(page, "Today");
+  await page.goto("/platform/accounts");
+  await axe(page, "Accounts");
+  await page.goto("/platform/payments");
+  await axe(page, "Billing");
+  await page.goto("/platform");
+  await page.getByRole("link", { name: "Staff log", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Staff log" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Opened Today" }).first()).toBeVisible();
+  await axe(page, "Staff log");
+
+  // The Owner adds a staff member and gets a one-time link.
+  await page.getByRole("link", { name: "Staff", exact: true }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Staff" })).toBeVisible();
+  await expect(page.getByText("This is you")).toBeVisible();
+  await axe(page, "Staff");
+  await page.getByLabel("Name").fill("Rhea Readonly");
+  await page.getByLabel("Email").fill(`rhea.${Date.now()}@e2e.test`);
+  await page.getByRole("button", { name: "Add staff member" }).click();
+  await expect(page.getByText(/Send this link to Rhea Readonly/)).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Role for Rhea Readonly" })).toBeVisible();
+});
+
 test("lists accounts with no tenant data, and suspends and reactivates one", async ({ page }) => {
   await platformSignIn(page);
+  await page.getByRole("link", { name: "Accounts", exact: true }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Leasing Co." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Other Leasing Inc." })).toBeVisible();
   for (const tenant of ["Overdue Trading", "ABC Corporation", "Calendar Test Co"]) {

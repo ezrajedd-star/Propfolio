@@ -93,7 +93,7 @@ export async function signInCodeAction(
         await clearPendingSignInCookie();
         return {
           ok: false,
-          message: `This account is locked for 15 minutes after too many wrong tries. Try again after ${formatTime(r.lockedUntil)}, or ask an Admin to unlock it.`,
+          message: `This account is locked for 15 minutes after too many wrong tries. Try again after ${formatTime(r.lockedUntil)}, or ask a User Admin to unlock it.`,
         };
       default:
         return {

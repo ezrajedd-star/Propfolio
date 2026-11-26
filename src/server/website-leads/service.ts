@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from "@/server/errors";
 import { deliver } from "@/server/mail/transport";
 import { reportError } from "@/server/monitoring/report-error";
 import type { PlatformActor } from "@/server/platform/auth";
+import { assertPlatformCan, writeStaffLog } from "@/server/platform/staff-log";
 import { hitRateLimit, waitText } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
@@ -136,10 +137,11 @@ export async function applyAsPartner(input: unknown, meta: RequestMeta, now = ne
   return { saved: true };
 }
 
-export function listWebsiteLeads(
-  _admin: PlatformActor,
+export async function listWebsiteLeads(
+  admin: PlatformActor,
   opts: { kind?: WebsiteLeadKind; includeHandled?: boolean } = {},
 ) {
+  assertPlatformCan(admin, "pipeline.view");
   return asSystem(() =>
     db.websiteLead.findMany({
       where: {
@@ -159,6 +161,7 @@ export async function setWebsiteLeadHandled(
   meta: RequestMeta,
   now = new Date(),
 ) {
+  assertPlatformCan(admin, "pipeline.manage");
   if (!isUuid(id)) throw new NotFoundError("We couldn't find that request.");
   await asSystem(() =>
     db.$transaction(async (tx) => {
@@ -170,6 +173,18 @@ export async function setWebsiteLeadHandled(
           ? { handledAt: now, handledById: admin.id }
           : { handledAt: null, handledById: null },
       });
+      await writeStaffLog(
+        {
+          actor: admin,
+          kind: "CHANGE",
+          action: "platform.website_lead_handled",
+          entityType: "WebsiteLead",
+          entityId: id,
+          metadata: { handled },
+          meta,
+        },
+        tx,
+      );
       await writeAudit(
         {
           actor: { id: admin.id, name: admin.name, role: null },

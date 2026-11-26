@@ -334,7 +334,12 @@ describe("platform admin: change plan", () => {
     expect((await loadPlanAccess(TEST_ACCOUNT_ID)).plan).toBe("FREE");
     const admin = await asSystem(() =>
       db.platformAdmin.create({
-        data: { email: "ana@propfolio.ph", name: "Ana Platform", passwordHash: "x" },
+        data: {
+          email: "ana@propfolio.ph",
+          name: "Ana Platform",
+          passwordHash: "x",
+          role: "PLATFORM_OWNER",
+        },
       }),
     );
     await changePlan(

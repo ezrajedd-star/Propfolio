@@ -45,7 +45,7 @@ export default async function TwoStepPage() {
                 {on
                   ? "You're asked for a code when you sign in."
                   : s.required
-                    ? "Owners and Admins need it. Please set it up now."
+                    ? "Owners and User Admins need it. Please set it up now."
                     : "Optional for your role, and recommended."}
               </span>
             </p>

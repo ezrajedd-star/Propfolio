@@ -15,7 +15,7 @@ export default function NoAccessPage() {
       <h1 className="text-2xl font-semibold">You don&apos;t have access to that page</h1>
       <p className="text-muted-foreground">
         Your role doesn&apos;t include this part of Propfolio. If you need it for your work, ask an
-        Admin.
+        User Admin.
       </p>
       <Button asChild className="w-full">
         <Link href="/">Go to Home</Link>
