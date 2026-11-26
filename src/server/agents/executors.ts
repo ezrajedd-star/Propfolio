@@ -62,6 +62,10 @@ const EXECUTORS: Partial<Record<ActionType, Executor>> = {
     const { publishArticleFromAgent } = await import("@/server/help/service");
     return publishArticleFromAgent(p, ctx.approvedByName, ctx.now);
   },
+  async STATUS_UPDATE(p, ctx) {
+    const { publishStatusNote } = await import("@/server/monitoring/outage");
+    return publishStatusNote(p, ctx.now);
+  },
   async WEEKLY_REPORT(p) {
     const { emailOwners } = await import("@/server/agents/notify");
     await emailOwners(str(p.subject) || "Weekly growth report", str(p.body));

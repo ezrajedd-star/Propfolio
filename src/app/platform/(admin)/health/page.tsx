@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MONITORING } from "@/config/ops";
+import { MONITORING, OUTAGE, RESTORE_CHECK } from "@/config/ops";
 import { platformCan } from "@/domain/platform/roles";
 import { formatDateTime } from "@/domain/time/manila";
 import { pushConfigured } from "@/server/alerts/pushover";
 import { asSystem, db } from "@/server/db";
 import { env } from "@/server/env";
 import { listIncidents, workerStatus } from "@/server/monitoring/incidents";
+import { OPS_KIND_LABELS, lastRestoreCheck, listOpsRequests } from "@/server/monitoring/outage";
 import { requirePlatformPage } from "@/server/platform/current";
-import { ResolveIncidentButton, TestAlertButton } from "./health-forms";
+import { ResolveIncidentButton, RestartButton, TestAlertButton } from "./health-forms";
 
 export const metadata: Metadata = { title: "System health" };
 
@@ -33,11 +35,17 @@ async function databaseOk() {
 
 export default async function HealthPage() {
   const admin = await requirePlatformPage("health.view", { action: "console.health_viewed" });
-  const [incidents, worker, dbOk] = await Promise.all([
+  const now = new Date();
+  const [incidents, worker, dbOk, opsRequests, restore] = await Promise.all([
     listIncidents(admin),
     workerStatus(),
     databaseOk(),
+    listOpsRequests(admin),
+    lastRestoreCheck(),
   ]);
+  const waitingKinds = new Set(
+    opsRequests.filter((r) => r.status === "WAITING").map((r) => r.kind),
+  );
   const e = env();
   const canManage = platformCan(admin.role, "health.manage");
   const open = incidents.filter((i) => i.status === "OPEN");
@@ -112,6 +120,35 @@ export default async function HealthPage() {
                     ? `phone alerted ${formatDateTime(i.alertedAt)}`
                     : "no phone alert sent"}
                 </p>
+                <Diagnosis value={i.diagnostics} />
+                {i.githubIssueNumber ? (
+                  <p>
+                    <a
+                      href={`https://github.com/${e.GITHUB_REPOSITORY}/issues/${i.githubIssueNumber}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary inline-flex min-h-10 items-center underline-offset-4 hover:underline"
+                    >
+                      GitHub issue #{i.githubIssueNumber} (the Engineering agent works on it)
+                    </a>
+                  </p>
+                ) : null}
+                {i.publicNote ? (
+                  <p>
+                    <span className="font-medium">On the status page:</span> {i.publicNote}
+                  </p>
+                ) : i.severity === "URGENT" ? (
+                  <p>
+                    A status-page message is waiting in{" "}
+                    <Link
+                      href="/platform/approvals"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Approvals
+                    </Link>
+                    .
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-3">
                   {i.link ? (
                     <a
@@ -150,6 +187,104 @@ export default async function HealthPage() {
         </CardContent>
       </Card>
 
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Safe fixes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground">
+            Restarting is safe: no data is lost. The server does it within a minute. Steps for
+            everything else are in the outage runbook (docs/runbooks/outage.md).
+          </p>
+          {canManage ? (
+            <div className="flex flex-wrap gap-3">
+              {(["RESTART_WEB", "RESTART_WORKER"] as const).map((k) => (
+                <RestartButton
+                  key={k}
+                  kind={k}
+                  label={OPS_KIND_LABELS[k]}
+                  disabled={waitingKinds.has(k)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {opsRequests.length > 0 ? (
+            <ul className="divide-y rounded-xl border">
+              {opsRequests.map((r) => {
+                const stuck =
+                  r.status === "WAITING" &&
+                  now.getTime() - r.createdAt.getTime() > OUTAGE.restartStuckMinutes * 60_000;
+                return (
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                  >
+                    <span>
+                      <span className="font-medium">{OPS_KIND_LABELS[r.kind]}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {r.requestedByName ?? "The watchdog"} · {formatDateTime(r.createdAt)} ·{" "}
+                        {r.reason}
+                      </span>
+                    </span>
+                    <StatusBadge
+                      tone={
+                        r.status === "DONE"
+                          ? "success"
+                          : r.status === "FAILED" || stuck
+                            ? "danger"
+                            : "warning"
+                      }
+                      label={
+                        r.status === "DONE"
+                          ? "Done"
+                          : r.status === "FAILED"
+                            ? `Failed${r.result ? `: ${r.result}` : ""}`
+                            : stuck
+                              ? "Not picked up: is the watchdog set up?"
+                              : "Waiting for the server"
+                      }
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Backups</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {restore ? (
+            <>
+              <p className="flex flex-wrap items-center gap-2">
+                <StatusBadge
+                  tone={restore.ok ? "success" : "danger"}
+                  label={restore.ok ? "Last restore check passed" : "Last restore check failed"}
+                />
+                <span className="text-muted-foreground">
+                  {formatDateTime(restore.checkedAt)} · {restore.backupFile} ·{" "}
+                  {restore.durationSeconds} seconds
+                </span>
+              </p>
+              {restore.problem ? <p>{restore.problem}</p> : null}
+            </>
+          ) : (
+            <p className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone="warning" label="No restore check yet" />
+              <span className="text-muted-foreground">
+                The server restores the newest backup into a throw-away copy on the 1st of each
+                month and emails you the result. An incident opens if none arrives in{" "}
+                {RESTORE_CHECK.overdueDays} days.
+              </span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <section aria-labelledby="recent">
         <h2 id="recent" className="mb-3 text-xl font-semibold">
           Resolved in the last {MONITORING.recentDays} days
@@ -175,5 +310,24 @@ export default async function HealthPage() {
         )}
       </section>
     </>
+  );
+}
+
+function Diagnosis({ value }: { value: unknown }) {
+  const d = value as { findings?: string[]; stepText?: string } | null;
+  if (!d?.stepText) return null;
+  return (
+    <div className="bg-muted/50 rounded-lg p-3">
+      <p>
+        <span className="font-medium">Suggested next step:</span> {d.stepText}
+      </p>
+      {d.findings?.length ? (
+        <ul className="text-muted-foreground mt-1 list-disc pl-5">
+          {d.findings.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

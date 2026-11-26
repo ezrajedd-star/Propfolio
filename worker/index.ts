@@ -54,6 +54,8 @@ import { runGrowthDaily, runGrowthWeekly } from "../src/server/agents/growth";
 import { remindWaitingApprovals } from "../src/server/agents/approvals";
 import { deleteOldAgentSessions } from "../src/server/agents/runner";
 import { bugFollowUps, runQueuedSupportTickets } from "../src/server/agents/support";
+import { RESTORE_CHECK } from "../src/config/ops";
+import { watchRestoreChecks } from "../src/server/monitoring/outage";
 
 type Job = {
   name: string;
@@ -193,6 +195,13 @@ const JOBS: Job[] = [
         ? `Growth agent weekly run (${r.toolCalls} tool calls)`
         : `Growth weekly skipped: ${r.reason}`;
     },
+  },
+  {
+    // An incident opens when the monthly backup restore check hasn't reported for 35 days.
+    name: "restore-check-watch",
+    cron: RESTORE_CHECK.watchCron,
+    run: async () =>
+      (await watchRestoreChecks()) ? "restore check overdue: incident opened" : "restore check ok",
   },
   {
     name: "failed-sign-in-alert",

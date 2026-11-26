@@ -1244,25 +1244,32 @@ enum IncidentStatus {
 /// Something wrong with Propfolio itself (never a customer's data). Titles and details hold monitor
 /// names, error types and links only: no personal data.
 model Incident {
-  id           String           @id @default(uuid(7)) @db.Uuid
-  source       IncidentSource
-  severity     IncidentSeverity
-  status       IncidentStatus   @default(OPEN)
-  title        String
+  id                String           @id @default(uuid(7)) @db.Uuid
+  source            IncidentSource
+  severity          IncidentSeverity
+  status            IncidentStatus   @default(OPEN)
+  title             String
   /// The monitoring tool's own id, so repeated messages update one incident.
-  externalId   String?
+  externalId        String?
   /// A link into the monitoring tool.
-  link         String?
-  details      Json?
-  startedAt    DateTime         @default(now()) @db.Timestamptz(3)
-  resolvedAt   DateTime?        @db.Timestamptz(3)
-  resolvedById String?          @db.Uuid
-  resolvedNote String?
+  link              String?
+  details           Json?
+  startedAt         DateTime         @default(now()) @db.Timestamptz(3)
+  resolvedAt        DateTime?        @db.Timestamptz(3)
+  resolvedById      String?          @db.Uuid
+  resolvedNote      String?
   /// When the push alert went out (null: not yet, or not needed).
-  alertedAt    DateTime?        @db.Timestamptz(3)
-  alertTries   Int              @default(0)
-  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+  alertedAt         DateTime?        @db.Timestamptz(3)
+  alertTries        Int              @default(0)
+  /// What Propfolio checked when the incident opened (database, worker, recent errors).
+  diagnostics       Json?
+  /// The approved status-page message (shown on /status while open, and a day after).
+  publicNote        String?
+  publicNoteAt      DateTime?        @db.Timestamptz(3)
+  /// The GitHub issue opened for an error alert (the Engineering agent picks it up).
+  githubIssueNumber Int?
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
 
   @@unique([source, externalId])
   @@index([status, startedAt])
@@ -1272,6 +1279,50 @@ model Incident {
 model SystemHeartbeat {
   name String   @id
   at   DateTime @db.Timestamptz(3)
+}
+
+enum OpsRequestKind {
+  RESTART_WEB
+  RESTART_WORKER
+}
+
+enum OpsRequestStatus {
+  WAITING
+  DONE
+  FAILED
+}
+
+/// A runbook-safe action asked for on System health (e.g. restart the web app). The server's
+/// watchdog (deploy/watchdog.sh) picks it up within a minute and reports back.
+model OpsRequest {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  kind            OpsRequestKind
+  status          OpsRequestStatus @default(WAITING)
+  requestedById   String?          @db.Uuid
+  /// Null when the watchdog restarted something by itself.
+  requestedByName String?
+  reason          String
+  result          String?
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  doneAt          DateTime?        @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+}
+
+/// The monthly backup-restore check: the newest backup restored into a throw-away database on
+/// the server (deploy/restore-check.sh), row counts compared, the result reported here.
+model RestoreCheck {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  ok              Boolean
+  backupFile      String
+  backupTakenAt   DateTime? @db.Timestamptz(3)
+  /// Rows per table in the restored copy (counts only, no data).
+  tableCounts     Json
+  durationSeconds Int
+  problem         String?
+  checkedAt       DateTime  @db.Timestamptz(3)
+
+  @@index([checkedAt])
 }
 
 /// An account's Owner or User Admin lets Propfolio support into the app for a while. Ends by

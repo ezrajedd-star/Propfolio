@@ -130,6 +130,7 @@ fi
 say "Scheduling a daily backup at 02:30 Manila time"
 chmod +x "$DEPLOY_DIR/backup.sh" "$DEPLOY_DIR/update.sh"
 echo "30 18 * * * root $DEPLOY_DIR/backup.sh >> /var/log/propfolio-backup.log 2>&1" > /etc/cron.d/propfolio-backup
+bash "$DEPLOY_DIR/ops-cron.sh"
 
 # shellcheck disable=SC1090
 source "$ENV_FILE"

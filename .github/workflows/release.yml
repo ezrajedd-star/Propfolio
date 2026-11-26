@@ -1,0 +1,67 @@
+# Release pipeline: merge to main → all checks → staging → staging check → production (after one
+# click of approval) → production check. A version that fails its check on the server is rolled
+# back by the server itself (deploy/release.sh). Set-up: docs/ops-console/release-setup.md
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  staging:
+    needs: checks
+    # Turned on with the repository variable STAGING_ENABLED = true (once a staging server exists).
+    if: vars.STAGING_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/deploy
+        with:
+          command: deploy ${{ github.sha }}
+          host: ${{ vars.DEPLOY_HOST }}
+          known_hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          ssh_key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Staging check (health, sign-in page, status page)
+        env:
+          URL: ${{ vars.APP_URL }}
+        run: |
+          for path in "/api/health?deep=1" "/login" "/status"; do
+            curl -fsS -m 20 --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null "$URL$path"
+            echo "✔ $path"
+          done
+
+  production:
+    needs: [checks, staging]
+    # Runs after staging, or straight after the checks while there is no staging server.
+    if: always() && needs.checks.result == 'success' && (needs.staging.result == 'success' || needs.staging.result == 'skipped')
+    runs-on: ubuntu-24.04
+    # The "production" environment has a required reviewer: GitHub asks for one click first.
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/deploy
+        with:
+          command: deploy ${{ github.sha }}
+          host: ${{ vars.DEPLOY_HOST }}
+          known_hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          ssh_key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Production check
+        env:
+          URL: ${{ vars.APP_URL }}
+        run: |
+          for path in "/api/health?deep=1" "/login" "/status"; do
+            curl -fsS -m 20 --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null "$URL$path"
+            echo "✔ $path"
+          done

@@ -16,3 +16,7 @@
 - One pull request per bug, on a branch named `agent/<issue-number>-<short-name>`.
 - Explain the change so a non-developer can follow the first paragraph.
 - Say what you didn't do, and what a person should check.
+- Database changes keep the previous version of the app working (optional new columns; no
+  rename or drop in the same release), because a rollback changes the code only.
+- Follow `playbooks/01-bug-fix.md` for bugs and alerts, `playbooks/02-dependencies.md` for the
+  weekly run.

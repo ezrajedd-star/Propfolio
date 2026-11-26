@@ -1,9 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  # The release pipeline runs these same checks before anything is deployed.
+  workflow_call:
 
 permissions:
   contents: read

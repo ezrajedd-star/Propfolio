@@ -24,6 +24,7 @@ import { platformReopenAccount } from "@/server/accounts/closing";
 import { setDemoRequestHandled } from "@/server/demo/service";
 import { setWebsiteLeadHandled } from "@/server/website-leads/service";
 import { resolveIncident, sendTestAlert } from "@/server/monitoring/incidents";
+import { requestRestart } from "@/server/monitoring/outage";
 import { setSessionCookie } from "@/server/auth/current";
 import { startSupportSession } from "@/server/support-access/service";
 import { replyToTicket, setTicketResolved } from "@/server/tickets/service";
@@ -191,6 +192,20 @@ export async function resetStaffSignInAction(id: string) {
 export async function resolveIncidentAction(id: string, input: { note: string }) {
   const r = await asPlatformAdmin(async (admin) => {
     await resolveIncident(admin, id, String(input?.note ?? ""), await requestMeta());
+    return null;
+  });
+  revalidatePath("/platform/health");
+  return r;
+}
+
+export async function requestRestartAction(kind: string, input: { reason: string }) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await requestRestart(
+      admin,
+      kind as "RESTART_WEB" | "RESTART_WORKER",
+      String(input?.reason ?? ""),
+      await requestMeta(),
+    );
     return null;
   });
   revalidatePath("/platform/health");

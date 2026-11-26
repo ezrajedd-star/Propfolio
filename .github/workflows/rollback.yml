@@ -1,0 +1,39 @@
+# One-click rollback: Actions → Rollback → Run workflow. Goes back to the version released
+# before the current one (or the version you type). Code only; data is kept.
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      where:
+        description: "Which site"
+        type: choice
+        options: [production, staging]
+        default: production
+      version:
+        description: "Version (commit id) to go back to. Leave empty for the previous release."
+        required: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.where }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the version
+        env:
+          V: ${{ inputs.version }}
+        run: '[[ -z "$V" || "$V" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::A commit id, please (7 to 40 letters and numbers)."; exit 1; }'
+      - uses: ./.github/actions/deploy
+        with:
+          command: rollback ${{ inputs.version }}
+          host: ${{ vars.DEPLOY_HOST }}
+          known_hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          ssh_key: ${{ secrets.DEPLOY_SSH_KEY }}

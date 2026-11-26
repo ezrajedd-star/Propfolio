@@ -6,6 +6,7 @@ import { Section } from "@/components/marketing/section";
 import { STATE_LABELS, overallStatus, type ServiceState } from "@/domain/marketing/status";
 import { formatDateTime } from "@/domain/time/manila";
 import { cn } from "@/lib/utils";
+import { publicNotices } from "@/server/monitoring/outage";
 import { getSystemStatus } from "@/server/status";
 
 export const metadata: Metadata = {
@@ -25,7 +26,10 @@ const STYLE: Record<ServiceState, { icon: typeof CheckCircle2; className: string
 
 export default async function StatusPage() {
   const now = new Date();
-  const services = await getSystemStatus(now);
+  const [services, notices] = await Promise.all([
+    getSystemStatus(now),
+    publicNotices(now).catch(() => []),
+  ]);
   const overall = overallStatus(services);
   const O = STYLE[overall.state];
   return (
@@ -46,6 +50,33 @@ export default async function StatusPage() {
           <p className="text-muted-foreground mt-3">
             Checked {formatDateTime(now)} (Philippine time).
           </p>
+          {notices.length > 0 ? (
+            <ul className="mt-6 space-y-3" aria-label="Updates from the Propfolio team">
+              {notices.map((n) => {
+                const Icon = n.resolved ? CheckCircle2 : CircleAlert;
+                return (
+                  <li
+                    key={n.id}
+                    className={cn(
+                      "flex gap-3 rounded-2xl border p-5",
+                      n.resolved ? STYLE.ok.className : STYLE.degraded.className,
+                    )}
+                  >
+                    <Icon className="mt-0.5 size-5 shrink-0" aria-hidden />
+                    <div>
+                      <p className="font-semibold">
+                        {n.resolved ? "Resolved" : "Update from our team"}
+                      </p>
+                      <p className="text-foreground">{n.text}</p>
+                      {n.at ? (
+                        <p className="text-muted-foreground mt-1">Posted {formatDateTime(n.at)}</p>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
       </section>
       <Section className="pt-6">

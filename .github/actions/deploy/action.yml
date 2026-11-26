@@ -1,0 +1,24 @@
+# Runs one allowed command (deploy <commit>, rollback [<commit>] or status) on a Propfolio
+# server through its restricted "release" SSH user (deploy/release-setup.sh).
+name: Run a release command on the server
+inputs:
+  command: { required: true, description: "deploy <commit> | rollback [<commit>] | status" }
+  host: { required: true, description: "The server's address" }
+  known_hosts: { required: true, description: "The server's SSH host key line" }
+  ssh_key: { required: true, description: "The release user's private key" }
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        HOST: ${{ inputs.host }}
+        KNOWN: ${{ inputs.known_hosts }}
+        KEY: ${{ inputs.ssh_key }}
+        CMD: ${{ inputs.command }}
+      run: |
+        [[ -n "$HOST" && -n "$KNOWN" && -n "$KEY" ]] || { echo "::error::DEPLOY_HOST, DEPLOY_KNOWN_HOSTS or DEPLOY_SSH_KEY is missing for this environment (docs/ops-console/release-setup.md)."; exit 1; }
+        install -d -m 700 ~/.ssh
+        printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+        printf '%s\n' "$KEY" > ~/.ssh/release_key && chmod 600 ~/.ssh/release_key
+        ssh -i ~/.ssh/release_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "release@$HOST" "$CMD"
+        rm -f ~/.ssh/release_key

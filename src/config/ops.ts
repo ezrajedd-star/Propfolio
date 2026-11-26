@@ -81,3 +81,25 @@ export const GROWTH_SCHEDULE = {
   /** Mondays: content calendar with draft posts, and the weekly report. */
   weeklyCron: "40 8 * * 1",
 } as const;
+
+/** Outages (phase 7): status-page drafts, diagnostics and runbook-safe actions. */
+export const OUTAGE = {
+  /** An approved status-page message stays on /status this long after the incident is resolved. */
+  publicNoteHoursAfterResolve: 24,
+  /** Restart requests the server's watchdog hasn't picked up after this many minutes show as stuck. */
+  restartStuckMinutes: 5,
+  /** Errors (Sentry) open a GitHub issue labelled `alert` for the Engineering agent. */
+  githubIssueForErrors: true,
+} as const;
+
+/** The monthly backup-restore check (deploy/restore-check.sh, set up by setup.sh). */
+export const RESTORE_CHECK = {
+  /** On the server (UTC): 20:30 on the 1st = 04:30 Manila on the 2nd. deploy/ops-cron.sh sets it. */
+  serverScheduleUtc: "30 20 1 * *",
+  /** An incident opens when no check has been reported for this many days. */
+  overdueDays: 35,
+  /** The worker looks for an overdue check daily at this time (Manila). */
+  watchCron: "50 9 * * *",
+  /** Tables whose restored row count must be above zero for the check to pass. */
+  mustHaveRows: ["Account", "User", "_prisma_migrations"],
+} as const;

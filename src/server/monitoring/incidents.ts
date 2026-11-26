@@ -10,6 +10,7 @@ import { isUuid } from "@/server/db-errors";
 import type { PlatformActor } from "@/server/platform/auth";
 import { assertPlatformCan, writeStaffLog } from "@/server/platform/staff-log";
 import type { RequestMeta } from "@/server/request-meta";
+import { afterIncidentOpened, afterIncidentResolved } from "./outage";
 
 /**
  * Incidents: something wrong with Propfolio itself. Opened by Better Stack, Sentry and our own
@@ -58,6 +59,7 @@ export async function applySignal(
       db.incident.update({ where: { id: open.id }, data: { status: "RESOLVED", resolvedAt: now } }),
     );
     if (open.severity === "URGENT") await alert(open, send, now, true);
+    await afterIncidentResolved(open.id, now);
     return open.id;
   }
   const existing = await asSystem(() => db.incident.findUnique({ where: key }));
@@ -83,6 +85,7 @@ export async function applySignal(
     }),
   );
   await alert(incident, send, now);
+  await afterIncidentOpened(incident, now);
   return incident.id;
 }
 
@@ -150,6 +153,7 @@ export async function resolveIncident(
       );
     }),
   );
+  await afterIncidentResolved(id, now);
 }
 
 /** Send a test push so staff can check their phone gets alerts. */

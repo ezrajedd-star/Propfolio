@@ -858,3 +858,45 @@ playbooks/, evals/}`, changed only by pull request, published with `pnpm agent:s
   a List-Unsubscribe header. No LinkedIn automation, no bought lists.
 - Instructions and 5 made-up eval cases (follow-ups, consent, no discounts, injection in lead
   notes, posts) in `agents/growth/`.
+
+## 47. Operations console, phase 7: Engineering agent, releases and outages (26 Nov 2026)
+
+- **Engineering agent** on Claude Code GitHub Actions (`.github/workflows/engineering-agent.yml`).
+  Starts on the `bug` label, the `alert` label (error alerts: a Sentry incident opens a GitHub
+  issue with personal details masked) and every Monday for dependencies and security. Per bug:
+  failing test first, fix, all checks, one pull request on `agent/<issue>-<name>` with a plain
+  explanation and a risk level (`agents/engineering/playbooks/`). Its only secret is its own
+  Anthropic key ($50 cap set in the Anthropic console). Tool allow/deny lists forbid merging,
+  reviewing, raw API calls, secrets, workflows, pushing to `main`, force-pushing and the network;
+  it can push only `agent/*` branches; its test database lives in the job. Branch protection on
+  `main` (documented; GitHub settings are the founder's to change) requires a reviewed pull
+  request and green checks. A unit test (`src/config/ops-guardrails.test.ts`) fails if any of
+  this is loosened.
+- **Release pipeline** (`release.yml`): merge to `main` → the CI checks → staging (when
+  `STAGING_ENABLED`) with a smoke check → production behind the `production` environment's
+  required reviewer (one click) → smoke check. The server deploys through a restricted `release`
+  SSH user whose key can only run `deploy <commit>`, `rollback [<commit>]` and `status`
+  (`deploy/release-ssh.sh`, a forced command). `deploy/release.sh` backs up first and **rolls
+  back by itself** if the new version fails its health check within 3 minutes. One-click
+  rollback: `rollback.yml`. Rollback changes code only, so database changes must keep the
+  previous version working (optional new columns; no rename or drop in the same release).
+- **Staging decision:** not now. Recommended once there are paying customers (a 2 GB droplet,
+  about $12 a month, the test-mode site). Until then releases go from checks to approval.
+- **Outages:** an incident records diagnostics (database, background jobs, other incidents in
+  the hour) and a suggested runbook-safe step (`src/domain/ops/outage.ts`). Urgent incidents
+  draft a **status-page message** for approval (STATUS_UPDATE, always Draft); approved text is
+  shown on `/status` while open and 24 hours after; a "Fixed" draft follows when resolved, and a
+  waiting draft is withdrawn if the incident resolves first. Alerts go to the phone with an
+  optional second contact (unchanged from phase 1b).
+- **Runbook-safe actions only:** "Restart the web app" and "Restart background jobs" on System
+  health (staff log, health.manage). The server's watchdog (`deploy/watchdog.sh`, every minute)
+  carries them out and reports back, and restarts by itself when the app fails 3 checks in a row
+  or the jobs stop — at most once per 15 minutes, never when the database is down, never the
+  database itself, never deleting anything. Runbook: `docs/runbooks/outage.md`.
+- **Monthly backup-restore check** (`deploy/restore-check.sh`, 04:30 Manila on the 2nd): the
+  newest backup is restored into a throw-away database with no network, every table's rows are
+  counted, the copy is deleted and the counts (no data) go to System health; Platform Owners
+  get the report by email. A failure, or no report for 35 days, opens an incident.
+- **Sentry Seer:** evaluated, not bought (`docs/ops-console/sentry-seer-evaluation.md`): it
+  overlaps with the Engineering agent and its pricing changes on 8 Dec 2026 to unpublished
+  credits. **Billing agent (Wave 2):** outline only (`docs/ops-console/billing-agent-outline.md`).

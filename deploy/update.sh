@@ -4,6 +4,11 @@
 set -euo pipefail
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DEPLOY_DIR/.."
+if ! git symbolic-ref -q HEAD >/dev/null; then
+  echo "This server is updated by the release pipeline (GitHub → Actions → Release)."
+  echo "To update by hand anyway: sudo bash deploy/release.sh deploy <commit>"
+  exit 1
+fi
 echo "▶ Backing up first"
 bash "$DEPLOY_DIR/backup.sh"
 echo "▶ Getting the newest version"
@@ -18,6 +23,7 @@ for agent in SUPPORT GROWTH DIGEST ENGINEERING; do
     echo "AGENT_KEY_${agent}=$(openssl rand -hex 24)" >> .env
   fi
 done
+bash "$DEPLOY_DIR/ops-cron.sh"
 echo "▶ Rebuilding and restarting (database changes are applied automatically)"
 docker compose build
 docker compose up -d
