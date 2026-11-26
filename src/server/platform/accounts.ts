@@ -155,7 +155,7 @@ export async function getAccountDetail(admin: PlatformActor, id: string, now = n
     if (!isUuid(id)) throw new NotFoundError("We couldn't find that account.");
     const account = await db.account.findUnique({ where: { id } });
     if (!account) throw new NotFoundError("We couldn't find that account.");
-    const [c, owner, members, leases, lastSeen, payments, history] = await Promise.all([
+    const [c, owner, members, leases, lastSeen, payments, history, address] = await Promise.all([
       counts([id]),
       db.membership.findFirst({
         where: { accountId: id, role: "OWNER" },
@@ -171,17 +171,24 @@ export async function getAccountDetail(admin: PlatformActor, id: string, now = n
         },
       }),
       db.lease.count({ where: { accountId: id, archivedAt: null } }),
-      db.session.aggregate({ where: { accountId: id }, _max: { lastSeenAt: true } }),
+      db.session.aggregate({
+        where: { accountId: id, supportGrantId: null },
+        _max: { lastSeenAt: true },
+      }),
       db.manualPayment.findMany({ where: { accountId: id }, orderBy: { recordedAt: "desc" } }),
       db.auditLog.findMany({
         where: {
-          entityType: "Account",
-          entityId: id,
+          OR: [{ accountId: id }, { accountId: null, entityType: "Account", entityId: id }],
           metadata: { path: ["platform"], equals: true },
+          action: { not: "support.page_viewed" },
         },
         orderBy: { seq: "desc" },
         take: 50,
         select: { seq: true, at: true, actorName: true, action: true, metadata: true },
+      }),
+      db.setting.findUnique({
+        where: { accountId_key: { accountId: id, key: "companyAddress" } },
+        select: { value: true },
       }),
     ]);
     return {
@@ -204,6 +211,8 @@ export async function getAccountDetail(admin: PlatformActor, id: string, now = n
       })),
       leases,
       lastActive: lastSeen._max.lastSeenAt,
+      /** Printed on payment records with the account's name. */
+      billingAddress: typeof address?.value === "string" ? address.value : "",
       payments: payments.map((p) => ({
         id: p.id,
         amount: moneyString(p.amount),

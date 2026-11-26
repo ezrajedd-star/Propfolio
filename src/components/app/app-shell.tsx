@@ -55,6 +55,8 @@ export interface ShellOptions {
   guide: { on: boolean; tourDone: boolean; toursDone: TaskTourId[] };
   /** Test (UAT) version: banner and "Send feedback". */
   uat: boolean;
+  /** Shown above everything (e.g. while Propfolio support access is on). */
+  banner?: React.ReactNode;
 }
 
 function isActive(pathname: string, href: string) {
@@ -175,7 +177,7 @@ export function AppShell({
       firstName={user.name.trim().split(/\s+/)[0] ?? user.name}
       uat={options.uat}
     >
-      <Shell user={user} plan={plan} uat={options.uat}>
+      <Shell user={user} plan={plan} uat={options.uat} banner={options.banner}>
         {children}
       </Shell>
     </GuideProvider>
@@ -238,17 +240,20 @@ function Shell({
   user,
   plan,
   uat,
+  banner,
   children,
 }: {
   user: ShellUser;
   plan: ShellPlan;
   uat: boolean;
+  banner?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr] lg:grid-rows-[auto_1fr]">
+      {banner}
       {uat ? <UatBanner /> : null}
       <PlanBanner plan={plan} />
       <a

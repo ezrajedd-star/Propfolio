@@ -9,6 +9,7 @@ import {
 } from "@/domain/auth/session-policy";
 import { documentsToAccept, type LegalDocumentName } from "@/domain/legal/documents";
 import { twoStepState, type TwoStepState } from "@/domain/auth/two-step";
+import { grantIsActive } from "@/domain/auth/support-access";
 import { asSystem, db } from "@/server/db";
 import { loadPlanAccess, memberWithinUserLimit } from "@/server/plans/access";
 import type { RequestMeta } from "@/server/request-meta";
@@ -26,8 +27,19 @@ export interface SessionUser {
   legalToAccept: LegalDocumentName[];
 }
 
+/** Propfolio support working in the account under its support access. */
+export interface SupportContext {
+  adminId: string;
+  adminName: string;
+  grantId: string;
+  /** When the account's support access ends. */
+  accessEndsAt: Date;
+}
+
 export interface ValidSession {
   sessionId: string;
+  /** Set only for a Propfolio support session. */
+  support?: SupportContext;
   /** The account this session works in. */
   accountId: string;
   /** `role` is the person's role in that account. */
@@ -91,6 +103,7 @@ export function validateSessionToken(
       },
     });
     if (!session) return null;
+    if (session.supportGrantId) return validateSupportSession(session, now);
 
     const membership = await db.membership.findUnique({
       where: { accountId_userId: { accountId: session.accountId, userId: session.userId } },
@@ -159,6 +172,68 @@ export function validateSessionToken(
       },
     };
   });
+}
+
+/**
+ * A support session is valid while the account's support access lasts (not turned off, not
+ * past its end), the account is active, and within the usual idle and absolute limits. Support
+ * works with User Admin rights minus the support exclusions (see domain/auth/support-access).
+ */
+async function validateSupportSession(
+  session: {
+    id: string;
+    accountId: string;
+    supportGrantId: string | null;
+    supportAdminId: string | null;
+    supportAdminName: string | null;
+    lastSeenAt: Date;
+    expiresAt: Date;
+    revokedAt: Date | null;
+    account: { status: string };
+    user: { id: string; name: string; email: string };
+  },
+  now: Date,
+): Promise<ValidSession | null> {
+  const grant = await db.supportAccessGrant.findUnique({ where: { id: session.supportGrantId! } });
+  const access =
+    grant && grant.accountId === session.accountId && session.account.status === "ACTIVE"
+      ? await loadPlanAccess(session.accountId, now, db)
+      : null;
+  if (
+    !grant ||
+    !access ||
+    !grantIsActive(grant, now) ||
+    !session.supportAdminId ||
+    checkSession(session, now, { idleTimeout: true }) !== "valid"
+  ) {
+    if (!session.revokedAt) {
+      await db.session.update({ where: { id: session.id }, data: { revokedAt: now } });
+    }
+    return null;
+  }
+  if (shouldTouch(session, now)) {
+    await db.session.update({ where: { id: session.id }, data: { lastSeenAt: now } });
+  }
+  return {
+    sessionId: session.id,
+    accountId: session.accountId,
+    access,
+    support: {
+      adminId: session.supportAdminId,
+      adminName: session.supportAdminName ?? "Propfolio support",
+      grantId: grant.id,
+      accessEndsAt: grant.expiresAt,
+    },
+    user: {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      role: "ADMIN",
+      mustChangePassword: false,
+      twoStep: "on",
+      legalToAccept: [],
+    },
+  };
 }
 
 export async function revokeSession(sessionId: string, now = new Date()): Promise<void> {

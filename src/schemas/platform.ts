@@ -70,3 +70,35 @@ export const addStaffSchema = z.object({
 });
 
 export const staffRoleSchema = z.object({ role: platformRoleSchema });
+
+const supportReason = requiredText(500, "Say why (the ticket or what the customer asked).");
+
+export const supportReasonSchema = z.object({ reason: supportReason });
+
+export const IDENTITY_CHECK_METHODS = [
+  "VIDEO_CALL_ID",
+  "CALL_TO_OWNER",
+  "EMAIL_FROM_OWNER",
+  "OTHER",
+] as const;
+
+export const IDENTITY_CHECK_LABELS: Record<(typeof IDENTITY_CHECK_METHODS)[number], string> = {
+  VIDEO_CALL_ID: "Video call, matched their face to a government ID",
+  CALL_TO_OWNER: "Called the account Owner on the number we have, who confirmed",
+  EMAIL_FROM_OWNER: "The account Owner confirmed by email from their own address",
+  OTHER: "Something else (describe it)",
+};
+
+export const resetTwoStepSupportSchema = z.object({
+  reason: supportReason,
+  identityMethod: z.enum(IDENTITY_CHECK_METHODS, { error: "Choose how you checked who they are." }),
+  identityNotes: requiredText(500, "Say what you checked, e.g. which ID and who confirmed."),
+});
+
+export const billingDetailsSchema = z.object({
+  name: requiredText(120, "Enter the name on payment records."),
+  address: z.string().trim().max(300, "Keep the address under 300 characters."),
+  reason: supportReason,
+});
+
+export const findSignUpSchema = z.object({ email: emailSchema });

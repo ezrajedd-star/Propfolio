@@ -21,7 +21,8 @@ import {
   resetPasswordWithToken,
 } from "@/server/auth/passwords";
 import { completeSignInWithCode, signIn, signOut, type SignedIn } from "@/server/auth/sign-in";
-import { UnauthenticatedError } from "@/server/errors";
+import { SUPPORT_REFUSED } from "@/server/auth/authorize";
+import { ForbiddenError, UnauthenticatedError } from "@/server/errors";
 import { waitText } from "@/server/rate-limit";
 import { requestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
@@ -114,6 +115,8 @@ export async function signOutAction(): Promise<void> {
   const session = await getCurrentSession();
   if (session) await signOut(session, await requestMeta());
   await clearSessionCookie();
+  // Propfolio support leaving support mode goes back to the console.
+  if (session?.support) redirect(`/platform/accounts/${session.accountId}?support=ended`);
   redirect("/login?reason=signed-out");
 }
 
@@ -121,6 +124,7 @@ export async function changePasswordAction(input: unknown): Promise<ActionResult
   const result = await runAction(async () => {
     const session = await getCurrentSession();
     if (!session) throw new UnauthenticatedError();
+    if (session.support) throw new ForbiddenError(SUPPORT_REFUSED);
     await changeOwnPassword(
       {
         ...session.user,

@@ -653,3 +653,41 @@ off-site backups, UptimeRobot on `/api/health`).
   (database, background jobs, email, Sentry, alert token, Pushover), resolved incidents of the
   last 30 days, "Mark resolved" with a note and "Send a test alert" (Support and Owner; both in
   the staff log). Today shows open incidents.
+
+## 40. Operations console, phase 2: support tools and customer-granted support access (26 Nov 2026)
+
+- **Support tools** (Platform Support and Owner; `src/server/platform/support-tools.ts`), each with
+  a required reason, written to the staff log and the customer's own audit log in one
+  transaction:
+  - **Extend a trial** (already existed).
+  - **Send a new sign-up code** to a sign-up still waiting for its code (found by the exact
+    email). No account exists yet, so it goes in the staff log and Propfolio's own audit entry.
+  - **Unlock** someone locked out after wrong passwords.
+  - **Reset two-step sign-in** after an identity check, which is recorded (how: video call with
+    ID, call to the Owner on file, email from the Owner, other; and what was checked). They are
+    signed out everywhere.
+  - **Correct the billing name and address** (the account name and its address setting). Payment
+    records already issued keep what they said.
+- **Customer-granted support access:** the Owner or a User Admin turns on "Allow Propfolio support
+  access" (Settings) for 24 hours, 3 days or 7 days, and can turn it off at any time (open
+  support sessions end at once). Everyone in the account sees a banner while it is on.
+  - Staff open the customer's app from the console ("Open their app in support mode"). This makes
+    a normal app session for a stand-in person per staff member ("Propfolio support (Name)"), who
+    has no membership and no usable password, so can't sign in any other way. A support session
+    lasts at most 8 hours, never past the access's end, with the usual 30-minute idle timeout.
+  - Support works with User Admin rights **minus**: users and their access, billing, privacy
+    exports and anonymising, permanent deletion and data exports; also not the stand-in's own
+    password or two-step settings, and never the support-access setting itself.
+  - **Every page support opens** goes in the account's audit log and the staff log with its
+    address (a request header set by `src/proxy.ts`, which now runs on all pages), and every
+    change is audited by the services as usual, under "Propfolio support (Name)". Leaving support
+    mode returns to the console.
+- **Reviewed data fixes:** `scripts/data-fixes/` with a template (what, why, ticket), run by
+  `pnpm data-fix` (dry run by default, rolled back; `--apply --approved-by` to apply), in one
+  transaction, logged in the staff log with counts only. On servers `deploy/data-fix.sh` takes a
+  backup before applying. CI dry-runs every fix. Steps: `scripts/data-fixes/README.md`. Running
+  it from the release pipeline comes with phase 7.
+- **Break-glass runbook** with safe actions first and an after-note template:
+  `docs/runbooks/break-glass.md`. No database editor in the console.
+- **No AI agent can use any of these tools.** They are not part of the agent API (phase 5), and a
+  test checks that the agent actions never include them.

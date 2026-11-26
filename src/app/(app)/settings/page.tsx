@@ -5,6 +5,7 @@ import {
   ChevronRight,
   FileUp,
   Gem,
+  LifeBuoy,
   Lock,
   MailCheck,
   MessageSquareText,
@@ -88,6 +89,12 @@ const SECTIONS: {
     icon: ShieldCheck,
     title: "Privacy",
     text: "Privacy notice, privacy officer, data retention.",
+  },
+  {
+    href: "/settings/support-access",
+    icon: LifeBuoy,
+    title: "Propfolio support access",
+    text: "Let our support team into your account for a while, to help you.",
   },
   {
     href: "/settings/your-data",

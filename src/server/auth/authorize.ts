@@ -7,7 +7,9 @@ import {
   type Feature,
   type PlanAccess,
 } from "@/domain/plans/plans";
+import { supportMay } from "@/domain/auth/support-access";
 import { ForbiddenError, PlanLimitError } from "@/server/errors";
+import type { SupportContext } from "./session";
 
 export interface Actor {
   id: string;
@@ -20,7 +22,14 @@ export interface Actor {
   /** What the account's plan allows right now (read from the database on every request). */
   access: PlanAccess;
   sessionId?: string;
+  /** Set when Propfolio support is working in the account (support access). */
+  support?: SupportContext;
 }
+
+export const SUPPORT_REFUSED =
+  "Propfolio support can't do this, even with support access. Ask the account's Owner or a User Admin.";
+
+type Checked = Pick<Actor, "role" | "access"> & { support?: SupportContext };
 
 export interface CanOptions {
   /** Allowed while the account is read-only (archiving units to get back within the limit). */
@@ -28,11 +37,8 @@ export interface CanOptions {
 }
 
 /** Role AND plan: the one check behind every page, action, API route and button. */
-export function canDo(
-  actor: Pick<Actor, "role" | "access">,
-  permission: Permission,
-  options: CanOptions = {},
-): boolean {
+export function canDo(actor: Checked, permission: Permission, options: CanOptions = {}): boolean {
+  if (actor.support && !supportMay(permission)) return false;
   return can(actor.role, permission) && planDenial(actor.access, permission, options) === null;
 }
 
@@ -50,11 +56,8 @@ export function planLimitError(
   );
 }
 
-export function assertCan(
-  actor: Pick<Actor, "role" | "access">,
-  permission: Permission,
-  options: CanOptions = {},
-): void {
+export function assertCan(actor: Checked, permission: Permission, options: CanOptions = {}): void {
+  if (actor.support && !supportMay(permission)) throw new ForbiddenError(SUPPORT_REFUSED);
   if (!can(actor.role, permission)) throw new ForbiddenError();
   const planError = planLimitError(actor.access, permission, options);
   if (planError) throw planError;

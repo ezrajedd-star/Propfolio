@@ -14,7 +14,7 @@ import { db } from "@/server/db";
 export const metadata: Metadata = { title: "My account" };
 
 export default async function AccountPage() {
-  const actor = await requirePageUser();
+  const actor = await requirePageUser(undefined, { personal: true });
   const user = await db.user.findUniqueOrThrow({
     where: { id: actor.id },
     select: { passwordChangedAt: true, lastLoginAt: true },

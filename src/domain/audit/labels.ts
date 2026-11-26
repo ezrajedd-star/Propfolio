@@ -66,6 +66,14 @@ const LABELS: Record<string, string> = {
   "platform.plan_changed": "Propfolio changed the plan",
   "platform.account_reopened": "Propfolio reopened the account",
   "account.reopened": "Reopened the account",
+  "support_access.granted": "Allowed Propfolio support access",
+  "support_access.revoked": "Turned off Propfolio support access",
+  "support.session_started": "Propfolio support opened the account",
+  "support.session_ended": "Propfolio support left the account",
+  "support.page_viewed": "Propfolio support looked at a page",
+  "support.user_unlocked": "Propfolio unlocked a person",
+  "support.two_step_reset": "Propfolio reset a person's two-step sign-in",
+  "support.billing_details_corrected": "Propfolio corrected the billing name or address",
 };
 
 export function auditActionLabel(action: string): string {

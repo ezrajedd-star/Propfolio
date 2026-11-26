@@ -12,7 +12,9 @@ import {
   UnauthenticatedError,
 } from "@/server/errors";
 import { planDenial } from "@/domain/plans/plans";
-import { planLimitError, type Actor, type CanOptions } from "./authorize";
+import { supportMay } from "@/domain/auth/support-access";
+import { SUPPORT_REFUSED, planLimitError, type Actor, type CanOptions } from "./authorize";
+import { logSupportView } from "./support-view";
 import { validateSessionToken, type ValidSession } from "./session";
 
 /**
@@ -136,7 +138,13 @@ setRequestAccountResolver(async () => {
 });
 
 function toActor(s: ValidSession): Actor {
-  return { ...s.user, accountId: s.accountId, access: s.access, sessionId: s.sessionId };
+  return {
+    ...s.user,
+    accountId: s.accountId,
+    access: s.access,
+    sessionId: s.sessionId,
+    ...(s.support ? { support: s.support } : {}),
+  };
 }
 
 /** The two-step set-up page and its actions are the only things allowed before set-up. */
@@ -147,6 +155,8 @@ interface Options extends CanOptions {
   duringTwoStepSetup?: boolean;
   /** The "accept the new version" page itself. */
   duringLegalAcceptance?: boolean;
+  /** The person's own settings (password, two-step): never for Propfolio support. */
+  personal?: boolean;
 }
 
 /**
@@ -167,7 +177,11 @@ export async function requirePageUser(
   if (session.user.twoStep === "setup_required" && !options.duringTwoStepSetup) {
     redirect(TWO_STEP_SETUP_PATH);
   }
+  if (session.support && (options.personal || (permission && !supportMay(permission)))) {
+    redirect("/no-access?reason=support");
+  }
   if (permission && !can(session.user.role, permission)) redirect("/no-access");
+  if (session.support && permission) await logSupportView(session);
   if (permission) {
     // The role allows it but the plan doesn't: show what upgrading would unlock.
     const denial = planDenial(session.access, permission, options);
@@ -184,6 +198,9 @@ export async function requireActor(permission?: Permission, options: Options = {
   if (session.user.mustChangePassword) throw new PasswordChangeRequiredError();
   if (session.user.twoStep === "setup_required" && !options.duringTwoStepSetup) {
     throw new TwoStepSetupRequiredError();
+  }
+  if (session.support && (options.personal || (permission && !supportMay(permission)))) {
+    throw new ForbiddenError(SUPPORT_REFUSED);
   }
   if (permission && !can(session.user.role, permission)) throw new ForbiddenError();
   if (permission) {

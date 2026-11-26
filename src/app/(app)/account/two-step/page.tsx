@@ -14,7 +14,7 @@ import { ForgetDevicesButton, NewRecoveryCodes, TurnOffTwoStep } from "./two-ste
 export const metadata: Metadata = { title: "Two-step sign-in" };
 
 export default async function TwoStepPage() {
-  const actor = await requirePageUser();
+  const actor = await requirePageUser(undefined, { personal: true });
   const s = await getTwoStepSummary(actor);
   const on = s.state === "on";
 

@@ -26,7 +26,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage",
     "qa": "playwright test --config qa/playwright.config.ts",
-    "platform:admin": "tsx --tsconfig tsconfig.worker.json scripts/platform-admin.ts"
+    "platform:admin": "tsx --tsconfig tsconfig.worker.json scripts/platform-admin.ts",
+    "data-fix": "tsx --tsconfig tsconfig.worker.json scripts/data-fix.ts"
   },
   "prisma": {
     "seed": "tsx --tsconfig tsconfig.worker.json prisma/seed.ts"

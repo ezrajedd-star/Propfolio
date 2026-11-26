@@ -17,7 +17,7 @@ import { requestMeta } from "@/server/request-meta";
 export async function confirmTwoStepAction(input: { code: string }) {
   return runAction(async () =>
     confirmTwoStepSetup(
-      await requireActor(undefined, { duringTwoStepSetup: true }),
+      await requireActor(undefined, { duringTwoStepSetup: true, personal: true }),
       input,
       await requestMeta(),
     ),
@@ -26,13 +26,17 @@ export async function confirmTwoStepAction(input: { code: string }) {
 
 export async function newRecoveryCodesAction(input: { code: string }) {
   return runAction(async () =>
-    newRecoveryCodesFor(await requireActor(), input, await requestMeta()),
+    newRecoveryCodesFor(
+      await requireActor(undefined, { personal: true }),
+      input,
+      await requestMeta(),
+    ),
   );
 }
 
 export async function turnOffTwoStepAction(input: { password: string; code: string }) {
   const result = await runAction(async () =>
-    turnOffTwoStep(await requireActor(), input, await requestMeta()),
+    turnOffTwoStep(await requireActor(undefined, { personal: true }), input, await requestMeta()),
   );
   revalidatePath("/account/two-step");
   return result;
@@ -40,7 +44,7 @@ export async function turnOffTwoStepAction(input: { password: string; code: stri
 
 export async function forgetDevicesAction() {
   const result = await runAction(async () =>
-    forgetMyDevices(await requireActor(), await requestMeta()),
+    forgetMyDevices(await requireActor(undefined, { personal: true }), await requestMeta()),
   );
   revalidatePath("/account/two-step");
   return result;

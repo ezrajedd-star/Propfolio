@@ -110,7 +110,7 @@ test("lists accounts with no tenant data, and suspends and reactivates one", asy
 
   // Extend the trial and record a bank transfer.
   await page.getByLabel("Last day of the trial").fill("2099-12-31");
-  await page.getByLabel("Why").fill("E2E check");
+  await page.getByLabel("Why", { exact: true }).fill("E2E check");
   await page.getByRole("button", { name: "Extend trial" }).click();
   await expect(page.getByText("Trial extended ✓")).toBeVisible();
   await expect(page.getByText("31 Dec 2099").first()).toBeVisible();
@@ -121,6 +121,34 @@ test("lists accounts with no tenant data, and suspends and reactivates one", asy
   await page.getByRole("button", { name: "Record payment" }).click();
   await expect(page.getByRole("cell", { name: "E2E-BDO-1" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "₱18,000.00" })).toBeVisible();
+
+  // Support access: the customer allows it, and staff open their app in support mode.
+  const owner = await page.context().browser()!.newPage();
+  await signInAs(owner, "other");
+  await owner.goto("/settings/support-access");
+  await owner.getByLabel("3 days").check();
+  await owner.getByRole("button", { name: "Allow Propfolio support access" }).click();
+  await expect(owner.getByText("Propfolio support access is on ✓")).toBeVisible();
+  await owner.reload();
+  await expect(
+    owner.getByRole("note").filter({ hasText: "Propfolio support can access this account" }),
+  ).toBeVisible();
+  await owner.close();
+
+  await page.reload();
+  await page.getByRole("button", { name: "Open their app in support mode" }).click();
+  await expect(page.getByRole("note").filter({ hasText: "Support mode" })).toBeVisible();
+  await page.goto("/settings/users");
+  await expect(page.getByText("Propfolio support can't open this")).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Leave support mode" }).click();
+  await expect(page).toHaveURL(/\/platform\/accounts\/.+support=ended/);
+  await expect(
+    page
+      .getByRole("main")
+      .getByRole("listitem")
+      .filter({ hasText: "Opened the app in support mode" }),
+  ).toBeVisible();
 
   // Suspend: its people can't sign in.
   await page.getByRole("button", { name: "Suspend account" }).click();

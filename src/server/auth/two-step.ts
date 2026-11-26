@@ -315,7 +315,7 @@ export async function forgetMyDevices(actor: Actor, meta: RequestMeta, now = new
   return count;
 }
 
-async function clearTwoStep(tx: Tx, userId: string, now: Date) {
+export async function clearTwoStep(tx: Tx, userId: string, now: Date) {
   await tx.user.update({
     where: { id: userId },
     data: { totpSecretEnc: null, totpConfirmedAt: null, totpLastStep: null },

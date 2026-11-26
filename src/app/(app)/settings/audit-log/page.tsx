@@ -40,6 +40,7 @@ function Details({ row }: { row: AuditLogRow }) {
   return (
     <div className="space-y-1">
       {reason ? <p className="text-sm">Reason: {reason}</p> : null}
+      {typeof metadata.path === "string" ? <p className="text-sm">Page: {metadata.path}</p> : null}
       {hasChanges || Object.keys(metadata).length > 0 ? (
         <details className="text-sm">
           <summary className="text-primary cursor-pointer">Show details</summary>

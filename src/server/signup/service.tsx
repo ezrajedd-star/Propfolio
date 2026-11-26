@@ -372,3 +372,32 @@ export async function purgeExpiredSignUps(now = new Date()): Promise<number> {
   );
   return count;
 }
+
+/**
+ * Propfolio support resends the code for a sign-up that is still waiting (the person couldn't
+ * find the email). No waiting time, but the code still expires as usual. Returns false when the
+ * sign-up has gone. The caller records who did it and why.
+ */
+export async function supportResendSignUpCode(
+  pendingId: string,
+  now = new Date(),
+  deps: Pick<SignUpDeps, "send"> = { send: deliver },
+): Promise<boolean> {
+  return asSystem(async () => {
+    const pending = await db.pendingSignUp.findUnique({ where: { id: pendingId } });
+    if (!pending || !pending.codeHash) return false;
+    const code = sixDigits();
+    await db.pendingSignUp.update({
+      where: { id: pending.id },
+      data: {
+        codeHash: codeHash(pending.id, code),
+        codesSent: { increment: 1 },
+        attempts: 0,
+        codeSentAt: now,
+        expiresAt: codeExpiry(now),
+      },
+    });
+    await sendCode({ ...defaultDeps(), ...deps }, pending, code);
+    return true;
+  });
+}

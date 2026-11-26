@@ -21,6 +21,13 @@ import { isUuid } from "@/server/db-errors";
 import { NotFoundError } from "@/server/errors";
 import { getAccountDetail } from "@/server/platform/accounts";
 import { requirePlatformPage } from "@/server/platform/current";
+import { supportAccessForConsole } from "@/server/support-access/service";
+import {
+  BillingDetailsForm,
+  OpenSupportModeButton,
+  ResetTwoStepButton,
+  UnlockUserButton,
+} from "./support-forms";
 import { AccountStatusBadge, PLAN_LABELS, planLabel } from "../../account-badges";
 import {
   ChangePlanForm,
@@ -39,6 +46,10 @@ const ACTION_LABELS: Record<string, string> = {
   "platform.account_reactivated": "Account reactivated",
   "account.reopened": "Account reopened",
   "platform.plan_changed": "Plan changed",
+  "support.user_unlocked": "Unlocked a person",
+  "support.two_step_reset": "Reset a person's two-step sign-in",
+  "support.billing_details_corrected": "Billing details corrected",
+  "support.session_started": "Opened the app in support mode",
 };
 
 export default async function PlatformAccountPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,10 +63,13 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
   });
   const canBilling = platformCan(admin.role, "billing.manage");
   const canSupport = platformCan(admin.role, "accounts.support");
-  const account = await getAccountDetail(admin, id).catch((err: unknown) => {
-    if (err instanceof NotFoundError) notFound();
-    throw err;
-  });
+  const [account, supportAccess] = await Promise.all([
+    getAccountDetail(admin, id).catch((err: unknown) => {
+      if (err instanceof NotFoundError) notFound();
+      throw err;
+    }),
+    supportAccessForConsole(admin, id),
+  ]);
   const suspended = account.status === "SUSPENDED";
 
   return (
@@ -135,6 +149,43 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
           </CardContent>
         </Card>
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Support access</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {supportAccess ? (
+                <>
+                  <p>
+                    On until {formatDateTime(supportAccess.expiresAt)} (turned on by{" "}
+                    {supportAccess.grantedByName}).
+                  </p>
+                  {canSupport && account.status === "ACTIVE" ? (
+                    <OpenSupportModeButton accountId={account.id} />
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  Off. The Owner or a User Admin can turn it on in Settings → Propfolio support
+                  access.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          {canSupport ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing name and address</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BillingDetailsForm
+                  accountId={account.id}
+                  name={account.name}
+                  address={account.billingAddress}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
           {canBilling ? (
             <Card>
               <CardHeader>
@@ -180,6 +231,7 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last sign-in</TableHead>
+              {canSupport ? <TableHead>Support tools</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -195,6 +247,16 @@ export default async function PlatformAccountPage({ params }: { params: Promise<
                       : "Active"}
                 </TableCell>
                 <TableCell>{u.lastSignIn ? formatDateTime(u.lastSignIn) : "Never"}</TableCell>
+                {canSupport ? (
+                  <TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      {u.locked ? (
+                        <UnlockUserButton accountId={account.id} userId={u.id} name={u.name} />
+                      ) : null}
+                      <ResetTwoStepButton accountId={account.id} userId={u.id} name={u.name} />
+                    </div>
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))}
           </TableBody>

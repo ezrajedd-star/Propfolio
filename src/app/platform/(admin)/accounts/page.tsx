@@ -61,6 +61,11 @@ export default async function PlatformAccountsPage({
       <PageHeader
         title="Accounts"
         description="Every customer account, newest first. Open one to see its plan, payments and people."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/platform/accounts/signups">Sign-ups waiting for a code</Link>
+          </Button>
+        }
       />
       <form className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5" role="search">
         <div className="lg:col-span-2">

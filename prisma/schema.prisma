@@ -451,6 +451,9 @@ model PlatformSession {
 model User {
   id                 String    @id @default(uuid(7)) @db.Uuid
   name               String
+  /// A stand-in person for one Propfolio staff member in support mode. No membership, no usable
+  /// password; only support sessions use it.
+  isSupportStaff     Boolean   @default(false)
   /// Always stored lower-cased and trimmed.
   email              String    @unique
   passwordHash       String
@@ -533,26 +536,32 @@ model SignInChallenge {
 
 /// Server-side session. The browser only holds an opaque random token; we store its SHA-256.
 model Session {
-  id         String    @id @default(uuid(7)) @db.Uuid
-  tokenHash  String    @unique
-  userId     String    @db.Uuid
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String    @id @default(uuid(7)) @db.Uuid
+  tokenHash        String    @unique
+  userId           String    @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// The account this session works in (a person can belong to several).
-  accountId  String    @db.Uuid
-  account    Account   @relation(fields: [accountId], references: [id])
-  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
-  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  accountId        String    @db.Uuid
+  account          Account   @relation(fields: [accountId], references: [id])
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt       DateTime  @default(now()) @db.Timestamptz(3)
   /// Absolute expiry, regardless of activity.
-  expiresAt  DateTime  @db.Timestamptz(3)
-  revokedAt  DateTime? @db.Timestamptz(3)
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
   /// "Keep me signed in on this device": lasts 30 days (Owners and Admins still time out after
   /// 30 idle minutes while the account's setting is on).
-  persistent Boolean   @default(false)
-  ipAddress  String?
-  userAgent  String?
+  persistent       Boolean   @default(false)
+  ipAddress        String?
+  userAgent        String?
+  /// Set when Propfolio support opened this session under the account's support access.
+  supportGrantId   String?   @db.Uuid
+  /// The staff member (PlatformAdmin) using it, and their name at the time.
+  supportAdminId   String?   @db.Uuid
+  supportAdminName String?
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([supportGrantId])
 }
 
 model PasswordResetToken {
@@ -1263,4 +1272,100 @@ model Incident {
 model SystemHeartbeat {
   name String   @id
   at   DateTime @db.Timestamptz(3)
+}
+
+/// An account's Owner or User Admin lets Propfolio support into the app for a while. Ends by
+/// itself; can be turned off at any time. Support works only through the normal app screens.
+model SupportAccessGrant {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  accountId     String    @db.Uuid
+  grantedById   String    @db.Uuid
+  grantedByName String
+  grantedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt     DateTime  @db.Timestamptz(3)
+  revokedAt     DateTime? @db.Timestamptz(3)
+  revokedById   String?   @db.Uuid
+
+  @@index([accountId, expiresAt])
+}
+
+enum TicketStatus {
+  NEW
+  WAITING_ON_CUSTOMER
+  WAITING_ON_US
+  RESOLVED
+}
+
+/// Also the Support agent's classification (phase 6).
+enum TicketCategory {
+  HOW_TO
+  BUG
+  BILLING
+  PRIVACY
+  FEATURE
+  COMPLAINT
+  OTHER
+}
+
+enum TicketLanguage {
+  EN
+  TL
+  CEB
+}
+
+enum TicketAuthor {
+  CUSTOMER
+  STAFF
+  AGENT
+  SYSTEM
+}
+
+/// A customer's request for help, from the in-app Help button. System-only table: customers
+/// reach their own tickets through the app's services, staff through the console.
+model Ticket {
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  /// Shown as "T-1001".
+  number                Int            @unique @default(autoincrement())
+  accountId             String         @db.Uuid
+  /// The customer who asked.
+  userId                String         @db.Uuid
+  subject               String
+  category              TicketCategory
+  language              TicketLanguage @default(EN)
+  status                TicketStatus   @default(NEW)
+  /// The page they were on when they asked (no query string).
+  pagePath              String?
+  assignedToId          String?        @db.Uuid
+  lastCustomerMessageAt DateTime       @default(now()) @db.Timestamptz(3)
+  lastReplyAt           DateTime?      @db.Timestamptz(3)
+  resolvedAt            DateTime?      @db.Timestamptz(3)
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  messages TicketMessage[]
+
+  @@index([status, createdAt])
+  @@index([accountId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model TicketMessage {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  ticketId       String       @db.Uuid
+  ticket         Ticket       @relation(fields: [ticketId], references: [id])
+  author         TicketAuthor
+  /// The customer (User) or staff member (PlatformAdmin) who wrote it.
+  authorId       String?      @db.Uuid
+  authorName     String
+  body           String
+  /// Staff-only note: never shown or emailed to the customer.
+  internal       Boolean      @default(false)
+  attachmentKey  String?      @unique
+  attachmentName String?
+  attachmentType String?
+  /// When the reply was emailed to the customer.
+  emailedAt      DateTime?    @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([ticketId, createdAt])
 }

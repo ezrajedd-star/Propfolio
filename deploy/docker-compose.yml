@@ -130,6 +130,18 @@ services:
       migrate: { condition: service_completed_successfully }
     restart: "no"
 
+  # A reviewed data fix (scripts/data-fixes/README.md); use deploy/data-fix.sh, which backs up first.
+  data-fix:
+    build: { context: .., target: worker }
+    image: propfolio-worker
+    profiles: ["tools"]
+    entrypoint:
+      ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.worker.json", "scripts/data-fix.ts"]
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+
   # Demo data for testers: `docker compose run --rm seed` (refuses to run twice).
   seed:
     build: { context: .., target: worker }

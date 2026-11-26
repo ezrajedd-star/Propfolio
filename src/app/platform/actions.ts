@@ -24,6 +24,15 @@ import { platformReopenAccount } from "@/server/accounts/closing";
 import { setDemoRequestHandled } from "@/server/demo/service";
 import { setWebsiteLeadHandled } from "@/server/website-leads/service";
 import { resolveIncident, sendTestAlert } from "@/server/monitoring/incidents";
+import { setSessionCookie } from "@/server/auth/current";
+import { startSupportSession } from "@/server/support-access/service";
+import {
+  correctBillingDetails,
+  findPendingSignUp,
+  resendSignUpCodeForCustomer,
+  resetTwoStepForCustomer,
+  unlockUserForCustomer,
+} from "@/server/platform/support-tools";
 import {
   addStaff,
   changeStaffRole,
@@ -175,4 +184,53 @@ export async function resolveIncidentAction(id: string, input: { note: string })
 
 export async function sendTestAlertAction() {
   return asPlatformAdmin(async (admin) => sendTestAlert(admin, await requestMeta()));
+}
+
+// ─── Support tools (Platform Support and Owner) ──────────────────────────────────────────
+
+export async function openSupportModeAction(accountId: string) {
+  const r = await asPlatformAdmin(async (admin) =>
+    startSupportSession(admin, accountId, await requestMeta()),
+  );
+  if (!r.ok) return r;
+  await setSessionCookie(r.data.token, r.data.expiresAt);
+  redirect("/");
+}
+
+export async function unlockUserAction(accountId: string, userId: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await unlockUserForCustomer(admin, accountId, userId, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/accounts/${accountId}`);
+  return r;
+}
+
+export async function resetTwoStepAction(accountId: string, userId: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await resetTwoStepForCustomer(admin, accountId, userId, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/accounts/${accountId}`);
+  return r;
+}
+
+export async function correctBillingDetailsAction(accountId: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await correctBillingDetails(admin, accountId, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/accounts/${accountId}`);
+  return r;
+}
+
+export async function findPendingSignUpAction(input: unknown) {
+  return asPlatformAdmin(async (admin) => findPendingSignUp(admin, input));
+}
+
+export async function resendSignUpCodeAction(pendingId: string, input: unknown) {
+  return asPlatformAdmin(async (admin) => {
+    await resendSignUpCodeForCustomer(admin, pendingId, input, await requestMeta());
+    return null;
+  });
 }

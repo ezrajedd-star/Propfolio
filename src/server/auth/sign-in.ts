@@ -385,16 +385,20 @@ export async function signOut(
     sessionId: string;
     accountId: string;
     user: { id: string; name: string; role: Role };
+    support?: { grantId: string };
   },
   meta: RequestMeta,
 ): Promise<void> {
   await revokeSession(session.sessionId);
   await asSystem(() =>
     writeAudit({
-      actor: session.user,
-      action: "auth.logout",
+      actor: session.support ? { ...session.user, role: null } : session.user,
+      action: session.support ? "support.session_ended" : "auth.logout",
       entityType: "User",
       entityId: session.user.id,
+      ...(session.support
+        ? { metadata: { platform: true, support: true, grantId: session.support.grantId } }
+        : {}),
       meta,
       accountId: session.accountId,
     }),
