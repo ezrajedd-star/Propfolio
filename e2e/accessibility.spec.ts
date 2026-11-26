@@ -72,6 +72,8 @@ const APP = [
   "/settings/audit-log",
   "/settings/your-data",
   "/account",
+  "/requests",
+  "/settings/support-access",
 ];
 
 for (const path of APP) {

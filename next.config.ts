@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2", "pg-boss", "nodemailer"],
+  // Help requests can carry a screenshot of up to 5 MB.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

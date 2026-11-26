@@ -66,6 +66,8 @@ const LABELS: Record<string, string> = {
   "platform.plan_changed": "Propfolio changed the plan",
   "platform.account_reopened": "Propfolio reopened the account",
   "account.reopened": "Reopened the account",
+  "ticket.created": "Asked Propfolio for help",
+  "ticket.replied": "Replied to a help request",
   "support_access.granted": "Allowed Propfolio support access",
   "support_access.revoked": "Turned off Propfolio support access",
   "support.session_started": "Propfolio support opened the account",

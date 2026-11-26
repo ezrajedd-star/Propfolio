@@ -27,6 +27,8 @@ export const RATE_LIMITS = {
   visitByIp: { max: 300, windowSeconds: 3600 },
   /** Free-resource requests and partner applications from one IP address. */
   websiteLeadByIp: { max: 10, windowSeconds: 3600 },
+  /** Help requests and replies from one person. */
+  ticketByUser: { max: 20, windowSeconds: 3600 },
   /** Platform admin sign-in attempts from one IP address. */
   platformSignInByIp: { max: 10, windowSeconds: 600 },
 } as const;

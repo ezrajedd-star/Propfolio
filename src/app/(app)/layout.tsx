@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         readOnly: user.access.readOnly,
         trialDaysLeft: user.access.trial?.daysLeft ?? null,
       }}
-      options={{ guide, uat: env().UAT_MODE, banner }}
+      options={{ guide, uat: env().UAT_MODE, banner, supportMode: Boolean(user.support) }}
     >
       {children}
     </AppShell>

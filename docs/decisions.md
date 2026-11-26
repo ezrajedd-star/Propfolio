@@ -691,3 +691,29 @@ off-site backups, UptimeRobot on `/api/health`).
   `docs/runbooks/break-glass.md`. No database editor in the console.
 - **No AI agent can use any of these tools.** They are not part of the agent API (phase 5), and a
   test checks that the agent actions never include them.
+
+## 41. Operations console, phase 4: tickets (26 Nov 2026)
+
+- **Help button** in the app's menu (desktop and phone) for everyone, including Property
+  Management: category ("How do I…?", "Something isn't working", "My plan or a payment",
+  "Privacy or my data", "An idea", "I'm unhappy with something", "Something else"), what happened,
+  an optional PNG/JPG screenshot (up to 5 MB, checked by its first bytes), and "Reply to me in"
+  English, Tagalog or Cebuano. The page they were on is kept (path only). Up to 20 requests and
+  replies per person per hour.
+- The ticket (`T-1001` onwards) is linked to the account and the person. They get a "We got your
+  request" email; the support inbox (`SUPPORT_EMAIL`) gets a nudge with a console link and no
+  customer details.
+- **My requests** (menu → My requests): their own tickets only (not colleagues'), the
+  conversation without staff notes, and a reply box. Replying to a resolved request opens it
+  again.
+- **Console → Tickets:** status (New / Waiting on customer / Waiting on us / Resolved),
+  category, language, how long the customer has been waiting, and the account (link). Oldest
+  waiting first; filter by status and category. The ticket page has the whole conversation,
+  screenshots (opening one is logged), details and, for Support and Owner, **Reply** (emailed
+  through Brevo, Reply-To the support inbox) or **Note for staff only**, and resolve / open again.
+  Viewing a ticket and every change are in the staff log.
+- Today shows open tickets by age (under a day, 1–3 days, over 3 days).
+- Support mode (phase 2) can't open tickets as the customer.
+- **support@ email to tickets:** a recommendation only (Brevo inbound parsing, when volume
+  grows): `docs/ops-console/support-email-recommendation.md`.
+- Server actions accept up to 6 MB (for the screenshot).

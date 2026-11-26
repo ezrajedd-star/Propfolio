@@ -26,6 +26,7 @@ import { setWebsiteLeadHandled } from "@/server/website-leads/service";
 import { resolveIncident, sendTestAlert } from "@/server/monitoring/incidents";
 import { setSessionCookie } from "@/server/auth/current";
 import { startSupportSession } from "@/server/support-access/service";
+import { replyToTicket, setTicketResolved } from "@/server/tickets/service";
 import {
   correctBillingDetails,
   findPendingSignUp,
@@ -233,4 +234,23 @@ export async function resendSignUpCodeAction(pendingId: string, input: unknown) 
     await resendSignUpCodeForCustomer(admin, pendingId, input, await requestMeta());
     return null;
   });
+}
+
+// ─── Tickets ─────────────────────────────────────────────────────────────────────────────
+
+export async function staffReplyAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) =>
+    replyToTicket(admin, id, input, await requestMeta()),
+  );
+  revalidatePath(`/platform/tickets/${id}`);
+  return r;
+}
+
+export async function setTicketResolvedAction(id: string, resolved: boolean) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await setTicketResolved(admin, id, resolved, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/tickets/${id}`);
+  return r;
 }

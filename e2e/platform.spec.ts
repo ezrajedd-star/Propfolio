@@ -60,9 +60,28 @@ test("a wrong code is refused with the same message as a wrong password", async 
 });
 
 test("Today shows the numbers; the menu has the console sections", async ({ page }) => {
+  // A customer asks for help first, so there is a ticket to answer.
+  const customer = await page.context().browser()!.newPage();
+  await signInAs(customer, "staff");
+  await customer.getByRole("button", { name: "Help" }).first().click();
+  await customer.getByLabel("What is it about?").selectOption("HOW_TO");
+  await customer
+    .getByLabel("What happened, or what do you need?")
+    .fill("How do I print a lease summary for the bank?");
+  await customer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(customer.getByRole("heading", { name: "We got your request" })).toBeVisible();
+
   await platformSignIn(page);
   const nav = page.getByRole("navigation", { name: "Console" }).first();
-  for (const section of ["Today", "Accounts", "Billing", "System health", "Staff log", "Staff"]) {
+  for (const section of [
+    "Today",
+    "Accounts",
+    "Tickets",
+    "Billing",
+    "System health",
+    "Staff log",
+    "Staff",
+  ]) {
     await expect(nav.getByRole("link", { name: section, exact: true })).toBeVisible();
   }
   await expect(page.getByText("Monthly recurring revenue")).toBeVisible();
@@ -72,6 +91,18 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   await axe(page, "Accounts");
   await page.goto("/platform/payments");
   await axe(page, "Billing");
+  await page.goto("/platform/tickets");
+  await axe(page, "Tickets");
+  await page.getByRole("link", { name: /How do I print a lease summary/ }).click();
+  await axe(page, "Ticket");
+  await page.getByLabel("Reply", { exact: true }).fill("Open the lease and choose Print summary.");
+  await page.getByRole("button", { name: "Send reply" }).click();
+  await expect(page.getByText(/Reply sent by email|email didn't go out/)).toBeVisible();
+  await customer.goto("/requests");
+  await customer.getByRole("link", { name: /How do I print a lease summary/ }).click();
+  await expect(customer.getByText("Open the lease and choose Print summary.")).toBeVisible();
+  await expect(customer.getByText("Waiting for your reply")).toBeVisible();
+  await customer.close();
   await page.goto("/platform/health");
   await expect(page.getByRole("heading", { level: 1, name: "System health" })).toBeVisible();
   await expect(page.getByText("All systems normal")).toBeVisible();

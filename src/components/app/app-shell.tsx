@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Gem,
   KeyRound,
+  LifeBuoy,
   Lock,
   LogOut,
   Menu,
@@ -31,6 +32,7 @@ import { PLAN_CONFIG, availableOnMessage, planDenial, type PlanName } from "@/do
 import type { TaskTourId } from "@/domain/guide/content";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "./feedback-button";
+import { HelpButton } from "./help-button";
 import { GuideButton, GuideProvider, useGuide } from "./guide";
 import { KeepAlive } from "./keep-alive";
 import { NavigationProgress } from "./navigation-progress";
@@ -57,6 +59,8 @@ export interface ShellOptions {
   uat: boolean;
   /** Shown above everything (e.g. while Propfolio support access is on). */
   banner?: React.ReactNode;
+  /** Propfolio support in support mode: no Help button or personal menu items. */
+  supportMode?: boolean;
 }
 
 function isActive(pathname: string, href: string) {
@@ -135,6 +139,11 @@ function UserMenu({ user }: { user: ShellUser }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href="/requests">
+            <LifeBuoy /> My requests
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/plan">
             <Gem /> Plan
           </Link>
@@ -177,7 +186,13 @@ export function AppShell({
       firstName={user.name.trim().split(/\s+/)[0] ?? user.name}
       uat={options.uat}
     >
-      <Shell user={user} plan={plan} uat={options.uat} banner={options.banner}>
+      <Shell
+        user={user}
+        plan={plan}
+        uat={options.uat}
+        banner={options.banner}
+        supportMode={options.supportMode ?? false}
+      >
         {children}
       </Shell>
     </GuideProvider>
@@ -241,12 +256,14 @@ function Shell({
   plan,
   uat,
   banner,
+  supportMode,
   children,
 }: {
   user: ShellUser;
   plan: ShellPlan;
   uat: boolean;
   banner?: React.ReactNode;
+  supportMode: boolean;
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -277,6 +294,7 @@ function Shell({
           <div className="space-y-2 border-t p-3">
             <TrialChip plan={plan} />
             <GuideButton className="w-full justify-start" />
+            {supportMode ? null : <HelpButton className="w-full justify-start" />}
             {uat ? <FeedbackButton className="w-full justify-start" /> : null}
             <UserMenu user={user} />
           </div>
@@ -306,6 +324,7 @@ function Shell({
           </div>
           <div className="space-y-2 border-t p-3">
             <TrialChip plan={plan} />
+            {supportMode ? null : <HelpButton className="w-full justify-start" />}
             {uat ? <FeedbackButton className="w-full justify-start" /> : null}
             <UserMenu user={user} />
           </div>
