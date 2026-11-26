@@ -76,7 +76,9 @@ describe("Admin manages users", () => {
     await expect(updateUser(admin, lone.id, { role: "VIEWER" }, meta)).rejects.toThrow(
       /only active User Admin/,
     );
-    await expect(setUserActive(admin, lone.id, false, meta)).rejects.toThrow(/only active User Admin/);
+    await expect(setUserActive(admin, lone.id, false, meta)).rejects.toThrow(
+      /only active User Admin/,
+    );
   });
 
   it("signs a user out everywhere when their role changes or they are turned off", async () => {

@@ -618,7 +618,7 @@ off-site backups, UptimeRobot on `/api/health`).
   and sign-in, with who, role, account, IP and browser. Append-only in the database (a trigger
   refuses updates, deletes and truncation) and unreachable from customer work. Passwords, tokens,
   codes and secrets are redacted.
-- **Console changes to an account** are now written to the staff log *and* to the customer's own
+- **Console changes to an account** are now written to the staff log _and_ to the customer's own
   audit log (shown as "Propfolio staff"), in the same transaction. Before, they were kept outside
   the customer's log. Staff sign-ins never appear in a customer's log.
 - **Console layout:** a sidebar with Today, Accounts, Pipeline, Tickets, Approvals, Billing,

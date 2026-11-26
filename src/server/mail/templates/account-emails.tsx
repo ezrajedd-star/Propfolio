@@ -36,8 +36,8 @@ export function PasswordChangedEmail({ companyName, name, when }: Base & { when:
       <Text style={textStyle}>Hi {name},</Text>
       <Text style={textStyle}>Your Propfolio password was changed on {when}.</Text>
       <Text style={textStyle}>
-        If this wasn&apos;t you, contact your Propfolio User Admin straight away so they can lock your
-        account.
+        If this wasn&apos;t you, contact your Propfolio User Admin straight away so they can lock
+        your account.
       </Text>
     </EmailLayout>
   );

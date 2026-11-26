@@ -91,7 +91,10 @@ export async function requestDemo(input: unknown, meta: RequestMeta, now = new D
   return { saved: true };
 }
 
-export async function listDemoRequests(admin: PlatformActor, opts: { includeHandled?: boolean } = {}) {
+export async function listDemoRequests(
+  admin: PlatformActor,
+  opts: { includeHandled?: boolean } = {},
+) {
   assertPlatformCan(admin, "pipeline.view");
   return asSystem(() =>
     db.demoRequest.findMany({

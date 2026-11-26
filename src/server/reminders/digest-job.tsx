@@ -165,7 +165,9 @@ export async function sendDailyDigest(
 
   try {
     if (recipients.length === 0)
-      throw new Error("There are no active User Admin or Leasing Staff users to send reminders to.");
+      throw new Error(
+        "There are no active User Admin or Leasing Staff users to send reminders to.",
+      );
     const element = (
       <DigestEmail
         companyName={settings.companyName}
