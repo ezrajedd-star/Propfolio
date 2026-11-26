@@ -28,6 +28,17 @@ import { setSessionCookie } from "@/server/auth/current";
 import { startSupportSession } from "@/server/support-access/service";
 import { replyToTicket, setTicketResolved } from "@/server/tickets/service";
 import {
+  addLeadActivity,
+  createLead,
+  deleteLeadForPrivacy,
+  importLeads,
+  moveLeadStage,
+  saveDiscoveryNotes,
+  updateLead,
+} from "@/server/pipeline/service";
+import { readLeadSheet } from "@/server/pipeline/import-file";
+import { ValidationError } from "@/server/errors";
+import {
   correctBillingDetails,
   findPendingSignUp,
   resendSignUpCodeForCustomer,
@@ -253,4 +264,71 @@ export async function setTicketResolvedAction(id: string, resolved: boolean) {
   });
   revalidatePath(`/platform/tickets/${id}`);
   return r;
+}
+
+// ─── Pipeline ────────────────────────────────────────────────────────────────────────────
+
+export async function createLeadAction(input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    const lead = await createLead(admin, input, await requestMeta());
+    return lead.id;
+  });
+  if (r.ok) redirect(`/platform/pipeline/${r.data}`);
+  return r;
+}
+
+export async function updateLeadAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await updateLead(admin, id, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/pipeline/${id}`);
+  return r;
+}
+
+export async function moveLeadStageAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await moveLeadStage(admin, id, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/pipeline/${id}`);
+  return r;
+}
+
+export async function addLeadActivityAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await addLeadActivity(admin, id, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/pipeline/${id}`);
+  return r;
+}
+
+export async function saveDiscoveryAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await saveDiscoveryNotes(admin, id, input, await requestMeta());
+    return null;
+  });
+  revalidatePath(`/platform/pipeline/${id}`);
+  return r;
+}
+
+export async function deleteLeadAction(id: string, input: unknown) {
+  const r = await asPlatformAdmin(async (admin) => {
+    await deleteLeadForPrivacy(admin, id, input, await requestMeta());
+    return null;
+  });
+  if (r.ok) redirect("/platform/pipeline?deleted=1");
+  return r;
+}
+
+export async function importLeadsAction(form: FormData) {
+  return asPlatformAdmin(async (admin) => {
+    const file = form.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new ValidationError("Choose a spreadsheet to import.");
+    }
+    const rows = await readLeadSheet(new Uint8Array(await file.arrayBuffer()), file.name);
+    return importLeads(admin, rows, await requestMeta());
+  });
 }

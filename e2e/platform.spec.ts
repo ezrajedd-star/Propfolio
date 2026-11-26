@@ -76,6 +76,7 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   for (const section of [
     "Today",
     "Accounts",
+    "Pipeline",
     "Tickets",
     "Billing",
     "System health",
@@ -91,6 +92,22 @@ test("Today shows the numbers; the menu has the console sections", async ({ page
   await axe(page, "Accounts");
   await page.goto("/platform/payments");
   await axe(page, "Billing");
+  // The pipeline: add a lead and move it.
+  await page.goto("/platform/pipeline");
+  await expect(page.getByRole("heading", { level: 1, name: "Pipeline" })).toBeVisible();
+  await axe(page, "Pipeline board");
+  await page.getByRole("link", { name: "Add a lead" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Lito Lead");
+  await page.getByLabel("Company").fill("Lead Realty");
+  await page.getByRole("button", { name: "Add lead" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lito Lead" })).toBeVisible();
+  await axe(page, "Lead");
+  await page.getByLabel("Stage").selectOption("CONTACTED");
+  await page.getByRole("button", { name: "Move" }).click();
+  await expect(page.getByText("New → Contacted")).toBeVisible();
+  await page.goto("/platform/pipeline?view=list");
+  await expect(page.getByRole("link", { name: "Lito Lead" })).toBeVisible();
+
   await page.goto("/platform/tickets");
   await axe(page, "Tickets");
   await page.getByRole("link", { name: /How do I print a lease summary/ }).click();

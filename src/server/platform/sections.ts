@@ -5,6 +5,7 @@
 export const ENABLED_SECTIONS: readonly string[] = [
   "/platform",
   "/platform/accounts",
+  "/platform/pipeline",
   "/platform/tickets",
   "/platform/payments",
   "/platform/health",

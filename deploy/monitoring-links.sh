@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Prints the two alert links to paste into Better Stack and Sentry (they contain a secret: paste
-# them only into those two websites).
+# Prints the links to paste into Better Stack, Sentry and Brevo (they contain a secret: paste
+# them only into those websites).
 #   sudo bash deploy/monitoring-links.sh
 set -euo pipefail
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,5 +20,8 @@ cat <<LINKS
 
   Sentry webhook (Settings → Integrations → WebHooks):
     $APP_URL/api/v1/monitoring/sentry?token=$MONITORING_WEBHOOK_TOKEN
+
+  Brevo marketing webhook (Contacts → Settings → Webhooks, "Unsubscribed" and "Spam"):
+    $APP_URL/api/v1/brevo/webhook?token=$MONITORING_WEBHOOK_TOKEN
 
 LINKS

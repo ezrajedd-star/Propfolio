@@ -189,3 +189,15 @@ export async function resetStaffSignIn(
   );
   return link;
 }
+
+/** Names of active staff, for "Looked after by" pickers. */
+export async function listStaffNames(actor: PlatformActor) {
+  assertPlatformCan(actor, "console.view");
+  return asSystem(() =>
+    db.platformAdmin.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  );
+}

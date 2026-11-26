@@ -87,6 +87,13 @@ const schema = z.object({
    * A long random secret that Better Stack and Sentry add to the alert links they call
    * (`?token=…`). Without it, alerts from them are refused.
    */
+  /** Brevo's API key (Settings → SMTP & API → API keys), for syncing leads to the marketing list. */
+  BREVO_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  /** The Brevo list that marketing emails go to (only leads who agreed to marketing). */
+  BREVO_MARKETING_LIST_ID: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().optional(),
+  ),
   MONITORING_WEBHOOK_TOKEN: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.string().min(24).optional(),

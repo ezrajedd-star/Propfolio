@@ -18,6 +18,7 @@ import { assertPlatformCan, writeStaffLog } from "@/server/platform/staff-log";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 import { closeAccountSchema } from "@/schemas/account";
+import { pipelineEvent } from "@/server/pipeline/service";
 
 /**
  * Closing an account (owner's decision 3: keep the data 90 days, remind them to download it,
@@ -133,6 +134,7 @@ export async function closeAccount(
       return a;
     }),
   );
+  await pipelineEvent("cancelled", account.id, now);
   await emailOwner(
     account.id,
     "Your Propfolio account is closed",

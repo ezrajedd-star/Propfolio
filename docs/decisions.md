@@ -717,3 +717,35 @@ off-site backups, UptimeRobot on `/api/health`).
 - **support@ email to tickets:** a recommendation only (Brevo inbound parsing, when volume
   grows): `docs/ops-console/support-email-recommendation.md`.
 - Server actions accept up to 6 MB (for the screenshot).
+
+## 42. Operations console, phase 3: the sales pipeline (27 Nov 2026)
+
+- **Leads** (`Lead`, `LeadActivity`; platform staff only): name, company, type (lessor,
+  property manager, accountant, broker, other), email (unique), phone, source (sign-up, demo
+  request, referral, my network, Facebook, LinkedIn, event), stage (New → Contacted → Trial →
+  Active trial → Paying → Lost, with a reason), linked account, portfolio size, notes, next
+  follow-up, the staff member who looks after them, and marketing consent (yes/no, when, where).
+- **Automatic moves** (forward only, except cancellation): sign-up (the account is created: the
+  lead is linked by the Owner's email or created) → Trial; a trial given by staff → Trial; first
+  lease → Active trial; first payment (online or bank transfer) → Paying; cancelling the plan or
+  closing the account → Lost ("Cancelled"). A lost lead that signs up or pays comes back.
+  Website demo requests become New leads. Each move is on the lead's timeline; failures never
+  break the customer's action.
+- **Views:** board (a column per stage), filterable list (name/company/email, stage, source) and
+  "Follow up today" (due or overdue, not paying or lost). Moving a lead is done on its page (a
+  select, not drag and drop, so it works with a keyboard and screen reader).
+- **Lead page:** timeline (notes, calls, emails, messages, meetings, automatic entries), the
+  discovery-notes template (current tool, top 3 pains, pain strength 1–5, price they suggested,
+  pilot interest, best quote), details, and **Delete (privacy request)**, which deletes the lead
+  here and in Brevo and keeps only the reason in the staff log.
+- **Spreadsheet import** (.xlsx template or .csv): every row checked first; any problem and
+  nothing is imported, with the row numbers to fix. Duplicates (same email) are skipped. Consent
+  "yes" needs an email, a date and where it was given.
+- **Brevo:** only leads with consent (and not unsubscribed) are added to one marketing list;
+  withdrawing consent removes them. Unsubscribes and spam complaints come back by webhook and a
+  daily check. Marketing sends from `news.propfolioph.com`. Set-up:
+  `docs/ops-console/pipeline-setup.md`.
+- **Retention:** lost leads are deleted 24 months after they were lost (`src/config/ops.ts`),
+  daily.
+- Support and Owner change the pipeline; Read-only can look. Every view and change is in the
+  staff log.

@@ -10,6 +10,7 @@ import { asSystem, db } from "@/server/db";
 import type { RequestMeta } from "@/server/request-meta";
 import { countWebsiteStat } from "@/server/website-stats/service";
 import { recordFunnelStep } from "./funnel";
+import { pipelineEvent } from "@/server/pipeline/service";
 
 export interface NewAccount {
   /** The person: their name and (verified) email. */
@@ -106,6 +107,11 @@ export async function createAccountWithOwner(
     }),
   );
   await recordFunnelStep("EMAIL_VERIFIED", result.accountId, now);
+  await pipelineEvent("signup", result.accountId, now, {
+    name: input.name,
+    email: input.email,
+    company: input.companyName,
+  });
   // Website statistics: one more sign-up for the page this browser first landed on.
   await countWebsiteStat(
     "SIGNUP",

@@ -35,6 +35,7 @@ import { syncLeaseCharges } from "@/server/billing/charges";
 import { balancesForLeases } from "@/server/billing/balances";
 import type { ReminderSummary } from "@/domain/reminders/digest";
 import { leaseDatesOf, leaseStatusInclude, statusOf, unitReminderConfig } from "./status-context";
+import { pipelineEvent } from "@/server/pipeline/service";
 
 // ─── Reading ───────────────────────────────────────────────────────────────────
 
@@ -511,6 +512,7 @@ export async function createLease(
   await syncLeaseCharges(created.id, actor, now, "New lease");
   await syncReminders({ leaseIds: [created.id] }, now);
   await recordFunnelStep("FIRST_LEASE", actor.accountId, now);
+  await pipelineEvent("first_lease", actor.accountId, now);
   return created;
 }
 

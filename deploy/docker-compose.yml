@@ -38,6 +38,9 @@ x-app-env: &app-env
   SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
   # Monitoring and phone alerts (see docs/ops-console/monitoring-setup.md).
   MONITORING_WEBHOOK_TOKEN: ${MONITORING_WEBHOOK_TOKEN:-}
+  # The sales pipeline's Brevo marketing list (docs/ops-console/pipeline-setup.md).
+  BREVO_API_KEY: ${BREVO_API_KEY:-}
+  BREVO_MARKETING_LIST_ID: ${BREVO_MARKETING_LIST_ID:-}
   PUSHOVER_APP_TOKEN: ${PUSHOVER_APP_TOKEN:-}
   PUSHOVER_USER_KEY: ${PUSHOVER_USER_KEY:-}
   PUSHOVER_SECOND_USER_KEY: ${PUSHOVER_SECOND_USER_KEY:-}

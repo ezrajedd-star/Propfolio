@@ -30,3 +30,16 @@ export const ALERT_PRIORITY = {
 
 /** While an emergency alert is unacknowledged, Pushover repeats it every `retry` seconds for up to `expire`. */
 export const EMERGENCY_REPEAT = { retrySeconds: 120, expireSeconds: 3600 } as const;
+
+/** The sales pipeline (phase 3). */
+export const PIPELINE = {
+  /** Lost leads are deleted this many months after they were lost (privacy). */
+  lostLeadRetentionMonths: 24,
+  /** Daily housekeeping time (Manila) for the retention clean-up and the Brevo sync. */
+  dailyCron: "40 3 * * *",
+  /**
+   * Marketing emails go from this subdomain (its own sender reputation), never from the
+   * domain that sends sign-in codes and reminders. Set it up in Brevo → Senders & Domains.
+   */
+  marketingSenderDomain: "news.propfolioph.com",
+} as const;

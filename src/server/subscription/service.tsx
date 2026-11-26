@@ -39,6 +39,7 @@ import { parseInput } from "@/server/validation";
 import { issuePaymentRecord } from "./invoicing";
 import { DEMO_CARD, DEMO_FAILING_CARD, DEMO_PROVIDER, demoWebhook } from "./providers/demo";
 import { activeProvider, providerFor } from "./providers";
+import { pipelineEvent } from "@/server/pipeline/service";
 
 type Tx = Prisma.TransactionClient;
 
@@ -332,6 +333,7 @@ export async function cancelSubscription(
         });
       }),
     );
+    await pipelineEvent("cancelled", actor.accountId);
     await emailOwner(
       actor.accountId,
       "Your Propfolio plan is cancelled",
@@ -556,6 +558,7 @@ async function applyPayment(checkout: Checkout, method: string, now: Date, deps:
     }),
   );
   if (!result) return "already applied";
+  await pipelineEvent("first_payment", checkout.accountId, now);
   const { record, end, grantedPlan } = result;
   await emailOwner(
     checkout.accountId,

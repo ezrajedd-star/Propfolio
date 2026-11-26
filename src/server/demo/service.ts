@@ -11,6 +11,7 @@ import { hitRateLimit, waitText } from "@/server/rate-limit";
 import type { RequestMeta } from "@/server/request-meta";
 import { parseInput } from "@/server/validation";
 import { demoRequestSchema } from "@/schemas/demo";
+import { leadFromDemoRequest } from "@/server/pipeline/service";
 
 /** Demo requests are kept for a year, then removed by the housekeeping job. */
 export const DEMO_REQUEST_KEEP_DAYS = 365;
@@ -65,6 +66,18 @@ export async function requestDemo(input: unknown, meta: RequestMeta, now = new D
         tx,
       );
     }),
+  );
+
+  await leadFromDemoRequest(
+    {
+      name: data.name,
+      email: data.email,
+      company: data.company,
+      phone: data.phone ?? "",
+      units: data.units,
+      message: data.message ?? "",
+    },
+    now,
   );
 
   const to = env().SUPPORT_EMAIL;

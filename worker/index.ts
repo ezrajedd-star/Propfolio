@@ -45,6 +45,8 @@ import { runSubscriptionCycle } from "../src/server/subscription/service";
 import { sendDailyDigest } from "../src/server/reminders/digest-job";
 import { MONITORING } from "../src/config/ops";
 import { recordHeartbeat, retryAlerts } from "../src/server/monitoring/incidents";
+import { PIPELINE } from "../src/config/ops";
+import { runPipelineHousekeeping } from "../src/server/pipeline/service";
 
 type Job = {
   name: string;
@@ -121,6 +123,15 @@ const JOBS: Job[] = [
       await recordHeartbeat("worker");
       const retried = await retryAlerts();
       return retried ? `heartbeat; ${retried} alert(s) retried` : "heartbeat";
+    },
+  },
+  {
+    // Lost leads past 24 months are deleted; Brevo marketing list kept in step with consent.
+    name: "pipeline-housekeeping",
+    cron: PIPELINE.dailyCron,
+    run: async () => {
+      const r = await runPipelineHousekeeping();
+      return `${r.deleted} old lost lead(s) deleted, ${r.unsubscribed} unsubscribe(s), ${r.synced} synced`;
     },
   },
   {

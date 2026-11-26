@@ -19,6 +19,7 @@ import { parseInput } from "@/server/validation";
 import { planFacts } from "@/server/plans/access";
 import type { PlatformActor } from "./auth";
 import { assertPlatformCan, writeStaffLog } from "./staff-log";
+import { pipelineEvent } from "@/server/pipeline/service";
 
 /**
  * The platform admin's view of customer accounts: account-level facts only (plan, trial,
@@ -289,7 +290,7 @@ export async function extendTrial(
       trialEndsOn: "Choose today or a later day.",
     });
   }
-  return asSystem(() =>
+  await asSystem(() =>
     db.$transaction(async (tx) => {
       const before = await lockAccount(tx, accountId);
       const trialEndsAt = endOfManilaDay(data.trialEndsOn);
@@ -308,6 +309,7 @@ export async function extendTrial(
       );
     }),
   );
+  await pipelineEvent("trial_started", accountId, now);
 }
 
 /**
@@ -322,7 +324,7 @@ export async function recordManualPayment(
 ) {
   assertPlatformCan(admin, "billing.manage");
   const data = parseInput(manualPaymentSchema, input);
-  return asSystem(() =>
+  const payment = await asSystem(() =>
     db.$transaction(async (tx) => {
       const before = await lockAccount(tx, accountId);
       const previous = before.paidUntil ? fromDbDate(before.paidUntil) : null;
@@ -353,6 +355,8 @@ export async function recordManualPayment(
       return payment;
     }),
   );
+  await pipelineEvent("first_payment", accountId);
+  return payment;
 }
 
 /**

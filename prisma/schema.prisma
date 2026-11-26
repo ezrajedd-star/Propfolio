@@ -1369,3 +1369,98 @@ model TicketMessage {
 
   @@index([ticketId, createdAt])
 }
+
+enum LeadType {
+  LESSOR
+  PROPERTY_MANAGER
+  ACCOUNTANT
+  BROKER
+  OTHER
+}
+
+enum LeadSource {
+  SIGNUP
+  DEMO_REQUEST
+  REFERRAL
+  MY_NETWORK
+  FACEBOOK
+  LINKEDIN
+  EVENT
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  TRIAL
+  ACTIVE_TRIAL
+  PAYING
+  LOST
+}
+
+/// Someone Propfolio is selling to (the sales pipeline). Platform staff only; never a customer's
+/// tenant. System-only table.
+model Lead {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  name             String
+  company          String     @default("")
+  type             LeadType   @default(OTHER)
+  /// Lower-cased. Unique when present.
+  email            String?    @unique
+  phone            String?
+  source           LeadSource
+  stage            LeadStage  @default(NEW)
+  lostReason       String?
+  lostAt           DateTime?  @db.Timestamptz(3)
+  stageChangedAt   DateTime   @default(now()) @db.Timestamptz(3)
+  /// The customer account, once they sign up.
+  accountId        String?    @unique @db.Uuid
+  portfolioSize    Int?
+  notes            String     @default("")
+  nextFollowUp     DateTime?  @db.Date
+  /// The staff member who looks after this lead.
+  ownerId          String?    @db.Uuid
+  marketingConsent Boolean    @default(false)
+  consentAt        DateTime?  @db.Timestamptz(3)
+  consentSource    String?
+  /// Unsubscribed from marketing (from Brevo, or by staff).
+  unsubscribedAt   DateTime?  @db.Timestamptz(3)
+  brevoSyncedAt    DateTime?  @db.Timestamptz(3)
+  /// The discovery-call notes template (see domain/pipeline).
+  discovery        Json?
+  lastActivityAt   DateTime   @default(now()) @db.Timestamptz(3)
+  createdAt        DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(3)
+
+  activities LeadActivity[]
+
+  @@index([stage, nextFollowUp])
+  @@index([nextFollowUp])
+  @@index([ownerId])
+}
+
+enum LeadActivityKind {
+  CREATED
+  STAGE_CHANGED
+  NOTE
+  CALL
+  EMAIL
+  MESSAGE
+  MEETING
+  UPDATED
+  CONSENT
+  AUTOMATIC
+}
+
+model LeadActivity {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  leadId    String           @db.Uuid
+  lead      Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  kind      LeadActivityKind
+  text      String
+  /// The staff member, or null for automatic entries (and, later, the Growth agent's name).
+  actorId   String?          @db.Uuid
+  actorName String
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([leadId, createdAt])
+}
